@@ -46,6 +46,7 @@ type Backend interface {
 	SubscribePendingLogsEvent(ch chan<- []*types.Log) event.Subscription
 
 	GetPoolTransaction(hash common.Hash) *types.Transaction
+	GetTransaction(ctx context.Context, txHash common.Hash) (*types.Transaction, common.Hash, uint64, uint64, error) 
 
 	BloomStatus() (uint64, uint64)
 	ServiceFilter(ctx context.Context, session *bloombits.MatcherSession)

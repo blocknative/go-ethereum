@@ -13,6 +13,7 @@ package filters
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -118,6 +119,7 @@ type withPeer struct {
 	Peer interface{} `json:"peer"`
 	Time int64 `json:"ts"`
 	P2PTime interface{} `json:"p2pts,omitempty"`
+	Note string `json:"note,omitempty"`
 }
 
 // NewHeadsWithPeers send a notification each time a new (header) block is
@@ -258,7 +260,19 @@ func (api *PublicFilterAPI) NewPendingTransactionsWithPeers(ctx context.Context)
 					peerid, _ := txPeerMap.Get(h)
 					p2pts, _ := tsMap.Get(h)
 					peer, _ := peerIDMap.Load(peerid)
-					notifier.Notify(rpcSub.ID, withPeer{Value: newRPCPendingTransaction(api.backend.GetPoolTransaction(h)), Peer: peer, Time: time.Now().UnixNano(), P2PTime: p2pts})
+					var value interface{}
+					value = newRPCPendingTransaction(api.backend.GetPoolTransaction(h))
+					note := "mempool"
+					if value == nil {
+						tx, _, _, _, _ := api.backend.GetTransaction(ctx, h)
+						if tx != nil {
+							value = newRPCPendingTransaction(tx)
+							note = "disk"
+						} else {
+							note = fmt.Sprintf("hash: %#x", h)
+						}
+					}
+					notifier.Notify(rpcSub.ID, withPeer{Value: value, Peer: peer, Time: time.Now().UnixNano(), P2PTime: p2pts, Note: note})
 				}
 			case <-rpcSub.Err():
 				pendingTxSub.Unsubscribe()

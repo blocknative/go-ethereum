@@ -24,3 +24,7 @@ func (fb *filterBackend) GetPoolTransaction(hash common.Hash) *types.Transaction
 func (fb *filterBackend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	return nil, nil
 }
+
+func (fb *filterBackend)  GetTransaction(ctx context.Context, txHash common.Hash) (*types.Transaction, common.Hash, uint64, uint64, error) {
+	return nil, common.Hash{}, 0, 0, nil
+}
