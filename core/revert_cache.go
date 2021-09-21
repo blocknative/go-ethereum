@@ -9,6 +9,7 @@ import (
 
 var (
   revertCache *lru.Cache
+  traceCache *lru.Cache
 )
 
 func CacheRevertReason(h, blockHash common.Hash, reason []byte) {
@@ -34,4 +35,19 @@ func GetRevertReason(h, blockHash common.Hash) (string, bool) {
     return v.(string), true
   }
   return "", false
+}
+func CacheTrace(h, blockHash common.Hash, traceResult interface{}) {
+  if traceCache == nil { traceCache, _ = lru.New(10000) }
+  key := [64]byte{}
+  copy(key[:32], blockHash[:])
+  copy(key[32:], h[:])
+	traceCache.Add(key, traceResult)
+}
+
+func GetTrace(h, blockHash common.Hash) (interface{}, bool) {
+  if traceCache == nil { traceCache, _ = lru.New(10000) }
+  key := [64]byte{}
+  copy(key[:32], blockHash[:])
+  copy(key[32:], h[:])
+	return traceCache.Get(key)
 }

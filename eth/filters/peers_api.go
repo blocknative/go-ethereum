@@ -212,6 +212,9 @@ func (api *PublicFilterAPI) NewFullBlocksWithPeers(ctx context.Context) (*rpc.Su
 					if reason, ok := core.GetRevertReason(receipt.TxHash, hash); ok {
 						fields["revertReason"] = reason
 					}
+					if trace, ok := core.GetTrace(receipt.TxHash, hash); ok {
+						fields["callTrace"] = trace
+					}
 					marshalReceipts[receipt.TxHash] = fields
 				}
 				marshalBlock["receipts"] = marshalReceipts
