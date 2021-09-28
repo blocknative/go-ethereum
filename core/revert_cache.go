@@ -3,12 +3,16 @@ package core
 import (
   "fmt"
   "github.com/ethereum/go-ethereum/common"
+  "github.com/ethereum/go-ethereum/common/hexutil"
+  "github.com/ethereum/go-ethereum/core/types"
+  "github.com/ethereum/go-ethereum/event"
   "github.com/ethereum/go-ethereum/accounts/abi"
   lru "github.com/hashicorp/golang-lru"
 )
 
 var (
   revertCache *lru.Cache
+  reorgFeed event.Feed
   traceCache *lru.Cache
 )
 
@@ -50,4 +54,32 @@ func GetTrace(h, blockHash common.Hash) (interface{}, bool) {
   copy(key[:32], blockHash[:])
   copy(key[32:], h[:])
 	return traceCache.Get(key)
+}
+
+
+type Reorg struct {
+	Common  common.Hash    `json`
+	Number  hexutil.Uint64
+	Removed []common.Hash
+	Added   []common.Hash
+}
+
+func sendReorg(commonAncestor *types.Block, removed, added types.Blocks) {
+	reorg := &Reorg{
+		Common: commonAncestor.Hash(),
+		Number: hexutil.Uint64(commonAncestor.NumberU64()),
+		Removed: make([]common.Hash, len(removed)),
+		Added: make([]common.Hash, len(added)),
+	}
+	for i, block := range removed {
+		reorg.Removed[i] = block.Hash()
+	}
+	for i, block := range added {
+		reorg.Added[i] = block.Hash()
+	}
+	reorgFeed.Send(reorg)
+}
+
+func SubscribeReorgs(ch chan<- *Reorg) event.Subscription {
+	return reorgFeed.Subscribe(ch)
 }
