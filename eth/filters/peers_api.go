@@ -310,3 +310,33 @@ func (api *PublicFilterAPI) NewTransactionReceipts(ctx context.Context) (*rpc.Su
 
 	return rpcSub, nil
 }
+
+// ReorgFeed
+func (api *PublicFilterAPI) ReorgFeed(ctx context.Context) (*rpc.Subscription, error) {
+	notifier, supported := rpc.NotifierFromContext(ctx)
+	if !supported {
+		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
+	}
+
+	rpcSub := notifier.CreateSubscription()
+
+	go func() {
+		ch := make(chan *core.Reorg)
+		sub := core.SubscribeReorgs(ch)
+
+		for {
+			select {
+			case r := <-ch:
+				notifier.Notify(rpcSub.ID, r)
+			case <-rpcSub.Err():
+				sub.Unsubscribe()
+				return
+			case <-notifier.Closed():
+				sub.Unsubscribe()
+				return
+			}
+		}
+	}()
+
+	return rpcSub, nil
+}
