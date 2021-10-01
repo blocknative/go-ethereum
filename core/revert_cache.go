@@ -40,10 +40,10 @@ func GetRevertReason(h, blockHash common.Hash) (string, bool) {
   return "", false
 }
 type Reorg struct {
-	Common  common.Hash    `json`
-	Number  hexutil.Uint64
-	Removed []common.Hash
-	Added   []common.Hash
+	Common  common.Hash    `json:"common"`
+	Number  hexutil.Uint64 `json:"number"`
+	Removed []common.Hash  `json:"removed"`
+	Added   []common.Hash  `json:"added"`
 }
 
 func sendReorg(commonAncestor *types.Block, removed, added types.Blocks) {
