@@ -238,6 +238,7 @@ type TxPool struct {
 	txFeed       event.Feed
 	queuedTxFeed event.Feed
 	recentlyQueued map[common.Hash]*types.Transaction
+	rqmu         sync.Mutex
 	dropTxFeed   event.Feed
 	rejectTxFeed event.Feed
 	scope        event.SubscriptionScope
@@ -805,7 +806,9 @@ func (pool *TxPool) enqueueTx(hash common.Hash, tx *types.Transaction, local boo
 		queuedDiscardMeter.Mark(1)
 		return false, ErrReplaceUnderpriced
 	}
+	pool.rqmu.Lock()
 	pool.recentlyQueued[hash] = tx
+	pool.rqmu.Unlock()
 	// Discard any previous transaction and mark this
 	if old != nil {
 		pool.all.Remove(old.Hash())
@@ -1262,7 +1265,9 @@ func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirt
 			events[addr] = newTxSortedMap()
 		}
 		events[addr].Put(tx)
+		pool.rqmu.Lock()
 		delete(pool.recentlyQueued, tx.Hash())
+		pool.rqmu.Unlock()
 	}
 	if len(events) > 0 {
 		var txs []*types.Transaction
@@ -1271,10 +1276,12 @@ func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirt
 		}
 		pool.txFeed.Send(NewTxsEvent{txs})
 	}
+	pool.rqmu.Lock()
 	for hash, tx := range pool.recentlyQueued {
 		pool.queuedTxFeed.Send(tx)
 		delete(pool.recentlyQueued, hash)
 	}
+	pool.rqmu.Unlock()
 }
 
 // reset retrieves the current state of the blockchain and ensures the content

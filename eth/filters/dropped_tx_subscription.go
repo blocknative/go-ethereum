@@ -195,7 +195,7 @@ func (api *PublicFilterAPI) NewQueuedTransactionsWithPeers(ctx context.Context) 
 	rpcSub := notifier.CreateSubscription()
 
 	go func() {
-		queued := make(chan *types.Transaction)
+		queued := make(chan *types.Transaction, 1024)
 		droppedSub := api.backend.SubscribeQueuedTxsEvent(queued)
 
 		for {
