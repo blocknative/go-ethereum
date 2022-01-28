@@ -17,6 +17,9 @@ jobs:
       - run:
           name: "Build Geth"
           command: "make geth"
+      - store_artifacts:
+          path: build/bin/geth
+          destination: geth
 
 # Invoke jobs via workflows
 # See: https://circleci.com/docs/2.0/configuration-reference/#workflows
