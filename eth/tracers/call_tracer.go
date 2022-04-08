@@ -9,8 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	"github.com/ethereum/go-ethereum/log"
 	"time"
+
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/holiman/uint256"
 )
@@ -184,16 +185,21 @@ func (tracer *CallTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 			}
 		} else {
 			c.GasUsed = hexutil.Uint64(c.gasIn - c.gasCost + uint64(c.Gas) - gas)
+			fmt.Println("DEBUG | op:", op.String(), "| c.GasUsed calculated:", c.GasUsed)
 			ret := scope.Stack.Back(0)
 			if ret.Uint64() != 0 {
 				c.Output = hexutil.Bytes(scope.Memory.GetCopy(int64(c.outOff), int64(c.outLen)))
 			} else if c.Error == "" {
 				c.Error = "internal failure"
+				fmt.Println("DEBUG | Found an internal failure here.")
+				fmt.Println("DEBUG | gasIn: ", c.gasIn, "gasCost:", c.gasCost, "uint64(c.Gas):", uint64(c.Gas), "gas:", gas)
 			}
 		}
 	}
 	return
 }
-func (tracer *CallTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, memory *vm.ScopeContext, depth int, err error) { }
-func (tracer *CallTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) { }
+func (tracer *CallTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, memory *vm.ScopeContext, depth int, err error) {
+}
+func (tracer *CallTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
+}
 func (tracer *CallTracer) CaptureExit(output []byte, gasUsed uint64, err error) {}

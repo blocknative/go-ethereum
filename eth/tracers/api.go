@@ -880,7 +880,9 @@ func (api *API) traceTx(ctx context.Context, message core.Message, txctx *Contex
 		}
 		if *config.Tracer == "goCallTracer" {
 			tracer = NewCallTracer(statedb)
+			fmt.Println("DEBUG | traceTx invocated with goCallTracer...")
 		} else {
+			fmt.Println("DEBUG | traceTx invocated with JavaScript tracer...")
 			// Constuct the JavaScript tracer to execute with
 			if tracer, err = New(*config.Tracer, txctx); err != nil {
 				return nil, err
