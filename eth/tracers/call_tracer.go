@@ -185,7 +185,7 @@ func (tracer *CallTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 			}
 		} else {
 			c.GasUsed = hexutil.Uint64(c.gasIn - c.gasCost + uint64(c.Gas) - gas)
-			fmt.Println("DEBUG | op:", op.String(), "| c.GasUsed calculated:", c.GasUsed)
+			fmt.Println("DEBUG | op:", op.String(), "| c.GasUsed calculated:", uint64(c.GasUsed))
 			ret := scope.Stack.Back(0)
 			if ret.Uint64() != 0 {
 				c.Output = hexutil.Bytes(scope.Memory.GetCopy(int64(c.outOff), int64(c.outLen)))
