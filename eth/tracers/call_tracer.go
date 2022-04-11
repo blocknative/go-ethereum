@@ -163,6 +163,8 @@ func (tracer *CallTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 	if tracer.descended {
 		if depth >= len(tracer.callStack) {
 			tracer.callStack[tracer.i()].Gas = hexutil.Uint64(gas)
+			fmt.Println("DEBUG | depth: ", depth, "len(tracer.callStack): ", len(tracer.callStack))
+			fmt.Println("DEBUG | depth >= len(stack), so our gas here is: ", hexutil.Uint64(gas))
 		}
 		tracer.descended = false
 	}
@@ -195,6 +197,7 @@ func (tracer *CallTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 				fmt.Println("DEBUG | Found an internal failure here.")
 				fmt.Println("DEBUG | gasIn: ", c.gasIn, "gasCost:", c.gasCost, "uint64(c.Gas):", uint64(c.Gas), "gas:", gas)
 				fmt.Println("DEBUG | tracer.i(): ", tracer.i())
+				fmt.Println("DEBUG | tracer.callStack[depth].Gas: ", tracer.callStack[depth].Gas)
 			}
 		}
 	}
