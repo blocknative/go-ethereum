@@ -189,10 +189,12 @@ func (tracer *CallTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 			ret := scope.Stack.Back(0)
 			if ret.Uint64() != 0 {
 				c.Output = hexutil.Bytes(scope.Memory.GetCopy(int64(c.outOff), int64(c.outLen)))
+				fmt.Println("DEBUG | tracer.i(): ", tracer.i())
 			} else if c.Error == "" {
 				c.Error = "internal failure"
 				fmt.Println("DEBUG | Found an internal failure here.")
 				fmt.Println("DEBUG | gasIn: ", c.gasIn, "gasCost:", c.gasCost, "uint64(c.Gas):", uint64(c.Gas), "gas:", gas)
+				fmt.Println("DEBUG | tracer.i(): ", tracer.i())
 			}
 		}
 	}
