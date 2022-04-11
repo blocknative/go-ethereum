@@ -164,7 +164,7 @@ func (tracer *CallTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 		if depth >= len(tracer.callStack) {
 			tracer.callStack[tracer.i()].Gas = hexutil.Uint64(gas)
 			fmt.Println("DEBUG | depth: ", depth, "len(tracer.callStack): ", len(tracer.callStack))
-			fmt.Println("DEBUG | depth >= len(stack), so our gas here is: ", hexutil.Uint64(gas))
+			fmt.Println("DEBUG | depth >= len(stack), so our gas here is: ", gas)
 		}
 		tracer.descended = false
 	}
