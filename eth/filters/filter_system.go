@@ -346,6 +346,8 @@ func (es *EventSystem) handleTxsEvent(filters filterIndex, ev core.NewTxsEvent) 
 	for _, tx := range ev.Txs {
 		hashes = append(hashes, tx.Hash())
 	}
+	log.Info("handleTxsEvent", "hashes", hashes)
+
 	for _, f := range filters[PendingTransactionsSubscription] {
 		f.hashes <- hashes
 	}

@@ -787,6 +787,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 // Note, this method assumes the pool lock is held!
 func (pool *TxPool) enqueueTx(hash common.Hash, tx *types.Transaction, local bool, addAll bool) (bool, error) {
 	// Try to insert the transaction into the future queue
+	log.Info("enqueueTx", "hash", hash)
 	from, _ := types.Sender(pool.signer, tx) // already validated
 	if pool.queue[from] == nil {
 		pool.queue[from] = newTxList(false)

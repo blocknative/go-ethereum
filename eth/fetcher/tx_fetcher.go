@@ -265,7 +265,6 @@ func (f *TxFetcher) Notify(peer string, hashes []common.Hash) error {
 // re-shedule missing transactions as soon as possible.
 // $$#
 func (f *TxFetcher) Enqueue(peer string, txs []*types.Transaction, direct bool) error {
-	log.Info("transactions", "list", txs)
 	// Keep track of all the propagated transactions
 	if direct {
 		txReplyInMeter.Mark(int64(len(txs)))
@@ -273,7 +272,6 @@ func (f *TxFetcher) Enqueue(peer string, txs []*types.Transaction, direct bool) 
 		txBroadcastInMeter.Mark(int64(len(txs)))
 	}
 	for _, tx := range txs {
-		log.Info("tran$action", "to.Hash()", tx.To().Hash())
 		log.Info("tran$action", "to.Hash()", tx.Nonce())
 		filters.SetTxPeer(tx.Hash(), peer)
 	}
