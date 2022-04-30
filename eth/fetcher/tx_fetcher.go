@@ -266,6 +266,7 @@ func (f *TxFetcher) Notify(peer string, hashes []common.Hash) error {
 // $$#
 func (f *TxFetcher) Enqueue(peer string, txs []*types.Transaction, direct bool) error {
 	// Keep track of all the propagated transactions
+	log.Info("tran$Enqueue", "txs", txs)
 	if direct {
 		txReplyInMeter.Mark(int64(len(txs)))
 	} else {
