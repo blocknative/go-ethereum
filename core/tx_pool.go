@@ -989,6 +989,7 @@ func (pool *TxPool) addTxsLocked(txs []*types.Transaction, local bool) ([]error,
 	dirty := newAccountSet(pool.signer)
 	errs := make([]error, len(txs))
 	for i, tx := range txs {
+		log.Info("addTxsLocked", "tx", tx)
 		replaced, err := pool.add(tx, local)
 		errs[i] = err
 		if err == nil && !replaced {
