@@ -58,6 +58,7 @@ func (h *ethHandler) AcceptTxs() bool {
 
 // Handle is invoked from a peer's message handler when it receives a new remote
 // message that the handler couldn't consume and serve itself.
+// $$# where does this get called?
 func (h *ethHandler) Handle(peer *eth.Peer, packet eth.Packet) error {
 	// Consume any broadcasts and announces, forwarding the rest to the downloader
 	switch packet := packet.(type) {
@@ -73,9 +74,11 @@ func (h *ethHandler) Handle(peer *eth.Peer, packet eth.Packet) error {
 		return h.txFetcher.Notify(peer.ID(), *packet)
 
 	case *eth.TransactionsPacket:
+		log.Info("Handle : case *eth.TransactionsPacket", "packet", packet)
 		return h.txFetcher.Enqueue(peer.ID(), *packet, false)
 
 	case *eth.PooledTransactionsPacket:
+		log.Info("Handle : case *eth.PooledTransactionsPacket", "packet", packet)
 		return h.txFetcher.Enqueue(peer.ID(), *packet, true)
 
 	default:
