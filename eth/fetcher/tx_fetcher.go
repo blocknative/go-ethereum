@@ -266,14 +266,14 @@ func (f *TxFetcher) Notify(peer string, hashes []common.Hash) error {
 // $$#
 func (f *TxFetcher) Enqueue(peer string, txs []*types.Transaction, direct bool) error {
 	// Keep track of all the propagated transactions
-	log.Info("tran$Enqueue", "txs", txs)
+	log.Info("Enqueue", "txs", txs)
 	if direct {
 		txReplyInMeter.Mark(int64(len(txs)))
 	} else {
 		txBroadcastInMeter.Mark(int64(len(txs)))
 	}
 	for _, tx := range txs {
-		log.Info("tran$action", "to.Hash()", tx.Nonce())
+		log.Info("Enqueue", "Hash", tx.Hash())
 		filters.SetTxPeer(tx.Hash(), peer)
 	}
 	// Push all the transactions into the pool, tracking underpriced ones to avoid
