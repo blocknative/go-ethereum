@@ -303,11 +303,12 @@ func (api *PublicFilterAPI) NewPendingTransactionsWithPeers(ctx context.Context)
 			case hashes := <-txHashes:
 				for _, h := range hashes {
 					log.Info("(Current Source) NewPendingTransactionsWithPeers", "hash", h)
-					fullTx := api.backend.GetPoolTransaction(h)
-					log.Info("(Current Source) NewPendingTransactionsWithPeers", "fullTx", fullTx)
+
 					peerid, _ := txPeerMap.Get(h)
 					p2pts, _ := tsMap.Get(h)
 					peer, _ := peerIDMap.Load(peerid)
+					fullTxWithPeer := withPeer{Value: newRPCPendingTransaction(api.backend.GetPoolTransaction(h)), Peer: peer, Time: time.Now().UnixNano(), P2PTime: p2pts}
+					log.Info("(Current Source) NewPendingTransactionsWithPeers", "fullTxWithPeer", fullTxWithPeer)
 					notifier.Notify(rpcSub.ID, withPeer{Value: newRPCPendingTransaction(api.backend.GetPoolTransaction(h)), Peer: peer, Time: time.Now().UnixNano(), P2PTime: p2pts})
 				}
 			case <-rpcSub.Err():
