@@ -308,7 +308,7 @@ func (api *PublicFilterAPI) NewPendingTransactionsWithPeers(ctx context.Context)
 					peerid, _ := txPeerMap.Get(h)
 					p2pts, _ := tsMap.Get(h)
 					peer, _ := peerIDMap.Load(peerid)
-					notifier.Notify(rpcSub.ID, withPeer{Value: newRPCPendingTransaction(fullTx), Peer: peer, Time: time.Now().UnixNano(), P2PTime: p2pts})
+					notifier.Notify(rpcSub.ID, withPeer{Value: newRPCPendingTransaction(api.backend.GetPoolTransaction(h)), Peer: peer, Time: time.Now().UnixNano(), P2PTime: p2pts})
 				}
 			case <-rpcSub.Err():
 				pendingTxSub.Unsubscribe()
