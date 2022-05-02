@@ -29,6 +29,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ethereum/go-ethereum/log"
 )
 
 var (
@@ -122,6 +124,7 @@ func (n *Notifier) CreateSubscription() *Subscription {
 // If an error occurs the RPC connection is closed and the error is returned.
 func (n *Notifier) Notify(id ID, data interface{}) error {
 	enc, err := json.Marshal(data)
+	log.Info("Notify", "enc", enc)
 	if err != nil {
 		return err
 	}
