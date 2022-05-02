@@ -307,8 +307,8 @@ func (api *PublicFilterAPI) NewPendingTransactionsWithPeers(ctx context.Context)
 					p2pts, _ := tsMap.Get(h)
 					peer, _ := peerIDMap.Load(peerid)
 					fullTxWithPeer := withPeer{Value: newRPCPendingTransaction(api.backend.GetPoolTransaction(h)), Peer: peer, Time: time.Now().UnixNano(), P2PTime: p2pts}
-					test := api.backend.GetPoolTransaction(h)
-					log.Info("(Current Source) NewPendingTransactionsWithPeers", "PoolTransaction.Type()", test.Data())
+					test := newRPCPendingTransaction(api.backend.GetPoolTransaction(h))
+					log.Info("(Current Source) NewPendingTransactionsWithPeers", "newRPCTxn", test)
 					// printing here
 					log.Info("(Current Source) NewPendingTransactionsWithPeers", "fullTxWithPeer", fullTxWithPeer)
 					// this is where we notify
