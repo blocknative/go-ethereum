@@ -123,7 +123,7 @@ func (n *Notifier) CreateSubscription() *Subscription {
 // Notify sends a notification to the client with the given data as payload.
 // If an error occurs the RPC connection is closed and the error is returned.
 func (n *Notifier) Notify(id ID, data interface{}) error {
-	log.Info("Notify", "data", data.value)
+	log.Info("Notify", "data", data)
 	enc, err := json.Marshal(data)
 	if err != nil {
 		return err
