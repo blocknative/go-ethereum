@@ -2,15 +2,16 @@ package filters
 
 import (
 	"context"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
+	"sync"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
 	"github.com/ethereum/go-ethereum/rpc"
 	lru "github.com/hashicorp/golang-lru"
-	"sync"
-	"time"
 )
 
 type dropNotification struct {
@@ -18,14 +19,14 @@ type dropNotification struct {
 	Tx          *ethapi.RPCTransaction `json:"tx"`
 	Reason      string                 `json:"reason"`
 	Replacement *ethapi.RPCTransaction `json:"replacedby,omitempty"`
-	Peer interface{}                   `json:"peer,omitempty"`
+	Peer        interface{}            `json:"peer,omitempty"`
 	Time        int64                  `json:"ts"`
 }
 
 type rejectNotification struct {
 	Tx     *ethapi.RPCTransaction `json:"tx"`
 	Reason string                 `json:"reason"`
-	Peer   interface{} `json:"peer,omitempty"`
+	Peer   interface{}            `json:"peer,omitempty"`
 	Time   int64                  `json:"ts"`
 }
 
@@ -83,8 +84,12 @@ func replacementHashString(h common.Hash) string {
 
 // DroppedTransactions send a notification each time a transaction is dropped from the mempool
 func (api *PublicFilterAPI) DroppedTransactions(ctx context.Context) (*rpc.Subscription, error) {
-	if txPeerMap == nil { txPeerMap, _ = lru.New(100000) }
-	if peerIDMap == nil { peerIDMap = &sync.Map{} }
+	if txPeerMap == nil {
+		txPeerMap, _ = lru.New(100000)
+	}
+	if peerIDMap == nil {
+		peerIDMap = &sync.Map{}
+	}
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
 		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
@@ -101,10 +106,10 @@ func (api *PublicFilterAPI) DroppedTransactions(ctx context.Context) (*rpc.Subsc
 			case d := <-dropped:
 				for _, tx := range d.Txs {
 					notification := &dropNotification{
-						Tx: newRPCPendingTransaction(tx),
-						Reason: d.Reason,
+						Tx:          newRPCPendingTransaction(tx),
+						Reason:      d.Reason,
 						Replacement: newRPCPendingTransaction(d.Replacement),
-						Time: time.Now().UnixNano(),
+						Time:        time.Now().UnixNano(),
 					}
 					if d.Replacement != nil {
 						peerid, _ := txPeerMap.Get(tx.Hash())
@@ -132,16 +137,24 @@ func (api *PublicFilterAPI) dropLoop() {
 	for d := range dropped {
 		for _, tx := range d.Txs {
 			h := tx.Hash()
-			if tsMap != nil { tsMap.Remove(h) }
-			if txPeerMap != nil { txPeerMap.Remove(h) }
+			if tsMap != nil {
+				tsMap.Remove(h)
+			}
+			if txPeerMap != nil {
+				txPeerMap.Remove(h)
+			}
 		}
 	}
 }
 
 // RejectedTransactions send a notification each time a transaction is rejected from entering the mempool
 func (api *PublicFilterAPI) RejectedTransactions(ctx context.Context) (*rpc.Subscription, error) {
-	if txPeerMap == nil { txPeerMap, _ = lru.New(100000) }
-	if peerIDMap == nil { peerIDMap = &sync.Map{} }
+	if txPeerMap == nil {
+		txPeerMap, _ = lru.New(100000)
+	}
+	if peerIDMap == nil {
+		peerIDMap = &sync.Map{}
+	}
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
 		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
@@ -163,10 +176,10 @@ func (api *PublicFilterAPI) RejectedTransactions(ctx context.Context) (*rpc.Subs
 				peerid, _ := txPeerMap.Get(d.Tx.Hash())
 				peer, _ := peerIDMap.Load(peerid)
 				notifier.Notify(rpcSub.ID, &rejectNotification{
-					Tx: newRPCPendingTransaction(d.Tx),
+					Tx:     newRPCPendingTransaction(d.Tx),
 					Reason: reason,
-					Peer: peer,
-					Time: time.Now().UnixNano(),
+					Peer:   peer,
+					Time:   time.Now().UnixNano(),
 				})
 			case <-rpcSub.Err():
 				rejectedSub.Unsubscribe()
