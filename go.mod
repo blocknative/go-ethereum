@@ -42,8 +42,11 @@ require (
 	github.com/jedisct1/go-minisign v0.0.0-20190909160543-45766022959e
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/karalabe/usb v0.0.2
+	github.com/libp2p/go-libp2p v0.19.1
+	github.com/libp2p/go-libp2p-quic-transport v0.17.0
 	github.com/mattn/go-colorable v0.1.8
 	github.com/mattn/go-isatty v0.0.14
+	github.com/multiformats/go-multiaddr v0.5.0
 	github.com/naoina/toml v0.1.2-0.20170918210437-9fafd6967416
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/peterh/liner v1.1.1-0.20190123174540-a2c9a5303de7
@@ -55,6 +58,9 @@ require (
 	github.com/stretchr/testify v1.7.1
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/tyler-smith/go-bip39 v1.0.1-0.20181017060643-dbb3b84ba2ef
+	github.com/wetware/casm v0.0.0-20220506195136-c271572ff8cb
+	github.com/wetware/ww v0.0.0-alpha.2
+	go.uber.org/multierr v1.8.0
 	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20220503163025-988cb79eb6c6

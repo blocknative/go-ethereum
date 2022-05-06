@@ -266,6 +266,14 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	stack.RegisterProtocols(eth.Protocols())
 	stack.RegisterLifecycle(eth)
 
+	// Register the ww side-bus
+	stack.RegisterLifecycle(&wetware{
+		Backend: eth.APIBackend,
+		ChainID: eth.blockchain.Config().ChainID,
+		NS:      config.WwNamespace,
+		Boot:    config.WwDiscover,
+	})
+
 	// Successful startup; push a marker and check previous unclean shutdowns.
 	eth.shutdownTracker.MarkStartup()
 

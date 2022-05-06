@@ -210,6 +210,9 @@ type Config struct {
 
 	// OverrideTerminalTotalDifficulty (TODO: remove after the fork)
 	OverrideTerminalTotalDifficulty *big.Int `toml:",omitempty"`
+
+	// Wetware client
+	WwNamespace, WwDiscover string
 }
 
 // CreateConsensusEngine creates a consensus engine for the given chain configuration.
