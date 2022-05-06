@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/libp2p/go-libp2p"
 	libp2pquic "github.com/libp2p/go-libp2p-quic-transport"
 	"github.com/multiformats/go-multiaddr"
@@ -48,6 +49,14 @@ func (ww *wetware) Start() (err error) {
 }
 
 func (ww *wetware) dial(ctx context.Context) (*client.Node, error) {
+	if ww.NS == "" {
+		ww.NS = "bn"
+	}
+
+	if ww.Boot == "" {
+		ww.Boot = "/ip4/10.0.1.0/udp/8822/cidr/24"
+	}
+
 	h, err := libp2p.New(
 		libp2p.NoTransports,
 		libp2p.NoListenAddrs,
@@ -111,7 +120,9 @@ func (ww *wetware) serve() {
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(ww.publishPendingTx(ctx, events, p))
 
-	_ = g.Wait()
+	if err := g.Wait(); err != nil && err != context.Canceled {
+		log.Error("wetware: %s", err)
+	}
 }
 
 func (ww *wetware) topic(ctx context.Context) client.Topic {
@@ -148,7 +159,7 @@ func (ww *wetware) publishPendingTx(ctx context.Context, events *filters.EventSy
 			case batch := <-hs:
 				for _, h := range batch {
 					if err := tx.FromEthTx(ww.Backend.GetPoolTransaction(h)); err != nil {
-						return err // TODO:  non-fatal error; log and move on
+						return err
 					}
 
 					if err := p.Publish(ctx, tx.Message()); err != nil {
@@ -157,7 +168,7 @@ func (ww *wetware) publishPendingTx(ctx context.Context, events *filters.EventSy
 				}
 
 			case err := <-sub.Err():
-				return err // TODO:  non-fatal error; log and move on
+				return err
 
 			case <-ctx.Done():
 				return ctx.Err()
