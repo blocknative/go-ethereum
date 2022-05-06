@@ -21,5 +21,17 @@ jobs:
           sudo apt-get update -q -y
           sudo apt-get -qq install -y qemu qemu-user-static
       - uses: actions/checkout@v2
-      - run: docker run --rm --platform linux/arm64 -v $(pwd):/root/go-ethereum --workdir=/root/go-ethereum/cmd/geth arm64v8/golang:1.18.1-alpine sh -c "apk add build-base linux-headers git && go build -buildvcs=false"
-      - run: docker run --rm --platform linux/arm64 -v $(pwd):/root/go-ethereum --workdir=/root/go-ethereum/cmd/geth arm64v8/golang:1.18.1-alpine /root/go-ethereum/cmd/geth/geth version
+      - name: Build geth
+        run: |
+          docker run --rm --platform linux/arm64 -v $(pwd):/root/go-ethereum --workdir=/root/go-ethereum/cmd/geth arm64v8/golang:1.18.1-alpine sh -c "apk add build-base linux-headers git && go build -buildvcs=false"
+          cd cmd/geth/geth
+          tar -czvf geth-$(basename ${GITHUB_REF})-linux-arm64.tar.gz geth
+          echo ${$(md5sum geth-$(basename ${GITHUB_REF})-linux-arm64.tar.gz)[1]} > geth-$(basename ${GITHUB_REF})-linux-arm64.tar.gz.md5
+      - name: Install assets uploader
+        run: |
+          wget https://github.com/wangyoucao577/assets-uploader/releases/download/v0.9.0/github-assets-uploader-v0.9.0-linux-amd64.tar.gz
+          tar -xvzf github-assets-uploader-v0.9.0-linux-amd64.tar.gz
+      - name: Upload geth to release page
+        run: |
+          ./github-assets-uploader -logtostderr -f geth-$(basename ${GITHUB_REF})-linux-arm64.tar.gz -mediatype application/gzip -repo ${GITHUB_ACTION_REPOSITORY} -token ${{ secrets.GITHUB_TOKEN }} -tag=$(basename ${GITHUB_REF}) -releasename="" -retry 3
+          ./github-assets-uploader -logtostderr -f geth-$(basename ${GITHUB_REF})-linux-arm64.tar.gz.md5 -mediatype text/plain -repo ${GITHUB_ACTION_REPOSITORY} -token ${{ secrets.GITHUB_TOKEN }} -tag=$(basename ${GITHUB_REF}) -releasename="" -retry 3
