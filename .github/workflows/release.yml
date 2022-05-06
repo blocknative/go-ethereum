@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DOCKER_DEFAULT_PLATFORM: linux/arm64
-    container: arm64v8/golang:1.17-bullseye
     strategy:
       matrix:
         # build and publish in parallel: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64
