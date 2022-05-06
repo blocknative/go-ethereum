@@ -8,6 +8,8 @@ jobs:
   releases-matrix:
     name: Release Go Binary
     runs-on: ubuntu-latest
+    env:
+      DOCKER_DEFAULT_PLATFORM: linux/arm64
     container: arm64v8/golang:1.17-bullseye
     strategy:
       matrix:
