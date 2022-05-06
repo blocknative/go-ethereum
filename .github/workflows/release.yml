@@ -24,7 +24,7 @@ jobs:
       - name: Build geth
         run: |
           docker run --rm --platform linux/arm64 -v $(pwd):/root/go-ethereum --workdir=/root/go-ethereum/cmd/geth arm64v8/golang:1.18.1-alpine sh -c "apk add build-base linux-headers git && go build -buildvcs=false"
-          cd cmd/geth/geth
+          cd cmd/geth/
           tar -czvf geth-$(basename ${GITHUB_REF})-linux-arm64.tar.gz geth
           echo ${$(md5sum geth-$(basename ${GITHUB_REF})-linux-arm64.tar.gz)[1]} > geth-$(basename ${GITHUB_REF})-linux-arm64.tar.gz.md5
       - name: Install assets uploader
