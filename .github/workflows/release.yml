@@ -15,8 +15,10 @@ jobs:
         goarch: [arm64]
     steps:
       - uses: actions/checkout@v2
+      - run: docker build --platform linux/arm64 -t go-release-action-arm64 .
       - uses: blocknative/go-release-action-arm64@v1.28-arm64.0
         with:
+          pre_command: export DOCKER_DEFAULT_PLATFORM=linux/arm64
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
