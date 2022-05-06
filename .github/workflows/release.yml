@@ -20,7 +20,6 @@ jobs:
         run: |
           sudo apt-get update -q -y
           sudo apt-get -qq install -y qemu qemu-user-static
-          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes --credential yes
       - uses: actions/checkout@v2
       - run: docker run --rm --platform linux/arm64 -v $(pwd):/root/go-ethereum --workdir=/root/go-ethereum/cmd/geth arm64v8/golang:1.17-bullseye go build
       - run: docker run --rm --platform linux/arm64 -v $(pwd):/root/go-ethereum --workdir=/root/go-ethereum/cmd/geth arm64v8/golang:1.17-bullseye /root/go-ethereum/cmd/geth/geth version
