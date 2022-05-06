@@ -18,14 +18,5 @@ jobs:
         goarch: [arm64]
     steps:
       - uses: actions/checkout@v2
-      - run: cd cmd/geth && GOOS=linux GOARCH=arm64 go build
-      # - uses: blocknative/go-release-action-arm64@v1.28-arm64.0
-      #   with:
-      #     pre_command: export DOCKER_DEFAULT_PLATFORM=linux/arm64
-      #     github_token: ${{ secrets.GITHUB_TOKEN }}
-      #     goos: ${{ matrix.goos }}
-      #     goarch: ${{ matrix.goarch }}
-      #     binary_name: geth
-      #     project_path: ./cmd/geth
-      #   env:
-      #     DOCKER_DEFAULT_PLATFORM: linux/arm64
+      - run: docker run --rm --platform linux/arm64 -v $(pwd):/root/go-ethereum --workdir=/root/go-ethereum/cmd/geth arm64v8/golang:1.17-bullseye go build
+      - run: docker run --rm --platform linux/arm64 -v $(pwd):/root/go-ethereum --workdir=/root/go-ethereum/cmd/geth arm64v8/golang:1.17-bullseye /root/go-ethereum/cmd/geth/geth version
