@@ -11,11 +11,11 @@ jobs:
     strategy:
       matrix:
         # build and publish in parallel: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64
-        goos: [linux, darwin]
-        goarch: [amd64]
+        goos: [linux]
+        goarch: [arm64]
     steps:
       - uses: actions/checkout@v2
-      - uses: wangyoucao577/go-release-action@v1.26
+      - uses: blocknative/go-release-action-arm64@v1.28-arm64
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
