@@ -8,8 +8,6 @@ jobs:
   releases-matrix:
     name: Release Go Binary
     runs-on: ubuntu-latest
-    env:
-      DOCKER_DEFAULT_PLATFORM: linux/arm64
     strategy:
       matrix:
         # build and publish in parallel: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64
@@ -24,3 +22,5 @@ jobs:
           goarch: ${{ matrix.goarch }}
           binary_name: geth
           project_path: ./cmd/geth
+        env:
+          DOCKER_DEFAULT_PLATFORM: linux/arm64
