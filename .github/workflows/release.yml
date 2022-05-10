@@ -26,7 +26,7 @@ jobs:
           docker run --rm --platform linux/arm64 -v $(pwd):/root/go-ethereum --workdir=/root/go-ethereum/cmd/geth arm64v8/golang:1.18.1-alpine sh -c "apk add build-base linux-headers git && go build -buildvcs=false"
           cd cmd/geth/
           tar -czvf geth-$(basename ${GITHUB_REF})-linux-arm64.tar.gz geth
-          echo ${$(md5sum geth)[1]} > geth-$(basename ${GITHUB_REF})-linux-arm64.tar.gz.md5
+          echo $(md5sum geth | awk '{print $1}') > geth-$(basename ${GITHUB_REF})-linux-arm64.tar.gz.md5
       - name: Install assets uploader
         run: |
           wget https://github.com/wangyoucao577/assets-uploader/releases/download/v0.9.0/github-assets-uploader-v0.9.0-linux-amd64.tar.gz
