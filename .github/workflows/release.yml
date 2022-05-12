@@ -17,5 +17,6 @@ jobs:
           echo $(md5sum geth | awk '{print $1}') > geth-$(basename ${GITHUB_REF})-linux-arm64.tar.gz.md5
       - name: Upload geth to release page
         run: |
+          echo ${GITHUB_REF} ${GITHUB_ACTION_REPOSITORY} ${GITHUB_TOKEN}
           github-assets-uploader -logtostderr -f geth-$(basename ${GITHUB_REF})-linux-arm64.tar.gz -mediatype application/gzip -repo ${GITHUB_ACTION_REPOSITORY} -token ${{ secrets.GITHUB_TOKEN }} -tag=$(basename ${GITHUB_REF}) -releasename="" -retry 3
           github-assets-uploader -logtostderr -f geth-$(basename ${GITHUB_REF})-linux-arm64.tar.gz.md5 -mediatype text/plain -repo ${GITHUB_ACTION_REPOSITORY} -token ${{ secrets.GITHUB_TOKEN }} -tag=$(basename ${GITHUB_REF}) -releasename="" -retry 3
