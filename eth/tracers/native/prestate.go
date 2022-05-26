@@ -18,6 +18,7 @@ package native
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -152,6 +153,7 @@ func (t *prestateTracer) GetResult() (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("DEBUG | GetResults (native): ", json.RawMessage(res))
 	return json.RawMessage(res), t.reason
 }
 
