@@ -1,20 +1,40 @@
-package tracers
+// package austin_tracer is a legacy tracer written by AusIV
+package austin_tracer
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
+	"sync/atomic"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/vm"
-
-	"time"
-
+	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/holiman/uint256"
 )
+
+func init() {
+	// we chose the wildcard to be false due to wanting to be up the queue in the lookup list (ahead of interpreted languages)
+	tracers.RegisterLookup(false, newGoCallTracer)
+	// register("goCallTracer", newGoCallTracer)
+}
+
+// // lookup returns a tracer, if one can be matched to the given name.
+// func lookup(name string, ctx *tracers.Context) (tracers.Tracer, error) {
+// 	fmt.Println("DEBUG | Attempting to return tracer with name: ", name)
+// 	if ctors == nil {
+// 		ctors = make(map[string]ctorFn)
+// 	}
+// 	if ctor, ok := ctors[name]; ok {
+// 		return ctor(ctx), nil
+// 	}
+// 	return nil, errors.New("no tracer found")
+// }
 
 type call struct {
 	Type      string         `json:"type"`
@@ -35,22 +55,19 @@ type call struct {
 	gasCost   uint64
 }
 
-type TracerResult interface {
-	vm.EVMLogger
-	GetResult() (interface{}, error)
-}
-
 type CallTracer struct {
 	callStack []*call
 	descended bool
 	statedb   *state.StateDB
+	interrupt uint32 // Atomic flag to signal execution interruption
+	reason    error  // Textual reason for the interruption
 }
 
-func NewCallTracer(statedb *state.StateDB) TracerResult {
+// newGoCallTracer returns a new goCallTracer Tracer, originally written by AusIV.
+func newGoCallTracer(ctx *tracers.Context) tracers.Tracer {
 	return &CallTracer{
 		callStack: []*call{},
 		descended: false,
-		statedb:   statedb,
 	}
 }
 
@@ -58,8 +75,26 @@ func (tracer *CallTracer) i() int {
 	return len(tracer.callStack) - 1
 }
 
-func (tracer *CallTracer) GetResult() (interface{}, error) {
-	return tracer.callStack[0], nil
+// TODO ALEX: check if this new GetResults works here
+// func (tracer *CallTracer) GetResult() (interface{}, error) {
+// 	return tracer.callStack[0], nil
+// }
+
+// GetResult returns the json-encoded nested list of call traces, and any
+// error arising from the encoding or forceful termination (via `Stop`).
+func (tracer *CallTracer) GetResult() (json.RawMessage, error) {
+	res, err := json.Marshal(tracer.callStack[0])
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(res), tracer.reason
+}
+
+// TODO ALEX: check if this new Stop works, this is required on Tracer implementations now
+// Stop terminates execution of the tracer at the first opportune moment.
+func (tracer *CallTracer) Stop(err error) {
+	tracer.reason = err
+	atomic.StoreUint32(&tracer.interrupt, 1)
 }
 
 func (tracer *CallTracer) CaptureStart(evm *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {

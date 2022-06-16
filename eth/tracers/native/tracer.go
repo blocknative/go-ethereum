@@ -36,6 +36,7 @@ package native
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/eth/tracers"
 )
@@ -44,6 +45,9 @@ import (
 func init() {
 	tracers.RegisterLookup(false, lookup)
 }
+
+// ctorFn is the constructor signature of a native tracer.
+type ctorFn = func(*tracers.Context) tracers.Tracer
 
 /*
 ctors is a map of package-local tracer constructors.
@@ -57,23 +61,24 @@ The go spec (https://golang.org/ref/spec#Package_initialization) says
 
 Hence, we cannot make the map in init, but must make it upon first use.
 */
-var ctors map[string]func() tracers.Tracer
+var ctors map[string]ctorFn
 
 // register is used by native tracers to register their presence.
-func register(name string, ctor func() tracers.Tracer) {
+func register(name string, ctor ctorFn) {
 	if ctors == nil {
-		ctors = make(map[string]func() tracers.Tracer)
+		ctors = make(map[string]ctorFn)
 	}
 	ctors[name] = ctor
 }
 
 // lookup returns a tracer, if one can be matched to the given name.
 func lookup(name string, ctx *tracers.Context) (tracers.Tracer, error) {
+	fmt.Println("DEBUG | Attempting to return tracer with name: ", name)
 	if ctors == nil {
-		ctors = make(map[string]func() tracers.Tracer)
+		ctors = make(map[string]ctorFn)
 	}
 	if ctor, ok := ctors[name]; ok {
-		return ctor(), nil
+		return ctor(ctx), nil
 	}
 	return nil, errors.New("no tracer found")
 }
