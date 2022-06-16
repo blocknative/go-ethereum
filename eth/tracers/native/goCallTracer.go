@@ -82,12 +82,11 @@ func (tracer *CallTracer) i() int {
 // GetResult returns the json-encoded nested list of call traces, and any
 // error arising from the encoding or forceful termination (via `Stop`).
 func (tracer *CallTracer) GetResult() (json.RawMessage, error) {
-	res, err := json.Marshal(tracer.callStack[0]) // TODO ALEX: we used to just return this unmarshalled! will this break!
+	res, err := json.Marshal(tracer.callStack) // removed [0]// TODO ALEX: we used to just return this unmarshalled! will this break!
 	if err != nil {
 		return nil, err
 	}
 	fmt.Println("DEBUG | raw getResult string: ", string(res))
-	fmt.Println("DEBUG | raw getResult pure: ", res)
 	return json.RawMessage(res), tracer.reason
 }
 
