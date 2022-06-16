@@ -23,18 +23,6 @@ func init() {
 	register("goCallTracer", newGoCallTracer)
 }
 
-// // lookup returns a tracer, if one can be matched to the given name.
-// func lookup(name string, ctx *tracers.Context) (tracers.Tracer, error) {
-// 	fmt.Println("DEBUG | Attempting to return tracer with name: ", name)
-// 	if ctors == nil {
-// 		ctors = make(map[string]ctorFn)
-// 	}
-// 	if ctor, ok := ctors[name]; ok {
-// 		return ctor(ctx), nil
-// 	}
-// 	return nil, errors.New("no tracer found")
-// }
-
 type call struct {
 	Type      string         `json:"type"`
 	From      common.Address `json:"from"`
@@ -82,11 +70,10 @@ func (tracer *CallTracer) i() int {
 // GetResult returns the json-encoded nested list of call traces, and any
 // error arising from the encoding or forceful termination (via `Stop`).
 func (tracer *CallTracer) GetResult() (json.RawMessage, error) {
-	res, err := json.Marshal(tracer.callStack) // removed [0]// TODO ALEX: we used to just return this unmarshalled! will this break!
+	res, err := json.Marshal(tracer.callStack[0]) // removed [0]??? // TODO ALEX: we used to just return this unmarshalled! will this break!
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("DEBUG | raw getResult string: ", string(res))
 	return json.RawMessage(res), tracer.reason
 }
 
