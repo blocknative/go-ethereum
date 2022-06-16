@@ -1,5 +1,4 @@
-// package austin_tracer is a legacy tracer written by AusIV
-package austin_tracer
+package native
 
 import (
 	"encoding/json"
@@ -20,8 +19,8 @@ import (
 
 func init() {
 	// we chose the wildcard to be false due to wanting to be up the queue in the lookup list (ahead of interpreted languages)
-	tracers.RegisterLookup(false, newGoCallTracer)
-	// register("goCallTracer", newGoCallTracer)
+	// tracers.RegisterLookup(false, newGoCallTracer)
+	register("goCallTracer", newGoCallTracer)
 }
 
 // // lookup returns a tracer, if one can be matched to the given name.
@@ -87,6 +86,7 @@ func (tracer *CallTracer) GetResult() (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("DEBUG | raw getResult: ", json.RawMessage(res))
 	return json.RawMessage(res), tracer.reason
 }
 
