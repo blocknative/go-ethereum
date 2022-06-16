@@ -36,7 +36,6 @@ package native
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/eth/tracers"
 )
@@ -73,7 +72,6 @@ func register(name string, ctor ctorFn) {
 
 // lookup returns a tracer, if one can be matched to the given name.
 func lookup(name string, ctx *tracers.Context) (tracers.Tracer, error) {
-	fmt.Println("DEBUG | Attempting to return tracer with name: ", name)
 	if ctors == nil {
 		ctors = make(map[string]ctorFn)
 	}
