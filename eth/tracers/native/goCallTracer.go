@@ -198,8 +198,8 @@ func (tracer *CallTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 	if tracer.descended {
 		if depth >= len(tracer.callStack) {
 			tracer.callStack[tracer.i()].Gas = hexutil.Uint64(gas)
-			fmt.Println("DEBUG | depth: ", depth, "len(tracer.callStack): ", len(tracer.callStack))
-			fmt.Println("DEBUG | depth >= len(stack), so our gas here is: ", gas)
+			// fmt.Println("DEBUG | depth: ", depth, "len(tracer.callStack): ", len(tracer.callStack))
+			// fmt.Println("DEBUG | depth >= len(stack), so our gas here is: ", gas)
 		}
 		tracer.descended = false
 	}
@@ -222,17 +222,17 @@ func (tracer *CallTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 			}
 		} else {
 			c.GasUsed = hexutil.Uint64(c.gasIn - c.gasCost + uint64(c.Gas) - gas)
-			fmt.Println("DEBUG | op:", op.String(), "| c.GasUsed calculated:", uint64(c.GasUsed))
+			// fmt.Println("DEBUG | op:", op.String(), "| c.GasUsed calculated:", uint64(c.GasUsed))
 			ret := scope.Stack.Back(0)
 			if ret.Uint64() != 0 {
 				c.Output = hexutil.Bytes(scope.Memory.GetCopy(int64(c.outOff), int64(c.outLen)))
-				fmt.Println("DEBUG | tracer.i(): ", tracer.i())
+				// fmt.Println("DEBUG | tracer.i(): ", tracer.i())
 			} else if c.Error == "" {
 				c.Error = "internal failure"
-				fmt.Println("DEBUG | Found an internal failure here.")
-				fmt.Println("DEBUG | gasIn: ", c.gasIn, "gasCost:", c.gasCost, "uint64(c.Gas):", uint64(c.Gas), "gas:", gas)
-				fmt.Println("DEBUG | tracer.i(): ", tracer.i())
-				fmt.Println("DEBUG | tracer.callStack[depth].Gas: ", tracer.callStack[depth].Gas)
+				// fmt.Println("DEBUG | Found an internal failure here.")
+				// fmt.Println("DEBUG | gasIn: ", c.gasIn, "gasCost:", c.gasCost, "uint64(c.Gas):", uint64(c.Gas), "gas:", gas)
+				// fmt.Println("DEBUG | tracer.i(): ", tracer.i())
+				// fmt.Println("DEBUG | tracer.callStack[depth].Gas: ", tracer.callStack[depth].Gas)
 			}
 		}
 	}
