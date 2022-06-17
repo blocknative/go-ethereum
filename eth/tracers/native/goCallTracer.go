@@ -72,12 +72,12 @@ func (tracer *CallTracer) i() int {
 // error arising from the encoding or forceful termination (via `Stop`).
 func (tracer *CallTracer) GetResult() (json.RawMessage, error) {
 	res, err := json.Marshal(tracer.callStack[0])
-	res1, err := json.Marshal(tracer.callStack[1])
+	// res1, err := json.Marshal(tracer.callStack[1])
 	if err != nil {
 		return nil, err
 	}
 	fmt.Println("DEBUG | tracer.callStack[0]: ", res)
-	fmt.Println("DEBUG | tracer.callStack[1]: ", res1)
+	// fmt.Println("DEBUG | tracer.callStack[1]: ", res1)
 	return json.RawMessage(res), tracer.reason
 	// return tracer.callStack[0], nil // TODO ALEX: this was the old return type, cannot do in new structure
 }
