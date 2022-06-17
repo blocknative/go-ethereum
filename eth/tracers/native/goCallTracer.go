@@ -52,6 +52,7 @@ type CallTracer struct {
 
 // newGoCallTracer returns a new goCallTracer Tracer, originally written by AusIV.
 func newGoCallTracer(ctx *tracers.Context) tracers.Tracer {
+	fmt.Println("DEBUG | Creating new goCallTaracer...")
 	return &CallTracer{
 		callStack: []*call{},
 		descended: false,
@@ -75,8 +76,8 @@ func (tracer *CallTracer) GetResult() (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("tracer.callStack[0]: ", res)
-	fmt.Println("tracer.callStack[1]: ", res1)
+	fmt.Println("DEBUG | tracer.callStack[0]: ", res)
+	fmt.Println("DEBUG | tracer.callStack[1]: ", res1)
 	return json.RawMessage(res), tracer.reason
 	// return tracer.callStack[0], nil // TODO ALEX: this was the old return type, cannot do in new structure
 }
