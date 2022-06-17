@@ -70,7 +70,7 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 		Value: bigToHex(value),
 	}
 	if create {
-		fmt.Println("DEBUG | found CREATE on CaptureStart")
+		// fmt.Println("DEBUG | found CREATE on CaptureStart")
 		t.callStack[0].Type = "CREATE"
 	}
 
@@ -122,6 +122,8 @@ func (t *txnOpCodeTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 	// REVERT
 
 	// TODO ALEX: look up other op codes we may want to use, there might be some in the CaptureState for prestate.go?
+
+	// TODO ALEX: Maybe this CaptureState doesn't need to check against call, since CaptureEnter seems to do this? Or is that only on the first call in the stack? hmmm
 }
 
 // CaptureFault implements the EVMLogger interface to trace an execution fault.
