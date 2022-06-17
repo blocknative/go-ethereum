@@ -2,6 +2,7 @@ package native
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"sync/atomic"
@@ -55,6 +56,20 @@ func newtxnOpCodeTracer(ctx *tracers.Context) tracers.Tracer {
 	// First callframe contains tx context info
 	// and is populated on start and end.
 	return &txnOpCodeTracer{callStack: make([]callFrameBN, 1)}
+}
+
+// GetResult returns an empty json object.
+func (t *txnOpCodeTracer) GetResult() (json.RawMessage, error) {
+	// TODO ALEX: Ensure this result is correct, place a bunch of fmt.Println("DEBUG | ")
+	fmt.Println("DEBUG | my tracer callstack len: ", len(t.callStack))
+	if len(t.callStack) != 1 {
+		return nil, errors.New("incorrect number of top-level calls")
+	}
+	res, err := json.Marshal(t.callStack[0])
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(res), t.reason
 }
 
 // CaptureStart implements the EVMLogger interface to initialize the tracing operation.
@@ -190,16 +205,6 @@ func (*txnOpCodeTracer) CaptureTxStart(gasLimit uint64) {
 // TODO: NOT IMPLEMENTED
 // TODO ALEX: Might not need this, check where in geth we may ever need to call this!
 func (*txnOpCodeTracer) CaptureTxEnd(restGas uint64) {}
-
-// GetResult returns an empty json object.
-func (t *txnOpCodeTracer) GetResult() (json.RawMessage, error) {
-	// TODO ALEX: Ensure this result is correct, place a bunch of fmt.Println("DEBUG | ")
-	res, err := json.Marshal(t.callStack[0])
-	if err != nil {
-		return nil, err
-	}
-	return json.RawMessage(res), t.reason
-}
 
 // Stop terminates execution of the tracer at the first opportune moment.
 func (t *txnOpCodeTracer) Stop(err error) {

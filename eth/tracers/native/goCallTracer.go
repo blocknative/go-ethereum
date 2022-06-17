@@ -53,7 +53,6 @@ type CallTracer struct {
 
 // newGoCallTracer returns a new goCallTracer Tracer, originally written by AusIV.
 func newGoCallTracer(ctx *tracers.Context) tracers.Tracer {
-	fmt.Println("DEBUG | Creating new goCallTaracer...")
 	return &CallTracer{
 		callStack: []*call{},
 		descended: false,
@@ -63,11 +62,6 @@ func newGoCallTracer(ctx *tracers.Context) tracers.Tracer {
 func (tracer *CallTracer) i() int {
 	return len(tracer.callStack) - 1
 }
-
-// TODO ALEX: check if this new GetResults works here
-// func (tracer *CallTracer) GetResult() (interface{}, error) {
-// 	return tracer.callStack[0], nil
-// }
 
 // GetResult returns the json-encoded nested list of call traces, and any
 // error arising from the encoding or forceful termination (via `Stop`).
@@ -79,11 +73,9 @@ func (tracer *CallTracer) GetResult() (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	// fmt.Println("DEBUG | tracer.callStack[0]: ", string(res))
 	return json.RawMessage(res), tracer.reason
 }
 
-// TODO ALEX: check if this new Stop works, this is required on Tracer implementations now
 // Stop terminates execution of the tracer at the first opportune moment.
 func (tracer *CallTracer) Stop(err error) {
 	tracer.reason = err
@@ -147,10 +139,9 @@ func (tracer *CallTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 	if op == vm.SELFDESTRUCT {
 		hvalue := hexutil.Big(*tracer.statedb.GetBalance(scope.Contract.Caller()))
 		tracer.descend(&call{
-			Type: op.String(),
-			From: scope.Contract.Caller(),
-			To:   toAddress(scope.Stack.Back(0)),
-			// TODO: Is this input correct?
+			Type:      op.String(),
+			From:      scope.Contract.Caller(),
+			To:        toAddress(scope.Stack.Back(0)),
 			Input:     scope.Contract.Input,
 			Value:     &hvalue,
 			gasIn:     gas,
@@ -191,8 +182,6 @@ func (tracer *CallTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 	if tracer.descended {
 		if depth >= len(tracer.callStack) {
 			tracer.callStack[tracer.i()].Gas = hexutil.Uint64(gas)
-			// fmt.Println("DEBUG | depth: ", depth, "len(tracer.callStack): ", len(tracer.callStack))
-			// fmt.Println("DEBUG | depth >= len(stack), so our gas here is: ", gas)
 		}
 		tracer.descended = false
 	}
@@ -202,7 +191,6 @@ func (tracer *CallTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 	}
 	if depth == len(tracer.callStack)-1 {
 		c := tracer.callStack[tracer.i()]
-		// c.Time = fmt.Sprintf("%v", time.Since(c.startTime))
 		tracer.callStack = tracer.callStack[:len(tracer.callStack)-1]
 		if vm.StringToOp(c.Type) == vm.CREATE || vm.StringToOp(c.Type) == vm.CREATE2 {
 			c.GasUsed = hexutil.Uint64(c.gasIn - c.gasCost - gas)
@@ -215,17 +203,11 @@ func (tracer *CallTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 			}
 		} else {
 			c.GasUsed = hexutil.Uint64(c.gasIn - c.gasCost + uint64(c.Gas) - gas)
-			// fmt.Println("DEBUG | op:", op.String(), "| c.GasUsed calculated:", uint64(c.GasUsed))
 			ret := scope.Stack.Back(0)
 			if ret.Uint64() != 0 {
 				c.Output = hexutil.Bytes(scope.Memory.GetCopy(int64(c.outOff), int64(c.outLen)))
-				// fmt.Println("DEBUG | tracer.i(): ", tracer.i())
 			} else if c.Error == "" {
 				c.Error = "internal failure"
-				// fmt.Println("DEBUG | Found an internal failure here.")
-				// fmt.Println("DEBUG | gasIn: ", c.gasIn, "gasCost:", c.gasCost, "uint64(c.Gas):", uint64(c.Gas), "gas:", gas)
-				// fmt.Println("DEBUG | tracer.i(): ", tracer.i())
-				// fmt.Println("DEBUG | tracer.callStack[depth].Gas: ", tracer.callStack[depth].Gas)
 			}
 		}
 	}
