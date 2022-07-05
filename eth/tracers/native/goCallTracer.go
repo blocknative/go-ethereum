@@ -43,6 +43,12 @@ type call struct {
 	gasCost   uint64
 }
 
+type TracerResult interface {
+	vm.EVMLogger
+	GetResult() (json.RawMessage, error)
+	Stop(error)
+}
+
 type CallTracer struct {
 	callStack []*call
 	descended bool
@@ -218,3 +224,5 @@ func (tracer *CallTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64
 func (tracer *CallTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
 }
 func (tracer *CallTracer) CaptureExit(output []byte, gasUsed uint64, err error) {}
+func (tracer *CallTracer) CaptureTxEnd(restGas uint64)                          {}
+func (tracer *CallTracer) CaptureTxStart(gasLimit uint64)                       {}
