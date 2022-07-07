@@ -20,16 +20,17 @@ func init() {
 }
 
 type callFrameBN struct {
-	Type    string        `json:"type"`
-	From    string        `json:"from"`
-	To      string        `json:"to,omitempty"`
-	Value   string        `json:"value,omitempty"`
-	Gas     string        `json:"gas"`
-	GasUsed string        `json:"gasUsed"`
-	Input   string        `json:"input"`
-	Output  string        `json:"output,omitempty"`
-	Error   string        `json:"error,omitempty"`
-	Calls   []callFrameBN `json:"calls,omitempty"`
+	Type        string        `json:"type"`
+	From        string        `json:"from"`
+	To          string        `json:"to,omitempty"`
+	Value       string        `json:"value,omitempty"`
+	Gas         string        `json:"gas"`
+	GasUsed     string        `json:"gasUsed"`
+	Input       string        `json:"input"`
+	Output      string        `json:"output,omitempty"`
+	Error       string        `json:"error,omitempty"`
+	ErrorReason string        `json:"errorReason,omitempty"`
+	Calls       []callFrameBN `json:"calls,omitempty"`
 
 	// Added fields from 'callFrame' in 'call.go'
 	gasIn   uint64
@@ -106,7 +107,7 @@ func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, time time.Du
 			t.callStack[0].Output = bytesToHex(output)
 			// TODO ALEX: test this revert reason here
 			revertReason, _ := abi.UnpackRevert(output)
-
+			t.callStack[0].ErrorReason = revertReason
 			fmt.Println("DEBUG | output converted with UnpackRevert: ", fmt.Sprintf("%v", revertReason))
 
 		}
@@ -141,7 +142,7 @@ func (t *txnOpCodeTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 // CaptureFault implements the EVMLogger interface to trace an execution fault.
 func (t *txnOpCodeTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, _ *vm.ScopeContext, depth int, err error) {
 	// TODO: This should now add faults to the return value for bn-server logging
-	fmt.Printf("DEBUG | error from CaptureFault: op=%v, err=%v", op, err)
+	fmt.Printf("DEBUG | error from CaptureFault: op=%v, err=%v\n", op, err)
 }
 
 // CaptureEnter is called when EVM enters a new scope (via call, create or selfdestruct).
