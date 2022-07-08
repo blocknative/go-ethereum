@@ -980,7 +980,6 @@ func DoCall(ctx context.Context, b Backend, args TransactionArgs, blockNrOrHash 
 	return result, nil
 }
 
-// TODO ALEX: Can we use this logic to source revert reasons in traces?
 func newRevertError(result *core.ExecutionResult) *revertError {
 	reason, errUnpack := abi.UnpackRevert(result.Revert())
 	err := errors.New("execution reverted")
@@ -993,7 +992,6 @@ func newRevertError(result *core.ExecutionResult) *revertError {
 	}
 }
 
-// TODO ALEX: what aout here?? can we use this
 // revertError is an API error that encompassas an EVM revertal with JSON error
 // code and a binary data blob.
 type revertError struct {

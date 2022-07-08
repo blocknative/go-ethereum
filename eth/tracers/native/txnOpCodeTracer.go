@@ -96,8 +96,6 @@ func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, time time.Du
 	t.callStack[0].GasUsed = uintToHex(gasUsed)
 
 	// Add total time duration for this trace request
-	// TODO ALEX: Double check this time here!
-	fmt.Println("DEBUG | time being saved on captureEnd: ", fmt.Sprintf("%v", time))
 	t.callStack[0].Time = fmt.Sprintf("%v", time)
 
 	// This is the final output of a call
@@ -105,34 +103,30 @@ func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, time time.Du
 		t.callStack[0].Error = err.Error()
 		if err.Error() == "execution reverted" && len(output) > 0 {
 			t.callStack[0].Output = bytesToHex(output)
-			// TODO ALEX: test this revert reason here
+
+			// This revert reason is found via the standard introduced in v0.8.4
+			// It uses a ABI with the method Error(string)
 			revertReason, _ := abi.UnpackRevert(output)
 			t.callStack[0].ErrorReason = revertReason
-			fmt.Println("DEBUG | output converted with UnpackRevert: ", fmt.Sprintf("%v", revertReason))
-
 		}
 	} else {
 		// TODO: This output is for the originally called contract, we can use the ABI to decode this for useful information
-		// ie: there are error types in ABIs since 0.8.4 which will turn up here. (I think)
+		// ie: there are error types in ABIs since 0.8.4 which will turn up here
 		t.callStack[0].Output = bytesToHex(output)
 	}
 }
 
 // CaptureState implements the EVMLogger interface to trace a single step of VM execution.
 func (t *txnOpCodeTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
-	// TODO ALEX: this is where we log specific op codes!
-
 	defer func() {
 		if r := recover(); r != nil {
-			// TODO ALEX: Ensure this `depth` is indeed correct! Not sure as of how to do this yet!
-			// It used to be tracer.i() here, which is `len(tracer.callStack) - 1` so be careful future me!
 			t.callStack[depth].Error = "internal failure"
 			log.Warn("Panic during trace. Recovered.", "err", r)
 		}
 	}()
 
-	// TODO Here we can check for specific op codes that may interest us
-	// Op codes we like at BN
+	// TODO: Here we can check for specific op codes that may interest us
+	// Op codes we like at BN are:
 	// CREATE, CREATE2
 	// SELFDESTRUCT
 	// CALL, CALLCODE, DELEGATECALL, STATICCALL (picked up by CaptureEnter)
@@ -163,6 +157,8 @@ func (t *txnOpCodeTracer) CaptureEnter(typ vm.OpCode, from common.Address, to co
 		Value: bigToHex(value),
 	}
 	t.callStack = append(t.callStack, call)
+
+	// Todo: Can add a decode request here from OWL in future
 }
 
 // CaptureExit is called when EVM exits a scope, even if the scope didn't

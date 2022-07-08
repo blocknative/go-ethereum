@@ -73,9 +73,6 @@ func (t *prestateTracer) CaptureStart(env *vm.EVM, from common.Address, to commo
 
 	// The sender balance is after reducing: value and gasLimit.
 	// We need to re-add them to get the pre-tx balance.
-	// TODO ALEX: Before finishing this branch, have a ponder about writing a netBalanceTrace inside Geth
-	// TODO ALEX: It could work like below. We just implement Axel's OWL decoder inside here, so we hve a notion of ERC value transfer
-	// TODO ALEX: COULD BE BIG BRAIN???
 	fromBal := hexutil.MustDecodeBig(t.prestate[from].Balance)
 	gasPrice := env.TxContext.GasPrice
 	consumedGas := new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(t.gasLimit))

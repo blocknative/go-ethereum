@@ -888,7 +888,7 @@ func (api *API) traceTx(ctx context.Context, message core.Message, txctx *Contex
 		}
 	}
 	// Define a meaningful timeout of a single transaction trace
-	if config.Timeout != nil { // TODO ALEX, do we pass this in rpc?
+	if config.Timeout != nil {
 		if timeout, err = time.ParseDuration(*config.Timeout); err != nil {
 			return nil, err
 		}
