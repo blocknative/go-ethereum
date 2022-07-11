@@ -182,9 +182,6 @@ func (t *txnOpCodeTracer) CaptureExit(output []byte, gasUsed uint64, err error) 
 		if call.Type == "CREATE" || call.Type == "CREATE2" {
 			call.To = ""
 		}
-		// TODO ALEX: I think that we can get txn lvl errors here, for case in which internal txns fail but top level succeeds!
-		// This is added to callFrameBN above, so we need to read this on bn-server better, do not assume the whole txn failed too!
-		fmt.Println("DEBUG | err: ", fmt.Sprintf("%v", err))
 	}
 	t.callStack[size-1].Calls = append(t.callStack[size-1].Calls, call)
 }
