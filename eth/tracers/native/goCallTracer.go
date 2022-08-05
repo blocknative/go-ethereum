@@ -71,25 +71,8 @@ func (tracer *CallTracer) i() int {
 // GetResult returns the json-encoded nested list of call traces, and any
 // error arising from the encoding or forceful termination (via `Stop`).
 func (tracer *CallTracer) GetResult() (json.RawMessage, error) {
-
 	res, err := json.Marshal(tracer.callStack[0])
-	if len(tracer.callStack) != 1 {
-		fmt.Println("DEBUG | callStack length != 1")
-		fmt.Println("DEBUG | reason: ", tracer.reason)
-		res1, _ := json.Marshal(tracer.callStack)
-		fmt.Println("DEBUG | callstack of failed: ", string(res1))
-		fmt.Println("DEBUG | err: ", fmt.Sprintf("%v", err))
-		// return nil, errors.New("incorrect number of top-level calls")
-	}
-
-	// // DANGER CODE, will spam, don't run for long heehee
-	// res1, _ := json.Marshal(tracer.callStack)
-	// fmt.Println("DEBUG | res1: ", string(res1))
-
-	if err != nil {
-		return nil, err
-	}
-	return json.RawMessage(res), tracer.reason
+	return json.RawMessage(res), err
 }
 
 // Stop terminates execution of the tracer at the first opportune moment.
