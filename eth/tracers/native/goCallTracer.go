@@ -2,7 +2,6 @@ package native
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/big"
 	"sync/atomic"
@@ -73,7 +72,8 @@ func (tracer *CallTracer) i() int {
 // error arising from the encoding or forceful termination (via `Stop`).
 func (tracer *CallTracer) GetResult() (json.RawMessage, error) {
 	if len(tracer.callStack) != 1 {
-		return nil, errors.New("incorrect number of top-level calls")
+		fmt.Println("DEBUG | callStack length != 1")
+		// return nil, errors.New("incorrect number of top-level calls")
 	}
 	res, err := json.Marshal(tracer.callStack[0])
 	if err != nil {
