@@ -75,11 +75,16 @@ func (tracer *CallTracer) GetResult() (json.RawMessage, error) {
 	res, err := json.Marshal(tracer.callStack[0])
 	if len(tracer.callStack) != 1 {
 		fmt.Println("DEBUG | callStack length != 1")
-		fmt.Println("DEBUG | reson: ", tracer.reason)
+		fmt.Println("DEBUG | reason: ", tracer.reason)
 		fmt.Println("DEBUG | res: ", string(res))
 		fmt.Println("DEBUG | err: ", fmt.Sprintf("%v", err))
 		// return nil, errors.New("incorrect number of top-level calls")
 	}
+
+	// DANGER CODE, will spam, don't run for long heehee
+	res1, _ := json.Marshal(tracer.callStack)
+	fmt.Println("DEBUG | res1: ", string(res1))
+
 	if err != nil {
 		return nil, err
 	}
