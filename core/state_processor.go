@@ -202,16 +202,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 }
 
 func ApplyUnsignedTransactionWithResult(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, msg types.Message, usedGas *uint64, cfg vm.Config) (*types.Receipt, *ExecutionResult, interface{}, error) {
-	// TODO ALEX: here I am attempting to import a tracer, need to find cyclic import
-	// tracer := newtxnOpCodeTracer.NewtxnOpCodeTracer(statedb)
-	// tracer, err := tracers.New("newtxnOpCodeTracer", nil, nil)
 	tracer := NewtxnOpCodeTracer(statedb)
-
-	fmt.Println("DEBUG | Begginging to use new multi tracer upgrades ")
-
-	// TODO ALEX: remove this once cyclic import is fixed
-	// Create call tracer to get JSON stack traces
-	// tracer := NewCallTracer(statedb)
 
 	// Create a new context to be used in the EVM environment
 	blockContext := NewEVMBlockContext(header, bc, author)
