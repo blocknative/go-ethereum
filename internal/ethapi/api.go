@@ -2063,8 +2063,8 @@ type CallBundleArgs struct {
 	BaseFee    *big.Int          `json:"baseFee"`
 }
 
-// TODO: this is a rewrite of the below CallBundle API, I am attempting to recreate the logic but skip on all
-// unnecessary logic and utilize Blocknative's new simple txn tracer
+// CallBundle will simulate a bundle of transactions on top of
+// the most recent block. Partially follows flashbots spec v0.5.
 func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[string]interface{}, error) {
 	if len(args.Txs) == 0 {
 		return nil, errors.New("bundle missing unsigned txs")

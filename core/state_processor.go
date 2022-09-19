@@ -37,8 +37,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 )
 
-// "github.com/ethereum/go-ethereum/eth/tracers/native/txnOpCodeTracer"
-
 // StateProcessor is a basic Processor, which takes care of transitioning
 // state from one point to another.
 //
@@ -231,7 +229,7 @@ type callFrameBN struct {
 }
 
 type txnOpCodeTracer struct {
-	env       *vm.EVM       // EVM context for execution of transaction to occur within // TODO ALEX: remove for state?
+	env       *vm.EVM       // EVM context for execution of transaction to occur within
 	callStack []callFrameBN // Data structure for op codes making up our trace
 	interrupt uint32        // Atomic flag to signal execution interruption
 	reason    error         // Textual reason for the interruption (not always specific for us)
