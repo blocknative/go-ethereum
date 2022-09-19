@@ -207,6 +207,8 @@ func ApplyUnsignedTransactionWithResult(config *params.ChainConfig, bc ChainCont
 	// tracer, err := tracers.New("newtxnOpCodeTracer", nil, nil)
 	tracer := NewtxnOpCodeTracer(statedb)
 
+	fmt.Println("DEBUG | Begginging to use new multi tracer upgrades ")
+
 	// TODO ALEX: remove this once cyclic import is fixed
 	// Create call tracer to get JSON stack traces
 	// tracer := NewCallTracer(statedb)
