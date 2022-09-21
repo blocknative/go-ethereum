@@ -211,28 +211,11 @@ func ApplyUnsignedTransactionWithResult(config *params.ChainConfig, bc ChainCont
 // The below is a copy from "eth/tracers/native/txnOpCodeTracer.go" to solve  acurrent circular dependency, this is tech debt to remove
 // In the future we would like to call something similar to "tracer, err := tracers.New("newtxnOpCodeTracer", nil, nil)"
 
-type callFrameBN struct {
-	Type        string        `json:"type"`
-	From        string        `json:"from"`
-	To          string        `json:"to,omitempty"`
-	Value       string        `json:"value,omitempty"`
-	Gas         string        `json:"gas"`
-	GasUsed     string        `json:"gasUsed"`
-	Input       string        `json:"input"`
-	Output      string        `json:"output,omitempty"`
-	Error       string        `json:"error,omitempty"`
-	ErrorReason string        `json:"errorReason,omitempty"`
-	Calls       []callFrameBN `json:"calls,omitempty"`
-	gasIn       uint64
-	gasCost     uint64
-	Time        string `json:"time,omitempty"`
-}
-
 type txnOpCodeTracer struct {
-	env       *vm.EVM       // EVM context for execution of transaction to occur within
-	callStack []callFrameBN // Data structure for op codes making up our trace
-	interrupt uint32        // Atomic flag to signal execution interruption
-	reason    error         // Textual reason for the interruption (not always specific for us)
+	env       *vm.EVM              // EVM context for execution of transaction to occur within
+	callStack []common.CallFrameBN // Data structure for op codes making up our trace
+	interrupt uint32               // Atomic flag to signal execution interruption
+	reason    error                // Textual reason for the interruption (not always specific for us)
 	statedb   *state.StateDB
 }
 
@@ -242,7 +225,7 @@ type TracerResult interface {
 }
 
 func NewtxnOpCodeTracer(statedb *state.StateDB) TracerResult {
-	return &txnOpCodeTracer{callStack: make([]callFrameBN, 1), statedb: statedb}
+	return &txnOpCodeTracer{callStack: make([]common.CallFrameBN, 1), statedb: statedb}
 }
 
 func (t *txnOpCodeTracer) GetResult() (json.RawMessage, error) {
@@ -255,7 +238,7 @@ func (t *txnOpCodeTracer) GetResult() (json.RawMessage, error) {
 
 func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 	t.env = env
-	t.callStack[0] = callFrameBN{
+	t.callStack[0] = common.CallFrameBN{
 		Type:  "CALL",
 		From:  addrToHex(from),
 		To:    addrToHex(to),
@@ -301,7 +284,7 @@ func (t *txnOpCodeTracer) CaptureEnter(typ vm.OpCode, from common.Address, to co
 		t.env.Cancel()
 		return
 	}
-	call := callFrameBN{
+	call := common.CallFrameBN{
 		Type:  typ.String(),
 		From:  addrToHex(from),
 		To:    addrToHex(to),
