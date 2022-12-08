@@ -176,6 +176,8 @@ func applyTransactionWithResult(msg types.Message, config *params.ChainConfig, b
 	}
 	// receipt.TxHash = tx.Hash()
 	receipt.GasUsed = result.UsedGas
+	// TODO ALEX: remove as this is a debug log
+	fmt.Println("DEBUG | applyTransactionWithResult() - receipt.GasUsed: ", receipt.GasUsed)
 
 	// Set the receipt logs and create the bloom filter.
 	receipt.BlockHash = header.Hash()
