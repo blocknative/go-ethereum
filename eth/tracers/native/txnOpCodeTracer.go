@@ -76,8 +76,6 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, time time.Duration, err error) {
 	// Collect final gasUsed
 	t.callStack[0].GasUsed = uintToHex(gasUsed)
-	// TODO ALEX: remove as this is a debug log
-	fmt.Println("DEBUG | CaptureEnd() - t.callStack[0].GasUsed: ", t.callStack[0].GasUsed)
 
 	// Add total time duration for this trace request
 	t.callStack[0].Time = fmt.Sprintf("%v", time)
