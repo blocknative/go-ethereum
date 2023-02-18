@@ -57,6 +57,7 @@
     "value": "0x0",
     "gas": "0x5af31079ece8",
     "gasUsed": "0x45c5",
+    "baseFee": "0xff0000",
     "input": "0xf8a8fd6d",
     "output": "0x",
     "logs": [

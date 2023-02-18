@@ -66,6 +66,9 @@ func (t *txnOpCodeTracer) GetResult() (json.RawMessage, error) {
 // CaptureStart implements the EVMLogger interface to initialize the tracing operation.
 func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 	t.env = env
+
+	t.trace.BaseFee = bytesToHex(env.Context.BaseFee.Bytes())
+
 	// This is the initial call
 	t.callStack[0] = CallFrame{
 		Type:  "CALL",

@@ -27,6 +27,9 @@ type Trace struct {
 	CallFrame
 	Logs []CallLog `json:"logs,omitempty"`
 	Time string    `json:"time,omitempty"`
+
+	// Block context data
+	BaseFee string `json:"baseFee,omitempty"`
 }
 
 type CallFrame struct {
