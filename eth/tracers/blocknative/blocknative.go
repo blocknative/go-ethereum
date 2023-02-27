@@ -2,11 +2,13 @@ package blocknative
 
 import (
 	"encoding/json"
+
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
-var Tracers = map[string]func(cfg json.RawMessage) (Tracer, error){
+var Tracers = map[string]func(cfg json.RawMessage, acl types.AccessList, from, to common.Address, precompiles []common.Address) (Tracer, error){
 	"txnOpCodeTracer": NewTxnOpCodeTracer,
 }
 
@@ -28,6 +30,7 @@ type Trace struct {
 	BlockContext BlockContext `json:"blockContext"`
 	Logs         []CallLog    `json:"logs,omitempty"`
 	Time         string       `json:"time,omitempty"`
+	AccessList   types.AccessList
 }
 
 // BlockContext contains information about the block we simulate transactions in.

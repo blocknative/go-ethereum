@@ -19,6 +19,8 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -28,7 +30,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative"
 	"github.com/ethereum/go-ethereum/params"
-	"math/big"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -209,7 +210,7 @@ func ApplyTransactionWithResult(config *params.ChainConfig, bc ChainContext, aut
 }
 
 func ApplyUnsignedTransactionWithResult(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, msg types.Message, usedGas *uint64, cfg vm.Config) (*types.Receipt, *ExecutionResult, interface{}, error) {
-	tracer, err := blocknative.NewTxnOpCodeTracer(nil)
+	tracer, err := blocknative.NewTxnOpCodeTracer(nil, nil, common.Address{}, common.Address{}, nil)
 	if err != nil {
 		return nil, nil, nil, err
 	}

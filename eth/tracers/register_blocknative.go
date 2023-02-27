@@ -3,6 +3,8 @@ package tracers
 import (
 	"encoding/json"
 	"errors"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative"
 )
 
@@ -14,7 +16,7 @@ import (
 func init() {
 	RegisterLookup(false, func(name string, _ *Context, cfg json.RawMessage) (Tracer, error) {
 		if constructor, ok := blocknative.Tracers[name]; ok {
-			return constructor(cfg)
+			return constructor(cfg, nil, common.Address{}, common.Address{}, nil)
 		}
 		return nil, errors.New("no blocknative tracer found")
 	})
