@@ -9,23 +9,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
 )
-
-// accessList is an accumulator for the set of accounts and storage slots an EVM
-// contract execution touches.
-type accessList map[common.Address]accessListSlots
-
-// accessListSlots is an accumulator for the set of storage slots within a single
-// contract that an EVM contract execution touches.
-type accessListSlots map[common.Hash]struct{}
-
-// newAccessList creates a new accessList.
-func newAccessList() accessList {
-	return make(map[common.Address]accessListSlots)
-}
 
 // txnOpCodeTracer is a go implementation of the Tracer interface which
 // only returns a restricted trace of a transaction consisting of transaction
@@ -38,76 +24,11 @@ type txnOpCodeTracer struct {
 	interrupt uint32      // Atomic flag to signal execution interruption
 	reason    error       // Textual reason for the interruption (not always specific for us)
 	opts      TracerOpts
-	excl      map[common.Address]struct{} // Set of account to exclude from the list
-	list      accessList                  // Set of accounts and storage slots touched
-}
-
-// addAddress adds an address to the accesslist.
-func (al accessList) addAddress(address common.Address) {
-	// Set address if not previously present
-	if _, present := al[address]; !present {
-		al[address] = make(map[common.Hash]struct{})
-	}
-}
-
-// addSlot adds a storage slot to the accesslist.
-func (al accessList) addSlot(address common.Address, slot common.Hash) {
-	// Set address if not previously present
-	al.addAddress(address)
-
-	// Set the slot on the surely existent storage set
-	al[address][slot] = struct{}{}
-}
-
-// equal checks if the content of the current access list is the same as the
-// content of the other one.
-func (al accessList) equal(other accessList) bool {
-	// Cross reference the accounts first
-	if len(al) != len(other) {
-		return false
-	}
-	// Given that len(al) == len(other), we only need to check that
-	// all the items from al are in other.
-	for addr := range al {
-		if _, ok := other[addr]; !ok {
-			return false
-		}
-	}
-
-	// Accounts match, cross reference the storage slots too
-	for addr, slots := range al {
-		otherslots := other[addr]
-
-		if len(slots) != len(otherslots) {
-			return false
-		}
-		// Given that len(slots) == len(otherslots), we only need to check that
-		// all the items from slots are in otherslots.
-		for hash := range slots {
-			if _, ok := otherslots[hash]; !ok {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-// accesslist converts the accesslist to a types.AccessList.
-func (al accessList) accessList() types.AccessList {
-	acl := make(types.AccessList, 0, len(al))
-	for addr, slots := range al {
-		tuple := types.AccessTuple{Address: addr, StorageKeys: []common.Hash{}}
-		for slot := range slots {
-			tuple.StorageKeys = append(tuple.StorageKeys, slot)
-		}
-		acl = append(acl, tuple)
-	}
-	return acl
 }
 
 // NewTxnOpCodeTracer returns a new txnOpCodeTracer tracer + list of touched accounts with the given
 // options applied.
-func NewTxnOpCodeTracer(cfg json.RawMessage, acl types.AccessList, from, to common.Address, precompiles []common.Address) (Tracer, error) {
+func NewTxnOpCodeTracer(cfg json.RawMessage) (Tracer, error) {
 	// First callframe contains tx context info
 	// and is populated on start and end.
 	t := &txnOpCodeTracer{callStack: make([]CallFrame, 1)}
@@ -118,24 +39,6 @@ func NewTxnOpCodeTracer(cfg json.RawMessage, acl types.AccessList, from, to comm
 			return nil, err
 		}
 	}
-
-	excl := map[common.Address]struct{}{
-		from: {}, to: {},
-	}
-	for _, addr := range precompiles {
-		excl[addr] = struct{}{}
-	}
-	list := newAccessList()
-	for _, al := range acl {
-		if _, ok := excl[al.Address]; !ok {
-			list.addAddress(al.Address)
-		}
-		for _, slot := range al.StorageKeys {
-			list.addSlot(al.Address, slot)
-		}
-	}
-	t.list = list
-	t.excl = excl
 
 	return t, nil
 }
@@ -152,9 +55,6 @@ func (t *txnOpCodeTracer) GetResult() (json.RawMessage, error) {
 
 	// Only want the top level trace, all other indexes hold subtraces to which we do not particularly need
 	t.trace.CallFrame = t.callStack[0]
-
-	// Get access list
-	t.trace.AccessList = t.list.accessList()
 
 	res, err := json.Marshal(t.trace)
 	if err != nil {
@@ -215,6 +115,8 @@ func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, time time.Du
 			})
 		}
 	}
+	// Grab access list
+	t.trace.AccessList = t.env.StateDB.AccessList()
 
 	// This is the final output of a call
 	if err != nil {
@@ -233,6 +135,7 @@ func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, time time.Du
 		// ie: there are custom error types in ABIs since 0.8.4 which will turn up here
 		t.callStack[0].Output = bytesToHex(output)
 	}
+
 }
 
 // CaptureState implements the EVMLogger interface to trace a single step of VM execution.
@@ -243,25 +146,6 @@ func (t *txnOpCodeTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 			log.Warn("Panic during trace. Recovered.", "err", r)
 		}
 	}()
-	stack := scope.Stack
-	stackData := stack.Data()
-	stackLen := len(stackData)
-	if (op == vm.SLOAD || op == vm.SSTORE) && stackLen >= 1 {
-		slot := common.Hash(stackData[stackLen-1].Bytes32())
-		t.list.addSlot(scope.Contract.Address(), slot)
-	}
-	if (op == vm.EXTCODECOPY || op == vm.EXTCODEHASH || op == vm.EXTCODESIZE || op == vm.BALANCE || op == vm.SELFDESTRUCT) && stackLen >= 1 {
-		addr := common.Address(stackData[stackLen-1].Bytes20())
-		if _, ok := t.excl[addr]; !ok {
-			t.list.addAddress(addr)
-		}
-	}
-	if (op == vm.DELEGATECALL || op == vm.CALL || op == vm.STATICCALL || op == vm.CALLCODE) && stackLen >= 5 {
-		addr := common.Address(stackData[stackLen-2].Bytes20())
-		if _, ok := t.excl[addr]; !ok {
-			t.list.addAddress(addr)
-		}
-	}
 }
 
 // CaptureFault implements the EVMLogger interface to trace an execution fault.
@@ -327,10 +211,10 @@ func (*txnOpCodeTracer) CaptureTxStart(gasLimit uint64) {
 
 func (*txnOpCodeTracer) CaptureTxEnd(restGas uint64) {}
 
-// AccessList returns the current accesslist maintained by the tracer.
+/* // AccessList returns the current accesslist maintained by the tracer.
 func (a *txnOpCodeTracer) AccessList() types.AccessList {
 	return a.list.accessList()
-}
+} */
 
 // Stop terminates execution of the tracer at the first opportune moment.
 func (t *txnOpCodeTracer) Stop(err error) {
