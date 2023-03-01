@@ -21,7 +21,8 @@ type Tracer interface {
 // TracerOpts configure the tracer to save or ignore various aspects of a
 // transaction execution.
 type TracerOpts struct {
-	Logs bool `json:"logs"`
+	Logs       bool `json:"logs"`
+	AccessList bool `json:"accessList"`
 }
 
 // Trace contains all the accumulated details of a transaction execution.

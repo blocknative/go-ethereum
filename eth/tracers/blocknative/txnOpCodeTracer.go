@@ -115,8 +115,11 @@ func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, time time.Du
 			})
 		}
 	}
-	// Grab access list
-	t.trace.AccessList = t.env.StateDB.AccessList()
+
+	// Grab access list from state
+	if t.opts.AccessList {
+		t.trace.AccessList = t.env.StateDB.AccessList()
+	}
 
 	// This is the final output of a call
 	if err != nil {

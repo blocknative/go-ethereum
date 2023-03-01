@@ -1059,5 +1059,5 @@ func (s *StateDB) SlotInAccessList(addr common.Address, slot common.Hash) (addre
 
 // SlotInAccessList returns true if the given (address, slot)-tuple is in the access list.
 func (s *StateDB) AccessList() AccessList {
-	return *s.accessList
+	return *s.accessList.Copy()
 }
