@@ -8,13 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
-// todo alex: experiment with removing these in favour of common geth usage, and tracer interface which copies this from the tracers lib
-var Tracers = map[string]func(cfg json.RawMessage) (Tracer, error){
-	"txnOpCodeTracer": func(cfg json.RawMessage) (Tracer, error) {
-		return NewTxnOpCodeTracer(cfg)
-	},
-}
-
 type Tracer interface {
 	vm.EVMLogger
 	GetResult() (json.RawMessage, error)
