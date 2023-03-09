@@ -2,8 +2,6 @@ package blocknative
 
 import (
 	"encoding/json"
-	"time"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 )
@@ -26,7 +24,6 @@ type Trace struct {
 	BlockContext BlockContext `json:"blockContext"`
 	Logs         []CallLog    `json:"logs,omitempty"`
 	Time         string       `json:"time,omitempty"`
-	startTime    time.Time
 }
 
 // BlockContext contains information about the block we simulate transactions in.
