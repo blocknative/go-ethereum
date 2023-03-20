@@ -82,7 +82,7 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 		toBal := new(big.Int).Sub(t.trace.NetBalChanges.Pre[to].Balance, value)
 		t.trace.NetBalChanges.Pre[to].Balance = toBal
 
-		// Todo alex: Does capture start occur before the initial gas negation? I think i need to re-add here!
+		// Todo alex: Does capture start occur before the initial gas negation? I think I need to re-add here!
 	}
 
 	// Blocks only contain `Random` post-merge, but we still have pre-merge tests.
@@ -308,7 +308,7 @@ func (t *txnOpCodeTracer) Stop(err error) {
 	atomic.StoreUint32(&t.interrupt, 1)
 }
 
-// lookupAccount fetches details of an account and adds it to the prestate
+// LookupAccount fetches details of an account and adds it to the prestate
 // if it doesn't exist there.
 func (t *txnOpCodeTracer) lookupAccount(addr common.Address) {
 	if _, ok := t.trace.NetBalChanges.Pre[addr]; ok {
@@ -322,7 +322,7 @@ func (t *txnOpCodeTracer) lookupAccount(addr common.Address) {
 	}
 }
 
-// lookupStorage fetches the requested storage slot and adds
+// LookupStorage fetches the requested storage slot and adds
 // it to the prestate of the given contract. It assumes `lookupAccount`
 // has been performed on the contract before.
 func (t *txnOpCodeTracer) lookupStorage(addr common.Address, key common.Hash) {
