@@ -30,7 +30,6 @@ type txnOpCodeTracerTest struct {
 func TestTxnOpCodeTracer(t *testing.T) {
 	testTxnOpCodeTracer("txnOpCodeTracer", "txnOpCode_tracer", t)
 	testTxnOpCodeTracer("txnOpCodeTracer", "txnOpCode_tracer_with_netbalchanges", t)
-
 }
 
 func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
@@ -42,7 +41,6 @@ func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
 		if !strings.HasSuffix(file.Name(), ".json") {
 			continue
 		}
-
 		file := file
 		t.Run(camel(strings.TrimSuffix(file.Name(), ".json")), func(t *testing.T) {
 			t.Parallel()
@@ -114,7 +112,12 @@ func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
 				// Below are prints to show differences if we fail, can always just check against the specific test json files too!
 				//x, _ := json.MarshalIndent(ret, "  ", "  ")
 				// y, _ := json.MarshalIndent(test.Result, "", "")
-				t.Fatalf("trace mismatch")
+				// fmt.Println("Trace return: ")
+				// fmt.Println(string(x))
+				// fmt.Println("test.Result")
+				// fmt.Println(string(y))
+				t.Fatal("traces mismatch")
+				// t.Fatalf("trace mismatch: \nhave %+v\nwant %+v", ret, test.Result)
 			}
 		})
 	}
