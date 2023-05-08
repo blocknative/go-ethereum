@@ -30,7 +30,6 @@ type txnOpCodeTracerTest struct {
 func TestTxnOpCodeTracer(t *testing.T) {
 	testTxnOpCodeTracer("txnOpCodeTracer", "txnOpCode_tracer", t)
 	testTxnOpCodeTracer("txnOpCodeTracer", "txnOpCode_tracer_with_netbalchanges", t)
-
 }
 
 func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
@@ -42,7 +41,6 @@ func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
 		if !strings.HasSuffix(file.Name(), ".json") {
 			continue
 		}
-
 		file := file
 		t.Run(camel(strings.TrimSuffix(file.Name(), ".json")), func(t *testing.T) {
 			t.Parallel()
