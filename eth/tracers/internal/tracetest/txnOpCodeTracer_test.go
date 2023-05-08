@@ -2,7 +2,6 @@ package tracetest
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -43,15 +42,6 @@ func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
 		if !strings.HasSuffix(file.Name(), ".json") {
 			continue
 		}
-
-		// TODO ALEX: remove this flag for only my test to run
-		// if !strings.HasSuffix(file.Name(), "balance_changes_eth.json") {
-		// if !strings.HasSuffix(file.Name(), "balance_changes_erc20_deposit.json") {
-		if !strings.HasSuffix(file.Name(), "balance_changes_erc20_transfer.json") {
-
-			continue
-		}
-		fmt.Println("Testing only balance_changes_erc20.json...")
 
 		file := file
 		t.Run(camel(strings.TrimSuffix(file.Name(), ".json")), func(t *testing.T) {
@@ -128,7 +118,7 @@ func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
 				// fmt.Println(string(x))
 				// fmt.Println("test.Result")
 				// fmt.Println(string(y))
-				t.Fatal("traces mismatch")
+				//t.Fatal("traces mismatch")
 				// t.Fatalf("trace mismatch: \nhave %+v\nwant %+v", ret, test.Result)
 				t.Fatalf("trace mismatch: \nhave %+v\nwant %+v", ret, test.Result)
 			}
