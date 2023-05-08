@@ -47,9 +47,9 @@ func NewTxnOpCodeTracer(cfg json.RawMessage) (Tracer, error) {
 	// If we need deeper nested structures initialized, check and do so now
 	if t.opts.NetBalChanges {
 		t.trace.NetBalChanges = NetBalChanges{
-			Pre:        make(state),
-			Post:       make(state),
-			Difference: make(difference),
+			Pre:      make(state),
+			Post:     make(state),
+			Balances: make(balances),
 		}
 	}
 
@@ -153,6 +153,48 @@ func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
 		}
 	}
 
+	if t.opts.NetBalChanges {
+		// We iterate through the logs for known events
+		for _, log := range t.env.StateDB.Logs() {
+
+			if len(log.Topics) == 0 {
+				continue
+			}
+
+			eventSignature := log.Topics[0].Hex()
+
+			switch eventSignature {
+			case transferEventHex:
+				var transfer struct {
+					From     common.Address
+					To       common.Address
+					Value    *big.Int
+					Contract common.Address
+				}
+				transfer.From = common.HexToAddress(log.Topics[1].Hex())
+				transfer.To = common.HexToAddress(log.Topics[2].Hex())
+				transfer.Value = new(big.Int).SetBytes(log.Data)
+				transfer.Contract = log.Address
+
+				if err != nil {
+					continue
+				}
+
+				// Make token change object
+				tokenchange := &Tokenchanges{
+					From:     common.HexToAddress(log.Topics[1].Hex()),
+					To:       common.HexToAddress(log.Topics[2].Hex()),
+					Asset:    new(big.Int).SetBytes(log.Data),
+					Contract: log.Address,
+				}
+
+				t.trace.NetBalChanges.Tokens = append(t.trace.NetBalChanges.Tokens, *tokenchange)
+			default:
+				// We pass over this event hex signature!
+			}
+		}
+	}
+
 	// This is the final output of a call
 	if err != nil {
 		t.callStack[0].Error = err.Error()
@@ -180,7 +222,8 @@ func (t *txnOpCodeTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 			log.Warn("Panic during trace. Recovered.", "err", r)
 		}
 	}()
-	// If we want NetBalChanges, track storage altering opcodes. Here we add the addresses to our map to check later.
+	// Keep a list of accounts which have had transfer opcodes, or storage slots updated.
+	// Currently we go off events, but we may want this as spoofing reduction efforts later.
 	if t.opts.NetBalChanges {
 		stack := scope.Stack
 		stackData := stack.Data()
@@ -223,12 +266,9 @@ func (t *txnOpCodeTracer) CaptureEnter(typ vm.OpCode, from common.Address, to co
 		Value: bigToHex(value),
 	}
 	t.callStack = append(t.callStack, call)
-
-	// Todo: Can add a decode request here from OWL in future
 }
 
-// CaptureExit is called when EVM exits a scope, even if the scope didn't
-// execute any code.
+// CaptureExit is called when EVM exits a scope, even if the scope didn't execute any code.
 func (t *txnOpCodeTracer) CaptureExit(output []byte, gasUsed uint64, err error) {
 	size := len(t.callStack)
 	if size <= 1 {
@@ -301,7 +341,6 @@ func (t *txnOpCodeTracer) CaptureTxEnd(restGas uint64) {
 					modified = true
 					if newVal != (common.Hash{}) {
 						postAccount.Storage[key] = newVal
-						fmt.Println("CaptureTxEnd | Found a modified slot!: ", addr, "key: ", key, "newVal: ", newVal)
 					}
 				}
 			}
@@ -351,20 +390,6 @@ func (t *txnOpCodeTracer) CaptureTxEnd(restGas uint64) {
 				// Attempt to decode the amount found at the storage slot found
 				// Iterate through all address location storage slots to see if these match up
 			}
-
-			// If the post bal exists, add it to the diff
-			var weiAmount *big.Int
-			var etherAmount *big.Float
-			if preExists && preState != nil && state.Balance != nil {
-				weiAmount = new(big.Int).Sub(state.Balance, preState.Balance)
-				etherAmount = weiToEther(weiAmount)
-			}
-
-			diff := &valueChanges{
-				Eth:      etherAmount,
-				EthInWei: weiAmount,
-			}
-			t.trace.NetBalChanges.Difference[addr] = diff
 		}
 	}
 }
@@ -397,5 +422,4 @@ func (t *txnOpCodeTracer) lookupStorage(addr common.Address, key common.Hash) {
 		return
 	}
 	t.trace.NetBalChanges.Pre[addr].Storage[key] = t.env.StateDB.GetState(addr, key)
-	// fmt.Println("lookupStorage | addr: ", addr, "key: ", key, "storing: ", t.env.StateDB.GetState(addr, key))
 }
