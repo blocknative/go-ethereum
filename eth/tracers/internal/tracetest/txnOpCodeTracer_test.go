@@ -41,6 +41,22 @@ func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
 		if !strings.HasSuffix(file.Name(), ".json") {
 			continue
 		}
+		// if !strings.HasSuffix(file.Name(), "erc20_transfer_netbalchanges_events.json") {
+		// 	fmt.Println("Skipping", file.Name())
+		// 	continue
+		// }
+		// if !strings.HasSuffix(file.Name(), "erc20_transfer_netbalchanges_txns.json") {
+		// 	fmt.Println("Skipping", file.Name())
+		// 	continue
+		// }
+		// if !strings.HasSuffix(file.Name(), "multi_contracts_netbalchanges_events.json") {
+		// 	fmt.Println("Skipping", file.Name())
+		// 	continue
+		// }
+		// if !strings.HasSuffix(file.Name(), "multi_contracts_netbalchanges_txns.json") {
+		// 	fmt.Println("Skipping", file.Name())
+		// 	continue
+		// }
 		file := file
 		t.Run(camel(strings.TrimSuffix(file.Name(), ".json")), func(t *testing.T) {
 			t.Parallel()
