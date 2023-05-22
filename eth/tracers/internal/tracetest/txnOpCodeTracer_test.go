@@ -41,22 +41,6 @@ func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
 		if !strings.HasSuffix(file.Name(), ".json") {
 			continue
 		}
-		// if !strings.HasSuffix(file.Name(), "erc20_transfer_netbalchanges_events.json") {
-		// 	fmt.Println("Skipping", file.Name())
-		// 	continue
-		// }
-		// if !strings.HasSuffix(file.Name(), "erc20_transfer_netbalchanges_txns.json") {
-		// 	fmt.Println("Skipping", file.Name())
-		// 	continue
-		// }
-		// if !strings.HasSuffix(file.Name(), "multi_contracts_netbalchanges_events.json") {
-		// 	fmt.Println("Skipping", file.Name())
-		// 	continue
-		// }
-		// if !strings.HasSuffix(file.Name(), "multi_contracts_netbalchanges_txns.json") {
-		// 	fmt.Println("Skipping", file.Name())
-		// 	continue
-		// }
 		file := file
 		t.Run(camel(strings.TrimSuffix(file.Name(), ".json")), func(t *testing.T) {
 			t.Parallel()
@@ -126,9 +110,9 @@ func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
 
 			if !tracesEqual(ret, test.Result) {
 				// Below are prints to show differences if we fail, can always just check against the specific test json files too!
-				//x, _ := json.MarshalIndent(ret, "  ", "  ")
+				// x, _ := json.MarshalIndent(ret, "  ", "  ")
 				// y, _ := json.MarshalIndent(test.Result, "", "")
-				// fmt.Println("ret")
+				// fmt.Println("Trace return: ")
 				// fmt.Println(string(x))
 				// fmt.Println("test.Result")
 				// fmt.Println(string(y))
