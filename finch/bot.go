@@ -202,6 +202,7 @@ func (b *Bot) handleIncomingTradeTx(tx *types.Transaction) error {
 	if err != nil {
 		return err
 	}
+	statedb.SetTxContext(tx.Hash(), 0)
 	receipt, err := core.ApplyTransaction(b.chainCfg, b.blockChain, nil, gasPool, statedb, header, tx, &usedGas, b.vmCfg)
 
 	// Ignore common errors.
