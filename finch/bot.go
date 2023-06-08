@@ -206,7 +206,6 @@ func (b *Bot) handleIncomingTradeTx(tx *types.Transaction) error {
 
 	// Ignore common errors.
 	if errors.Is(err, core.ErrNonceTooHigh) || errors.Is(err, core.ErrNonceTooLow) || errors.Is(err, core.ErrTipAboveFeeCap) || errors.Is(err, core.ErrFeeCapTooLow) {
-		log.Error("finch: known error executing trade tx", "error", err, "hash", tx.Hash(), "parentBlock", b.blockChain.CurrentHeader().Hash())
 		return nil
 	}
 
