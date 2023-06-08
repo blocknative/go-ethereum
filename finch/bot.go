@@ -185,7 +185,7 @@ func (b *Bot) handleIncomingBlock(event core.ChainEvent) {
 func (b *Bot) handleIncomingTradeTx(tx *types.Transaction) error {
 	receivedTradeTxCounter.Inc()
 
-	log.Debug("finch: received trade tx", "tx", tx.Hash().String())
+	log.Info("finch: received trade tx", "tx", tx.Hash().String())
 
 	// Execute this transaction and get the receipt.
 	var (
@@ -214,7 +214,7 @@ func (b *Bot) handleIncomingTradeTx(tx *types.Transaction) error {
 		return err
 	}
 
-	log.Debug("finch: executed trade tx", "hash", tx.Hash(), "logs", len(receipt.Logs))
+	log.Info("finch: executed trade tx", "hash", tx.Hash(), "logs", len(receipt.Logs))
 
 	simulatedTradeTxCounter.Inc()
 
