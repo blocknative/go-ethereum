@@ -29,6 +29,7 @@ const (
 	UniswapV2Router        = "0x7a250d5630b4cf539739df2c5dacb4c659f2488d"
 
 	CoinbaseWalletProxy = "0xe66B31678d6C16E9ebf358268a790B763C133750"
+	UnknownRouter1      = "0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD"
 )
 
 var AMMRouters = []string{
@@ -36,4 +37,5 @@ var AMMRouters = []string{
 	UniswapAutoRouter,
 	UniswapV2Router,
 	CoinbaseWalletProxy,
+	UnknownRouter1,
 }
