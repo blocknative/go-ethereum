@@ -301,7 +301,12 @@ func (b *Bot) checkTxForOpportunity(targetTx *types.Transaction, reserveUpdates 
 
 func (b *Bot) executeTrade(targetTx *types.Transaction, tr *ammTradeResult) error {
 	arbOpportunityFoundCounter.Inc()
-	arbProfitFoundCounter.Add(float64(tr.profit.Int64() / params.Ether))
+
+	reportedProfit := float64(tr.profit.Int64() / params.GWei)
+	if reportedProfit < 0 {
+		reportedProfit = 0
+	}
+	arbProfitFoundCounter.Add(reportedProfit)
 
 	// Stop now if we don't have a txBuilder configured
 	if b.txBuilder.ContractAddr == nil {
