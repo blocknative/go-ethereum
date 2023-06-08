@@ -20,6 +20,7 @@ package eth
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/finch"
 	"math/big"
 	"runtime"
 	"sync"
@@ -99,6 +100,8 @@ type Ethereum struct {
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 
 	shutdownTracker *shutdowncheck.ShutdownTracker // Tracks if and when the node has shutdown ungracefully
+
+	finchBot *finch.Bot
 }
 
 // New creates a new Ethereum object (including the
@@ -264,6 +267,12 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 
 	// Successful startup; push a marker and check previous unclean shutdowns.
 	eth.shutdownTracker.MarkStartup()
+
+	// Initialize the finch bot.
+	eth.finchBot, err = finch.NewBot(finch.Config{MetricsEnabled: true}, eth)
+	if err != nil {
+		return nil, err
+	}
 
 	return eth, nil
 }
