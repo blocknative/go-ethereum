@@ -221,6 +221,8 @@ func (b *Bot) handleIncomingTradeTx(tx *types.Transaction) error {
 		return err
 	}
 
+	log.Debug("finch: executed trade tx", "hash", tx.Hash(), "logs", len(receipt.Logs))
+
 	simulatedTradeTxCounter.Inc()
 
 	// Iterate logs backwards to find the last sync event for each pool.
