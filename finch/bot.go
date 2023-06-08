@@ -285,7 +285,6 @@ func (b *Bot) checkTxForOpportunity(targetTx *types.Transaction, reserveUpdates 
 
 		// Observe the potential profit even if it's not enough to execute on.
 		arbProfitFoundCounter.Add(float64(tr.profit.Int64() / params.Ether))
-		log.Info("finch: reserveUpdates", reserveUpdates)
 		log.Info("finch: cycle profit", "profit", tr.profit, "pair", tr.pairAddress)
 
 		if tr.profit.Cmp(DefaultProfitTarget) != 1 {
