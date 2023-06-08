@@ -192,6 +192,8 @@ func (b *Bot) handleIncomingBlock(event core.ChainEvent) {
 func (b *Bot) handleIncomingTradeTx(tx *types.Transaction) error {
 	receivedTradeTxCounter.Inc()
 
+	log.Debug("finch: received trade tx", "tx", tx.Hash().String())
+
 	// Execute this transaction and get the receipt.
 	var (
 		usedGas uint64
@@ -234,6 +236,7 @@ func (b *Bot) handleIncomingTradeTx(tx *types.Transaction) error {
 		// Add the sync event to the map of updates
 		reserveUpdates[eventLog.Address] = pr
 	}
+	log.Debug("finch: trade reserve updates", "updateCount", len(reserveUpdates))
 
 	// Check if this tx is an opportunity.
 	b.checkTxForOpportunity(tx, reserveUpdates)

@@ -42,7 +42,7 @@ func TestFinch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	bot, err := NewBot(Config{TxBuilder: nil}, b)
+	bot, err := NewBot(Config{}, b)
 	if err != nil {
 		t.Fatal(err)
 	}
