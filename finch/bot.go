@@ -185,7 +185,7 @@ func (b *Bot) handleIncomingBlock(event core.ChainEvent) {
 func (b *Bot) handleIncomingTradeTx(tx *types.Transaction) error {
 	receivedTradeTxCounter.Inc()
 
-	log.Info("finch: received trade tx", "tx", tx.Hash().String())
+	log.Debug("finch: received trade tx", "tx", tx.Hash().String())
 
 	// Execute this transaction and get the receipt.
 	var (
@@ -202,7 +202,7 @@ func (b *Bot) handleIncomingTradeTx(tx *types.Transaction) error {
 	if err != nil {
 		return err
 	}
-	receipt, _, err := core.ApplyTransactionWithResult(b.chainCfg, b.blockChain, nil, gasPool, statedb, header, tx, &usedGas, b.vmCfg)
+	receipt, err := core.ApplyTransaction(b.chainCfg, b.blockChain, nil, gasPool, statedb, header, tx, &usedGas, b.vmCfg)
 
 	// Ignore common errors.
 	if errors.Is(err, core.ErrNonceTooHigh) || errors.Is(err, core.ErrNonceTooLow) || errors.Is(err, core.ErrTipAboveFeeCap) || errors.Is(err, core.ErrFeeCapTooLow) {
