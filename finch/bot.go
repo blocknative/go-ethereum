@@ -138,6 +138,7 @@ func (b *Bot) subscriptionEventLoop() {
 					if err := b.handleIncomingTradeTx(tx); err != nil {
 						log.Error("finch: error handling trade tx ", tx.Hash().String(), err)
 					}
+					break
 				}
 			}
 		}
