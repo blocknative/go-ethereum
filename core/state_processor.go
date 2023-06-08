@@ -159,7 +159,10 @@ func applyTransactionWithResult(msg *Message, config *params.ChainConfig, bc Cha
 		return nil, nil, nil, err
 	}
 
-	traceResult, err := tracer.GetResult()
+	var traceResult json.RawMessage
+	if tracer != nil {
+		traceResult, err = tracer.GetResult()
+	}
 	// Update the state with pending changes.
 	var root []byte
 	if config.IsByzantium(header.Number) {
