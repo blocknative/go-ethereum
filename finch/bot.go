@@ -132,7 +132,7 @@ func (b *Bot) subscriptionEventLoop() {
 				toStr := to.String()
 				for _, addr := range AMMRouters {
 					if toStr != addr {
-						continue
+						//continue
 					}
 
 					if err := b.handleIncomingTradeTx(tx); err != nil {
