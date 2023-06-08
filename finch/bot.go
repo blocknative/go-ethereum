@@ -283,10 +283,6 @@ func (b *Bot) checkTxForOpportunity(targetTx *types.Transaction, reserveUpdates 
 			continue
 		}
 
-		// Observe the potential profit even if it's not enough to execute on.
-		arbProfitFoundCounter.Add(float64(tr.profit.Int64() / params.Ether))
-		log.Info("finch: cycle profit", "profit", tr.profit, "pair", tr.pairAddress)
-
 		if tr.profit.Cmp(DefaultProfitTarget) != 1 {
 			continue
 		}
@@ -303,7 +299,8 @@ func (b *Bot) checkTxForOpportunity(targetTx *types.Transaction, reserveUpdates 
 }
 
 func (b *Bot) executeTrade(targetTx *types.Transaction, tr *ammTradeResult) error {
-	arbOpportunityFoundCounter.Inc()
+	arbProfitFoundCounter.Add(float64(tr.profit.Int64() / params.Ether))
+	log.Info("finch: cycle profit", "profit", tr.profit, "pair", tr.pairAddress)
 
 	// Stop now if we don't have a txBuilder configured
 	if b.txBuilder.ContractAddr == nil {
