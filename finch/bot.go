@@ -185,7 +185,7 @@ func (b *Bot) handleIncomingBlock(event core.ChainEvent) {
 func (b *Bot) handleIncomingTradeTx(tx *types.Transaction) error {
 	receivedTradeTxCounter.Inc()
 
-	log.Debug("finch: received trade tx", "tx", tx.Hash().String())
+	log.Info("finch: received trade tx", "tx", tx.Hash().String())
 
 	// Execute this transaction and get the receipt.
 	var (
@@ -198,6 +198,7 @@ func (b *Bot) handleIncomingTradeTx(tx *types.Transaction) error {
 		return err
 	}
 
+	// Prepare latest state for executing this transaction.
 	statedb, err := b.blockChain.State()
 	if err != nil {
 		return err
@@ -238,7 +239,7 @@ func (b *Bot) handleIncomingTradeTx(tx *types.Transaction) error {
 		// Add the sync event to the map of updates
 		reserveUpdates[eventLog.Address] = pr
 	}
-	log.Debug("finch: trade reserve updates", "updateCount", len(reserveUpdates))
+	log.Info("finch: trade reserve updates", "updateCount", len(reserveUpdates))
 
 	// Check if this tx is an opportunity.
 	b.checkTxForOpportunity(tx, reserveUpdates)
@@ -262,7 +263,7 @@ func (b *Bot) checkTxForOpportunity(targetTx *types.Transaction, reserveUpdates 
 		// Ensure this sync event is for a pool we are watching.
 		pair, ok := b.ammGraph.nodes[address]
 		if !ok {
-			log.Debug("finch: skipping unknown pool", "address", address)
+			log.Info("finch: skipping unknown pool", "address", address)
 			continue
 		}
 
@@ -319,7 +320,7 @@ func (b *Bot) executeTrade(targetTx *types.Transaction, tr *ammTradeResult) erro
 		common.Bytes2Hex(serializedArbTx),
 	}
 
-	log.Debug("finch: profitable arb found", "target", targetTx.Hash(), "profit", tr.profit, "bundleTxs", bundleTxs)
+	log.Info("finch: profitable arb found", "target", targetTx.Hash(), "profit", tr.profit, "bundleTxs", bundleTxs)
 	return nil
 }
 
