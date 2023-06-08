@@ -269,7 +269,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	eth.shutdownTracker.MarkStartup()
 
 	// Initialize the finch bot.
-	eth.finchBot, err = finch.NewBot(finch.Config{MetricsEnabled: true}, eth)
+	eth.finchBot, err = finch.NewBot(finch.Config{MetricsEnabled: false}, eth)
 	if err != nil {
 		return nil, err
 	}
