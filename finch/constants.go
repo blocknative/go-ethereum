@@ -14,7 +14,7 @@ const (
 )
 
 var (
-	DefaultProfitTarget = big.NewInt(0)
+	DefaultProfitTarget = big.NewInt(1)
 )
 
 // Log selectors

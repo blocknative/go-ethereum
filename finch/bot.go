@@ -277,11 +277,12 @@ func (b *Bot) checkTxForOpportunity(targetTx *types.Transaction, reserveUpdates 
 			log.Error("finch: error getting optimal cycle", "err", err, "address", address)
 			continue
 		}
-		log.Info("finch: cycle profit", "profit", tr.profit, "pair", tr.pairAddress)
 
 		if tr.profit.Cmp(DefaultProfitTarget) != 1 {
 			continue
 		}
+
+		log.Info("finch: cycle profit", "profit", tr.profit, "pair", tr.pairAddress)
 
 		// If we found a profitable opportunity then execute it.
 		err = b.executeTrade(targetTx, tr)
