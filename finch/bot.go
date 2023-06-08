@@ -3,6 +3,7 @@ package finch
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"errors"
 	"io"
 	"math"
 	"math/big"
@@ -103,11 +104,9 @@ func NewBotFromJSON(config Config, backend backend, pairsToTokensJSON io.Reader)
 func (b *Bot) subscriptionEventLoop() {
 	txEvents := make(chan core.NewTxsEvent)
 	txPoolSub := b.backend.TxPool().SubscribeNewTxsEvent(txEvents)
-	txPoolSubErrs := txPoolSub.Err()
 
 	chainEvents := make(chan core.ChainEvent)
 	chainEventSub := b.blockChain.SubscribeChainEvent(chainEvents)
-	chainEventSubErrs := chainEventSub.Err()
 
 	defer func() {
 		txPoolSub.Unsubscribe()
@@ -141,12 +140,6 @@ func (b *Bot) subscriptionEventLoop() {
 					}
 				}
 			}
-
-		// Handle subscription errors.
-		case err := <-txPoolSubErrs:
-			log.Error("TxPool subscription error", "error", err)
-		case err := <-chainEventSubErrs:
-			log.Error("Chain event subscription error", "error", err)
 		}
 	}
 }
@@ -212,7 +205,8 @@ func (b *Bot) handleIncomingTradeTx(tx *types.Transaction) error {
 	receipt, _, err := core.ApplyTransactionWithResult(b.chainCfg, b.blockChain, nil, gasPool, statedb, header, tx, &usedGas, b.vmCfg)
 
 	// Ignore common errors.
-	if err == core.ErrNonceTooHigh || err == core.ErrNonceTooLow || err == core.ErrFeeCapTooLow {
+	if errors.Is(err, core.ErrNonceTooHigh) || errors.Is(err, core.ErrNonceTooLow) || errors.Is(err, core.ErrTipAboveFeeCap) || errors.Is(err, core.ErrFeeCapTooLow) {
+		log.Error("finch: known error executing trade tx", "error", err, "hash", tx.Hash(), "parentBlock", b.blockChain.CurrentHeader().Hash())
 		return nil
 	}
 
