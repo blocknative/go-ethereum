@@ -210,6 +210,12 @@ func (b *Bot) handleIncomingTradeTx(tx *types.Transaction) error {
 		return err
 	}
 	receipt, _, err := core.ApplyTransactionWithResult(b.chainCfg, b.blockChain, nil, gasPool, statedb, header, tx, &usedGas, b.vmCfg)
+
+	// Ignore common errors.
+	if err == core.ErrNonceTooHigh || err == core.ErrNonceTooLow || err == core.ErrFeeCapTooLow {
+		return nil
+	}
+
 	if err != nil {
 		log.Error("finch: error executing trade tx", "error", err, "hash", tx.Hash(), "parentBlock", b.blockChain.CurrentHeader().Hash())
 		return err
