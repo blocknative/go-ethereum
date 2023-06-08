@@ -157,6 +157,7 @@ func (b *Bot) handleIncomingBlock(event core.ChainEvent) {
 	// Check each log to find ones for our watched addresses and update the reserveUpdates
 	reservesUpdated := 0
 	reservesCount := len(b.ammGraph.nodes)
+	reserveUpdates := make(ammReserveUpdates, len(event.Logs))
 	for _, eventLog := range event.Logs {
 		entry, ok := b.ammGraph.nodes[eventLog.Address]
 		if !ok {
@@ -167,17 +168,24 @@ func (b *Bot) handleIncomingBlock(event core.ChainEvent) {
 		if err != nil {
 			continue
 		}
-
-		reservesUpdated += 1
+		reserveUpdates[eventLog.Address] = syncEvent
 		entry.reserves0 = syncEvent.reserves0
 		entry.reserves1 = syncEvent.reserves1
 
-		if reservesUpdated >= reservesCount {
+		if len(reserveUpdates) >= reservesCount {
 			break
 		}
 	}
 
 	receivedAMMPoolUpdateCounter.Add(float64(reservesUpdated))
+
+	// Check the block for opportunities.
+	blockTxs := event.Block.Transactions()
+	if len(blockTxs) == 0 {
+		return
+	}
+	b.checkTxForOpportunity(blockTxs[len(blockTxs)-1], reserveUpdates)
+
 }
 
 // handleIncomingTradeTx handles a newly-seen AMM router txs and checks them
