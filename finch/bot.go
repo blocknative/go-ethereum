@@ -283,7 +283,7 @@ func (b *Bot) checkTxForOpportunity(targetTx *types.Transaction, reserveUpdates 
 			continue
 		}
 
-		if tr.profit.Cmp(DefaultProfitTarget) != 1 {
+		if tr.profit.Cmp(DefaultProfitTarget) == -1 {
 			continue
 		}
 
