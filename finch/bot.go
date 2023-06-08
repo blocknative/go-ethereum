@@ -194,8 +194,6 @@ func (b *Bot) handleIncomingBlock(event core.ChainEvent) {
 func (b *Bot) handleIncomingTradeTx(tx *types.Transaction) error {
 	receivedTradeTxCounter.Inc()
 
-	log.Debug("finch: received trade tx", "tx", tx.Hash().String())
-
 	// Execute this transaction and get the receipt.
 	var (
 		usedGas uint64
@@ -225,8 +223,6 @@ func (b *Bot) handleIncomingTradeTx(tx *types.Transaction) error {
 		return err
 	}
 
-	log.Info("finch: executed trade tx", "hash", tx.Hash(), "logs", len(receipt.Logs))
-
 	simulatedTradeTxCounter.Inc()
 
 	// Iterate logs backwards to find the last sync event for each pool.
@@ -248,7 +244,6 @@ func (b *Bot) handleIncomingTradeTx(tx *types.Transaction) error {
 		// Add the sync event to the map of updates
 		reserveUpdates[eventLog.Address] = pr
 	}
-	log.Info("finch: trade reserve updates", "updateCount", len(reserveUpdates))
 
 	// Check if this tx is an opportunity.
 	b.checkTxForOpportunity(tx, reserveUpdates)
@@ -272,7 +267,7 @@ func (b *Bot) checkTxForOpportunity(targetTx *types.Transaction, reserveUpdates 
 		// Ensure this sync event is for a pool we are watching.
 		pair, ok := b.ammGraph.nodes[address]
 		if !ok {
-			log.Info("finch: skipping unknown pool", "address", address)
+			log.Debug("finch: skipping unknown pool", "address", address)
 			continue
 		}
 
