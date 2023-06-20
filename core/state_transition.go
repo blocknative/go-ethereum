@@ -332,10 +332,10 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	if tracer := st.evm.Config.Tracer; tracer != nil {
 		tracer.CaptureTxStart(st.initialGas)
 
-		// // If this tracer implements stateRootSetter then call it now
-		// if t, ok := st.evm.Config.Tracer.(stateRootSetter); ok {
-		// 	t.SetStateRoot(st.state.IntermediateRoot(false))
-		// }
+		// If this tracer implements stateRootSetter then call it now
+		if t, ok := st.evm.Config.Tracer.(stateRootSetter); ok {
+			t.SetStateRoot(st.state.IntermediateRoot(false))
+		}
 
 		defer func() {
 			tracer.CaptureTxEnd(st.gasRemaining)
