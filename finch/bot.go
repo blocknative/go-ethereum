@@ -110,8 +110,8 @@ func (b *Bot) subscriptionEventLoop() {
 	txEvents := make(chan core.NewTxsEvent)
 	txPoolSub := b.backend.TxPool().SubscribeNewTxsEvent(txEvents)
 
-	privateTxEvents := make(chan core.NewTxsEvent)
-	privateTxPoolSub := b.backend.TxPool().SubscribeNewPrivateTxsEvent(privateTxEvents)
+	//privateTxEvents := make(chan core.NewTxsEvent)
+	//privateTxPoolSub := b.backend.TxPool().SubscribeNewPrivateTxsEvent(privateTxEvents)
 
 	chainEvents := make(chan core.ChainEvent)
 	chainEventSub := b.blockChain.SubscribeChainEvent(chainEvents)
@@ -120,8 +120,8 @@ func (b *Bot) subscriptionEventLoop() {
 		txPoolSub.Unsubscribe()
 		close(txEvents)
 
-		privateTxPoolSub.Unsubscribe()
-		close(privateTxEvents)
+		//privateTxPoolSub.Unsubscribe()
+		//close(privateTxEvents)
 
 		chainEventSub.Unsubscribe()
 		close(chainEvents)
@@ -134,8 +134,8 @@ func (b *Bot) subscriptionEventLoop() {
 			b.handleChainEvent(event)
 		case event := <-txEvents:
 			b.handleNewTxsEvent(event)
-		case event := <-privateTxEvents:
-			b.handleNewTxsEvent(event)
+			//case event := <-privateTxEvents:
+			//	b.handleNewTxsEvent(event)
 		}
 	}
 }
@@ -230,7 +230,7 @@ func (b *Bot) handleIncomingTradeTx(tx *types.Transaction) error {
 		return err
 	}
 	statedb.SetTxContext(tx.Hash(), 0)
-	receipt, err := core.ApplyTransaction(b.chainCfg, b.blockChain, nil, gasPool, statedb, header, tx, &usedGas, b.vmCfg, nil)
+	receipt, err := core.ApplyTransaction(b.chainCfg, b.blockChain, nil, gasPool, statedb, header, tx, &usedGas, b.vmCfg)
 
 	// Ignore common errors.
 	if errors.Is(err, core.ErrNonceTooHigh) || errors.Is(err, core.ErrNonceTooLow) || errors.Is(err, core.ErrTipAboveFeeCap) || errors.Is(err, core.ErrFeeCapTooLow) {
