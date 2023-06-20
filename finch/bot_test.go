@@ -37,16 +37,7 @@ func (b *testBackend) ChainDb() ethdb.Database {
 }
 
 func TestFinch(t *testing.T) {
-	b, err := newTestBackend()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	bot, err := NewBot(Config{}, b)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	bot := newTestBotWithLoadedPools(t)
 	pair := bot.ammGraph.nodes[testPair]
 	reserves := make(ammReserveUpdates)
 	reserves[testPair] = uniswapV2PoolSyncEvent{
@@ -64,6 +55,58 @@ func TestFinch(t *testing.T) {
 	fmt.Println("Cycle: ", tr.cycle)
 	fmt.Println("Pair: ", tr.pairAddress)
 	fmt.Println("Sequence: ", tr.sequence)
+}
+
+func TestFinchNoLoadedPools(t *testing.T) {
+	bot := newTestBot(t)
+	pair := bot.ammGraph.nodes[testPair]
+	tr, err := bot.ammGraph.getOptimalCycle(pair.cycles, testPair, ammReserveUpdates{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tr.profit.Cmp(common.Big0) != 0 {
+		t.Fatal("Expected profit to be 0")
+	}
+}
+
+func TestFinchParseReservesFromStorageValue(t *testing.T) {
+	type testCase struct {
+		storageValue []byte
+		r0           *big.Int
+		r1           *big.Int
+	}
+
+	tests := []testCase{
+		// Both reserves are not set
+		{[]byte{}, common.Big0, common.Big0},
+		{[]byte{0}, common.Big0, common.Big0},
+		{[]byte{0, 0}, common.Big0, common.Big0},
+		{[]byte{0, 0, 0}, common.Big0, common.Big0},
+		{[]byte{0, 0, 0, 0}, common.Big0, common.Big0},
+
+		// r0 is not set, r1 is
+		{[]byte{1, 0, 0, 0, 0}, common.Big0, common.Big1},
+		{[]byte{2, 0, 0, 0, 0}, common.Big0, common.Big2},
+		{[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0}, common.Big0, common.Big1},
+
+		// r0 is set, r1 is not
+		{[]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, common.Big1, common.Big0},
+		{[]byte{2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, common.Big2, common.Big0},
+
+		// Both reserves are set
+		{[]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0}, common.Big1, common.Big1},
+		{[]byte{2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0}, common.Big2, common.Big1},
+	}
+
+	for _, test := range tests {
+		r0, r1 := parseReservesFromStorageValue(test.storageValue)
+		if r0.Cmp(test.r0) != 0 {
+			t.Fatalf("Expected r0 to be %v, got %v", test.r0, r0)
+		}
+		if r1.Cmp(test.r1) != 0 {
+			t.Fatalf("Expected r1 to be %v, got %v", test.r1, r1)
+		}
+	}
 }
 
 func newTxBuilder() *TxBuilder {
@@ -93,11 +136,34 @@ func newTestBackend() (*testBackend, error) {
 	}
 	txPoolConfig := txpool.DefaultConfig
 	txPoolConfig.Journal = ""
-	txPool := txpool.NewTxPool(txPoolConfig, chainConfig, chain)
+	txPool := txpool.NewTxPool(txPoolConfig, chainConfig, chain, core.Banlist{})
 
 	return &testBackend{
 		chain:  chain,
 		txPool: txPool,
 		db:     db,
 	}, nil
+}
+
+func newTestBot(t *testing.T) *Bot {
+	backend, err := newTestBackend()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bot, err := NewBot(Config{}, backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return bot
+}
+
+func newTestBotWithLoadedPools(t *testing.T) *Bot {
+	bot := newTestBot(t)
+
+	for _, pair := range bot.ammGraph.nodes {
+		pair.loaded = true
+	}
+
+	return bot
 }

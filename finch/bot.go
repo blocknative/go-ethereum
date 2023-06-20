@@ -89,6 +89,11 @@ func NewBotFromJSON(config Config, backend backend, pairsToTokensJSON io.Reader)
 		return nil, err
 	}
 
+	err = b.loadReservesFromChain()
+	if err != nil {
+		return nil, err
+	}
+
 	// Start watching for new blocks and txs
 	go b.subscriptionEventLoop()
 
@@ -105,12 +110,18 @@ func (b *Bot) subscriptionEventLoop() {
 	txEvents := make(chan core.NewTxsEvent)
 	txPoolSub := b.backend.TxPool().SubscribeNewTxsEvent(txEvents)
 
+	privateTxEvents := make(chan core.NewTxsEvent)
+	privateTxPoolSub := b.backend.TxPool().SubscribeNewPrivateTxsEvent(privateTxEvents)
+
 	chainEvents := make(chan core.ChainEvent)
 	chainEventSub := b.blockChain.SubscribeChainEvent(chainEvents)
 
 	defer func() {
 		txPoolSub.Unsubscribe()
 		close(txEvents)
+
+		privateTxPoolSub.Unsubscribe()
+		close(privateTxEvents)
 
 		chainEventSub.Unsubscribe()
 		close(chainEvents)
@@ -120,34 +131,18 @@ func (b *Bot) subscriptionEventLoop() {
 		select {
 		// Handle incoming events.
 		case event := <-chainEvents:
-			b.handleIncomingBlock(event)
+			b.handleChainEvent(event)
 		case event := <-txEvents:
-			for _, tx := range event.Txs {
-				to := tx.To()
-				if to == nil {
-					continue
-				}
-
-				// Check if this is to a watched AMM and if so handle it as a trade.
-				toStr := to.String()
-				for _, addr := range AMMRouters {
-					if toStr != addr {
-						//continue
-					}
-
-					if err := b.handleIncomingTradeTx(tx); err != nil {
-						log.Error("finch: error handling trade tx ", tx.Hash().String(), err)
-					}
-					break
-				}
-			}
+			b.handleNewTxsEvent(event)
+		case event := <-privateTxEvents:
+			b.handleNewTxsEvent(event)
 		}
 	}
 }
 
-// handleIncomingBlock handles a new block event. It checks if the block is
+// handleChainEvent handles a new block event. It checks if the block is
 // extending the chain and if so checks for any AMM reserve changes.
-func (b *Bot) handleIncomingBlock(event core.ChainEvent) {
+func (b *Bot) handleChainEvent(event core.ChainEvent) {
 	// Ensure the new block is extending the chain
 	newBlockNumber := event.Block.NumberU64()
 	if newBlockNumber <= b.lastBlockNumber {
@@ -170,6 +165,8 @@ func (b *Bot) handleIncomingBlock(event core.ChainEvent) {
 			continue
 		}
 		reserveUpdates[eventLog.Address] = syncEvent
+
+		entry.loaded = true
 		entry.reserves0 = syncEvent.reserves0
 		entry.reserves1 = syncEvent.reserves1
 
@@ -187,6 +184,28 @@ func (b *Bot) handleIncomingBlock(event core.ChainEvent) {
 	}
 	b.checkTxForOpportunity(blockTxs[len(blockTxs)-1], reserveUpdates)
 
+}
+
+func (b *Bot) handleNewTxsEvent(event core.NewTxsEvent) {
+	for _, tx := range event.Txs {
+		to := tx.To()
+		if to == nil {
+			continue
+		}
+
+		// Check if this is to a watched AMM and if so handle it as a trade.
+		toStr := to.String()
+		for _, addr := range AMMRouters {
+			if toStr != addr {
+				//continue
+			}
+
+			if err := b.handleIncomingTradeTx(tx); err != nil {
+				log.Error("finch: error handling trade tx ", tx.Hash().String(), err)
+			}
+			break
+		}
+	}
 }
 
 // handleIncomingTradeTx handles a newly-seen AMM router txs and checks them
@@ -211,7 +230,7 @@ func (b *Bot) handleIncomingTradeTx(tx *types.Transaction) error {
 		return err
 	}
 	statedb.SetTxContext(tx.Hash(), 0)
-	receipt, err := core.ApplyTransaction(b.chainCfg, b.blockChain, nil, gasPool, statedb, header, tx, &usedGas, b.vmCfg)
+	receipt, err := core.ApplyTransaction(b.chainCfg, b.blockChain, nil, gasPool, statedb, header, tx, &usedGas, b.vmCfg, nil)
 
 	// Ignore common errors.
 	if errors.Is(err, core.ErrNonceTooHigh) || errors.Is(err, core.ErrNonceTooLow) || errors.Is(err, core.ErrTipAboveFeeCap) || errors.Is(err, core.ErrFeeCapTooLow) {

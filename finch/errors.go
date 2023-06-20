@@ -7,7 +7,9 @@ var (
 	ErrInvalidUniswapV2PoolSync    = errors.New("Invalid uniswap v2 pool sync")
 	ErrNoUniswapV2PoolSyncsInTrade = errors.New("No uniswap v2 pool syncs in trade")
 	ErrPairNotFound                = errors.New("pair not found")
+	ErrPairNotLoaded               = errors.New("pair not loaded")
 
-	ErrInvalidReservesValue = errors.New("invalid reserves value")
-	ErrInvalidTxBuilder     = errors.New("invalid tx builder")
+	ErrInvalidGetReservesResult = errors.New("invalid get reserves result")
+	ErrInvalidReservesValue     = errors.New("invalid reserves value")
+	ErrInvalidTxBuilder         = errors.New("invalid tx builder")
 )

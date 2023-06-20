@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/big"
 	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lthibault/log"
@@ -28,6 +29,17 @@ func (d dex) ID() byte {
 	return byte(d)
 }
 
+func dexFromString(s string) dex {
+	switch strings.ToLower(s) {
+	case "uniswapv2":
+		return dexUniswapV2
+	case "uniswapv3":
+		return dexUniswapV3
+	default:
+		return 0
+	}
+}
+
 type ammGraph struct {
 	nodes map[common.Address]*ammGraphNode
 }
@@ -39,6 +51,7 @@ type ammGraphNode struct {
 	token0    common.Address
 	token1    common.Address
 	dex       dex
+	loaded    bool
 }
 
 type ammTradeResult struct {
@@ -69,7 +82,7 @@ type jsonAmmGraph map[string]struct {
 		Token1    string `json:"token1"`
 		Reserves0 string `json:"reserves0"`
 		Reserves1 string `json:"reserves1"`
-		Dex       uint8  `json:"dex"`
+		Dex       string `json:"dex"`
 	} `json:"pairInfo"`
 	Cycles [][]string `json:"cycles"`
 }
@@ -118,7 +131,7 @@ func loadAMMGraph(source io.Reader) (ammGraph, error) {
 			token1:    common.HexToAddress(pair.PairInfo.Token1),
 			reserves0: r0,
 			reserves1: r1,
-			dex:       dex(pair.PairInfo.Dex),
+			dex:       dexFromString(pair.PairInfo.Dex),
 		}
 	}
 	return g, nil
@@ -151,6 +164,9 @@ func (g ammGraph) getCycleReserves(poolCycle []common.Address, updates ammReserv
 		pair, ok := g.nodes[address]
 		if !ok {
 			return nil, nil, ErrPairNotFound
+		}
+		if !pair.loaded {
+			return nil, nil, ErrPairNotLoaded
 		}
 
 		// Decide which token is in and which is out.
@@ -201,6 +217,13 @@ func (g ammGraph) getOptimalCycle(cycles [][]common.Address, pairAddress common.
 	// profit we'd get by trading through it.
 	for _, cycle := range cycles {
 		reserves, seqArray, err := g.getCycleReserves(cycle, reserveUpdates)
+
+		// If the cycle contains an unloaded pair, skip it.
+		if err == ErrPairNotLoaded {
+			continue
+		}
+
+		// For any other, stop now.
 		if err != nil {
 			return nil, err
 		}
