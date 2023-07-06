@@ -3,7 +3,6 @@ package blocknative
 import (
 	"encoding/json"
 	"time"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 )
@@ -21,8 +20,7 @@ type Tracer interface {
 	Stop(err error)
 }
 
-// TracerOpts configure the tracer to save or ignore various aspects of a
-// transaction execution.
+// TracerOpts configure the tracer to save or ignore various aspects of a transaction execution.
 type TracerOpts struct {
 	Logs bool `json:"logs"`
 }

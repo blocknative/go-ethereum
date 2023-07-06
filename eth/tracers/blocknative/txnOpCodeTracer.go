@@ -24,6 +24,7 @@ type txnOpCodeTracer struct {
 	interrupt uint32      // Atomic flag to signal execution interruption
 	reason    error       // Textual reason for the interruption (not always specific for us)
 	opts      TracerOpts
+	beginTime time.Time // Time object for start of trace for stats
 }
 
 // NewTxnOpCodeTracer returns a new txnOpCodeTracer tracer with the given
@@ -77,10 +78,13 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 	// Populate the block context from the vm environment.
 	t.trace.BlockContext.Number = env.Context.BlockNumber.Uint64()
 	t.trace.BlockContext.BaseFee = env.Context.BaseFee.Uint64()
-	t.trace.BlockContext.Time = env.Context.Time // todo alex: check this removal -> .Uint64()
+	t.trace.BlockContext.Time = env.Context.Time
 	t.trace.BlockContext.Coinbase = addrToHex(env.Context.Coinbase)
 	t.trace.BlockContext.GasLimit = env.Context.GasLimit
 	t.trace.BlockContext.Random = random
+
+	// Start tracing timer
+	t.beginTime = time.Now()
 
 	// This is the initial call
 	t.callStack[0] = CallFrame{

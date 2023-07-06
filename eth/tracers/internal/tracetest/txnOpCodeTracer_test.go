@@ -2,7 +2,13 @@ package tracetest
 
 import (
 	"encoding/json"
-	"fmt"
+	"math/big"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -12,12 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/tests"
-	"math/big"
-	"os"
-	"path/filepath"
-	"reflect"
-	"strings"
-	"testing"
 )
 
 type txnOpCodeTracerTest struct {
@@ -108,11 +108,15 @@ func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
 			}
 
 			if !tracesEqual(ret, test.Result) {
-				x, _ := json.MarshalIndent(test.Result, "", "")
-				//y, _ := json.MarshalIndent(test.Result, "", "")
-				fmt.Println(string(x))
+				// Below are prints to show differences if we fail, can always just check against the specific test json files too!
+				// x, _ := json.MarshalIndent(ret, "", "")
+				// y, _ := json.MarshalIndent(test.Result, "", "")
+				// fmt.Println("ret")
+				// fmt.Println(string(x))
+				// fmt.Println("test.Result")
+				// fmt.Println(string(y))
 				t.Fatal("traces mismatch")
-				//t.Fatalf("trace mismatch: \nhave %+v\nwant %+v", ret, test.Result)
+				// t.Fatalf("trace mismatch: \nhave %+v\nwant %+v", ret, test.Result)
 			}
 		})
 	}
