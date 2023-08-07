@@ -68,24 +68,46 @@ type CallLog struct {
 
 // NetBalChanges represents the difference of value (ETH, erc20, erc721) after the transaction for all addresses
 type NetBalChanges struct {
-	InitialGas uint64         `json:"-"` // Bought gas, used to find initial bal for the from address as the buy happens before trace starts
-	Pre        state          `json:"-"` //`json:"pre"`
-	Post       state          `json:"-"` //`json:"post"`
-	Balances   balances       `json:"balances,omitempty"`
-	Tokens     []Tokenchanges `json:"tokenchanges,omitempty"`
+	InitialGas     uint64                  `json:"-"` // Bought gas, used to find initial bal for the from address as the buy happens before trace starts
+	Pre            state                   `json:"-"` //`json:"pre"`
+	Post           state                   `json:"-"` //`json:"post"`
+	BalanceChanges []AddressBalanceChanges `json:"balanceChanges,omitempty"`
+	Balances       balances                `json:"-"`
+	Tokens         []Tokenchanges          `json:"-"`
 }
 
-type difference = map[common.Address]*valueChanges
-
-type valueChanges struct {
-	Eth      *big.Float      `json:"eth,omitempty"` // TODO ALEX: this term ETH may need to be generalised
-	EthInWei *big.Int        `json:"ethinwei,omitempty"`
-	Erc20    placeholderType `json:"erc20,omitempty"`
-	Erc721   placeholderType `json:"erc721,omitempty"`
+type AddressBalanceChanges struct {
+	Address        common.Address  `json:"address"`
+	BalanceChanges []BalanceChange `json:"balanceChanges"`
 }
 
-// TODO ALEX: expand on these types (types of tokens to track, erc20, erc721, etc...)
-type placeholderType interface{}
+type BalanceChange struct {
+	Delta         *big.Int       `json:"delta"`
+	Asset         *Asset         `json:"asset"`
+	AssetMetadata TokenMetadata  `json:"metadata"`
+	Breakdown     []Tokenchanges `json:"breakdown"`
+}
+
+type Asset struct {
+	Address common.Address `json:"address"`
+	Type    accountType    `json:"type"`
+	TokenMetadata
+}
+
+type TokenMetadata struct {
+	Name     string `json:"name"`
+	Symbol   string `json:"symbol"`
+	Decimals uint8  `json:"decimals,omitempty"`
+}
+
+type accountType int
+
+const (
+	accountTypeUnknown accountType = iota
+	accountTypeEOA
+	accountTypeERC20
+	accountTypeERC721
+)
 
 type state = map[common.Address]*account
 
@@ -102,13 +124,16 @@ type valueChange struct {
 }
 
 type Tokenchanges struct {
-	From     common.Address `json:"from,omitempty"`
-	To       common.Address `json:"to,omitempty"`
-	Asset    *big.Int       `json:"asset,omitempty"`
-	Contract common.Address `json:"contractAddress,omitempty"`
+	From     common.Address `json:"counterparty,omitempty"`
+	To       common.Address `json:"-"`
+	Amount   *big.Int       `json:"amount,omitempty"`
+	Contract common.Address `json:"-"`
+	Asset    *Asset         `json:"-"`
 }
 
-// This event signiture hash is constant for "Transfer(address,address,uint256)"
-// Which is used both by erc20 and erc721
-// erc20: from, to, value; erc721: from, to, tokenId
-const transferEventHex = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+const (
+	// eventSigTransfer is the signature for "Transfer(address,address,uint256)"
+	// Which is used both by erc20 and erc721
+	// erc20: from, to, value; erc721: from, to, tokenId
+	eventSigTransfer = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+)
