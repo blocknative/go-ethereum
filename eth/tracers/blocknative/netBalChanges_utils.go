@@ -9,6 +9,15 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
+type NBCMethod string
+
+const (
+	NBCMethodNone        NBCMethod = ""
+	NBCMethodEvents      NBCMethod = "events"
+	NBCMethodInternalTxs NBCMethod = "internalTransactions"
+	NBCMethodStorage     NBCMethod = "storageSlots"
+)
+
 type NBCMethodError string
 
 func (e NBCMethodError) Error() string {
@@ -17,11 +26,8 @@ func (e NBCMethodError) Error() string {
 
 // Checks for the specified method given when asked for the tracer to do netbalchanges
 func (t *txnOpCodeTracer) checkNBCArgs() error {
-	if t.opts.NBCMethod == "" {
-		return NBCMethodError("tracerConfig.nbcMethod cannot be empty")
-	}
 	switch t.opts.NBCMethod {
-	case "events", "internalTransactions", "storageSlots":
+	case NBCMethodNone, NBCMethodEvents, NBCMethodInternalTxs, NBCMethodStorage:
 		return nil
 	default:
 		return NBCMethodError(fmt.Sprintf("Unknown nbcMethod: %s", t.opts.NBCMethod))
