@@ -18,20 +18,24 @@ import (
 // op codes and relevant gas data.
 // This is intended for Blocknative usage.
 type txnOpCodeTracer struct {
-	env       *vm.EVM     // EVM context for execution of transaction to occur within
-	trace     Trace       // Accumulated execution data the caller is interested in
-	callStack []CallFrame // Data structure for op codes making up our trace
-	interrupt uint32      // Atomic flag to signal execution interruption
-	reason    error       // Textual reason for the interruption (not always specific for us)
-	opts      TracerOpts
-	startTime time.Time
+	env                 *vm.EVM     // EVM context for execution of transaction to occur within
+	trace               Trace       // Accumulated execution data the caller is interested in
+	callStack           []CallFrame // Data structure for op codes making up our trace
+	interrupt           uint32      // Atomic flag to signal execution interruption
+	reason              error       // Textual reason for the interruption (not always specific for us)
+	opts                TracerOpts
+	startTime           time.Time
+	tokenMetadataLoader *tokenMetadataReader
 }
 
 // NewTxnOpCodeTracer returns a new txnOpCodeTracer tracer with the given
 // options applied.
 func NewTxnOpCodeTracer(cfg json.RawMessage) (Tracer, error) {
 	// First callframe contains tx context info and is populated on start and end.
-	var t txnOpCodeTracer = txnOpCodeTracer{callStack: make([]CallFrame, 1)}
+	var t = txnOpCodeTracer{
+		callStack:           make([]CallFrame, 1),
+		tokenMetadataLoader: newTokenMetadataReader(),
+	}
 
 	// Decode raw json opts into our struct.
 	if cfg != nil {
@@ -113,8 +117,8 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 	}
 
 	// If we want to create NBC from decoded transactions, do the top level one here
-	if t.opts.NBCMethod == "internalTransactions" {
-		t.processNBCFromTxn(from, to, input)
+	if t.opts.NBCMethod == NBCMethodInternalTxs {
+		t.processNBCFromCall(from, to, input)
 	}
 }
 
@@ -201,9 +205,9 @@ func (t *txnOpCodeTracer) CaptureEnter(typ vm.OpCode, from common.Address, to co
 	}
 	t.callStack = append(t.callStack, call)
 
-	// If we want to create NBC from decoded transactions, do so here!
-	if t.opts.NBCMethod == "internalTransactions" {
-		t.processNBCFromTxn(from, to, input)
+	// If we want to create NBC from decoded transactions, do so here
+	if t.opts.NBCMethod == NBCMethodInternalTxs {
+		t.processNBCFromCall(from, to, input)
 	}
 }
 

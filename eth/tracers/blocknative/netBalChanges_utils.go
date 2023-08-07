@@ -1,9 +1,10 @@
 package blocknative
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -118,7 +119,7 @@ func (t *txnOpCodeTracer) captureEventNBC(err error) {
 		eventSignature := log.Topics[0].Hex()
 
 		switch eventSignature {
-		case transferEventHex:
+		case eventSigTransfer:
 			var transfer struct {
 				From     common.Address
 				To       common.Address
@@ -138,8 +139,13 @@ func (t *txnOpCodeTracer) captureEventNBC(err error) {
 			tokenchange := &Tokenchanges{
 				From:     common.HexToAddress(log.Topics[1].Hex()),
 				To:       common.HexToAddress(log.Topics[2].Hex()),
-				Asset:    new(big.Int).SetBytes(log.Data),
+				Amount:   new(big.Int).SetBytes(log.Data),
 				Contract: log.Address,
+			}
+
+			tokenchange.Asset, err = t.tokenMetadataLoader.read(t.env, log.Address)
+			if err != nil {
+				continue
 			}
 
 			t.trace.NetBalChanges.Tokens = append(t.trace.NetBalChanges.Tokens, *tokenchange)
@@ -150,7 +156,6 @@ func (t *txnOpCodeTracer) captureEventNBC(err error) {
 }
 
 func (t *txnOpCodeTracer) collateNBC() {
-
 	// Iterate through the collected accounts touched by the transaction execution
 	// Create a post account if something useful was modified
 	for addr, state := range t.trace.NetBalChanges.Pre {
@@ -176,6 +181,61 @@ func (t *txnOpCodeTracer) collateNBC() {
 		} else {
 			delete(t.trace.NetBalChanges.Pre, addr)
 		}
+	}
+
+	// Collate token changes
+	// TODO(TS): Cleanup/use real algorithm
+	// Map of Account address -> [Map of token address -> Aggregated change]
+	accountTokenChanges := map[common.Address]map[common.Address]BalanceChange{}
+	for _, token := range t.trace.NetBalChanges.Tokens {
+		if _, ok := accountTokenChanges[token.From]; !ok {
+			accountTokenChanges[token.From] = map[common.Address]BalanceChange{}
+		}
+		if _, ok := accountTokenChanges[token.To]; !ok {
+			accountTokenChanges[token.To] = map[common.Address]BalanceChange{}
+		}
+
+		if _, ok := accountTokenChanges[token.From][token.Contract]; !ok {
+			asset, err := t.tokenMetadataLoader.read(t.env, token.Contract)
+			if err != nil {
+				//panic(err)
+			}
+			accountTokenChanges[token.From][token.Contract] = BalanceChange{
+				Delta: big.NewInt(0),
+				Asset: asset,
+			}
+		}
+		if _, ok := accountTokenChanges[token.To][token.Contract]; !ok {
+			asset, err := t.tokenMetadataLoader.read(t.env, token.Contract)
+			if err != nil {
+				//panic(err)
+			}
+			accountTokenChanges[token.To][token.Contract] = BalanceChange{
+				Delta: big.NewInt(0),
+				Asset: asset,
+			}
+		}
+
+		fromChanges := accountTokenChanges[token.From][token.Contract]
+		toChanges := accountTokenChanges[token.To][token.Contract]
+
+		accountTokenChanges[token.From][token.Contract].Delta.Sub(accountTokenChanges[token.From][token.Contract].Delta, token.Amount)
+		accountTokenChanges[token.To][token.Contract].Delta.Add(accountTokenChanges[token.To][token.Contract].Delta, token.Amount)
+		fromChanges.Breakdown = append(fromChanges.Breakdown, token)
+		toChanges.Breakdown = append(toChanges.Breakdown, token)
+
+		accountTokenChanges[token.From][token.Contract] = fromChanges
+		accountTokenChanges[token.To][token.Contract] = toChanges
+	}
+	// Turn the map into a list of [{addr, [{token, change}]}]
+	for addr, changes := range accountTokenChanges {
+		abc := AddressBalanceChanges{
+			Address: addr,
+		}
+		for _, change := range changes {
+			abc.BalanceChanges = append(abc.BalanceChanges, change)
+		}
+		t.trace.NetBalChanges.BalanceChanges = append(t.trace.NetBalChanges.BalanceChanges, abc)
 	}
 
 	// Go through the modified accounts and build the net balance changes for ETH
@@ -227,32 +287,72 @@ func (t *txnOpCodeTracer) processPostAccountStorage(newBalance *big.Int, addr co
 }
 
 // This function attempts to get transfer events from internal transaction calls to token contracts
-func (t *txnOpCodeTracer) processNBCFromTxn(from common.Address, contract common.Address, input []byte) {
+func (t *txnOpCodeTracer) processNBCFromCall(sender common.Address, contract common.Address, input []byte) {
+	// Check that the input is capable of being a function call selector
 	if len(input) < 4 {
-		// Invalid input data
 		return
 	}
 
-	// Everything below is for a erc20 / erc721 transfer decode event
-	// Todo: elaborate on this for other types of transfer methods
-	// Method ID (4 bytes) + Recipient Address (32 bytes) + Amount (32 bytes)
-	methodID := input[:4]
-	if strings.ToLower(fmt.Sprintf("%x", methodID)) != "a9059cbb" {
-		// Not an ERC20 transfer
+	var (
+		idx      = 4
+		methodID = input[:idx]
+		from     common.Address
+		to       common.Address
+		amount   = new(big.Int)
+	)
+
+	// scanWord gets the next 32 bytes and advances the index
+	scanWord := func() []byte {
+		word := input[idx : idx+32]
+		idx += 32
+		return word
+	}
+
+	switch {
+
+	// Transfer event; payload is [to, amount]
+	case bytes.Compare(methodID, methodIDERC20Transfer) == 0:
+		if len(input) < 68 {
+			return
+		}
+
+		from = sender
+		to = common.BytesToAddress(scanWord())
+		amount.SetBytes(scanWord())
+
+	// (Safe)TransferFrom event; payload is [from, to, amount]
+	case bytes.Compare(methodID, methodIDERC20TransferFrom) == 0:
+		fallthrough
+	case bytes.Compare(methodID, methodIDERC721TransferFrom) == 0:
+		fallthrough
+	case bytes.Compare(methodID, methodIDERC721SafeTransfer) == 0:
+		fallthrough
+	case bytes.Compare(methodID, methodIDERC721SafeTransferWithData) == 0:
+		if len(input) < 100 {
+			return
+		}
+
+		from = common.BytesToAddress(scanWord())
+		to = common.BytesToAddress(scanWord())
+		amount.SetBytes(scanWord())
+
+	// Not a matching event; ignore
+	default:
 		return
 	}
 
-	to := common.BytesToAddress(input[4:36])
-	amount := new(big.Int).SetBytes(input[36:68])
+	// Attempt to load metadata, but don't fail if we don't.
+	asset, err := t.tokenMetadataLoader.read(t.env, contract)
+	if err != nil {
+		log.Error("failed to read token metadata", "err", err)
+	}
 
-	// Make token change object
-	tokenchange := &Tokenchanges{
+	// Append a new token change object
+	t.trace.NetBalChanges.Tokens = append(t.trace.NetBalChanges.Tokens, Tokenchanges{
 		From:     from,
 		To:       to,
-		Asset:    amount,
+		Amount:   amount,
 		Contract: contract,
-	}
-
-	t.trace.NetBalChanges.Tokens = append(t.trace.NetBalChanges.Tokens, *tokenchange)
-
+		Asset:    asset,
+	})
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/tests"
 )
 
@@ -28,7 +29,9 @@ type txnOpCodeTracerTest struct {
 }
 
 func TestTxnOpCodeTracer(t *testing.T) {
-	testTxnOpCodeTracer("txnOpCodeTracer", "txnOpCode_tracer", t)
+	log.Root().SetHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
+
+	//testTxnOpCodeTracer("txnOpCodeTracer", "txnOpCode_tracer", t)
 	testTxnOpCodeTracer("txnOpCodeTracer", "txnOpCode_tracer_with_netbalchanges", t)
 }
 
