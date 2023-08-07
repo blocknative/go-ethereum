@@ -16,9 +16,8 @@ type Tracer interface {
 
 // TracerOpts configure the tracer to save or ignore various aspects of a transaction execution.
 type TracerOpts struct {
-	Logs          bool   `json:"logs"`
-	NetBalChanges bool   `json:"netBalChanges"`
-	NBCMethod     string `json:"nbcMethod"`
+	Logs      bool      `json:"logs"`
+	NBCMethod NBCMethod `json:"nbcMethod"`
 }
 
 // Trace contains all the accumulated details of a transaction execution.

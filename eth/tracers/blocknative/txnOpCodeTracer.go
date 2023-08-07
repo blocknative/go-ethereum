@@ -40,17 +40,15 @@ func NewTxnOpCodeTracer(cfg json.RawMessage) (Tracer, error) {
 		}
 	}
 
-	// If we need deeper nested structures initialized, check and do so now
-	if t.opts.NetBalChanges {
-		// First check the given arguments are legal
-		if err := t.checkNBCArgs(); err != nil {
-			return nil, err
-		}
-		t.trace.NetBalChanges = NetBalChanges{
-			Pre:      make(state),
-			Post:     make(state),
-			Balances: make(balances),
-		}
+	// First check the given NBC arguments are legal
+	if err := t.checkNBCArgs(); err != nil {
+		return nil, err
+	}
+	// If we need to track NetBalChanges, initialize the struct
+	if t.opts.NBCMethod != NBCMethodNone {
+		t.trace.NetBalChanges.Pre = make(state)
+		t.trace.NetBalChanges.Post = make(state)
+		t.trace.NetBalChanges.Balances = make(balances)
 	}
 
 	return &t, nil
@@ -82,7 +80,7 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 	t.env = env
 
 	// If we want NetBalChanges, start by tracking the top level addresses
-	if t.opts.NetBalChanges {
+	if t.opts.NBCMethod != NBCMethodNone {
 		t.captureStartNBC(from, to, gas, value)
 	}
 
@@ -115,7 +113,7 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 	}
 
 	// If we want to create NBC from decoded transactions, do the top level one here
-	if t.opts.NetBalChanges && t.opts.NBCMethod == "internalTransactions" {
+	if t.opts.NBCMethod == "internalTransactions" {
 		t.processNBCFromTxn(from, to, input)
 	}
 }
@@ -142,7 +140,7 @@ func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
 	}
 
 	// If we want to collect our net balance changes of tokens via the events, do so now!
-	if t.opts.NetBalChanges && t.opts.NBCMethod == "events" {
+	if t.opts.NBCMethod == "events" {
 		t.captureEventNBC(err)
 	}
 
@@ -174,7 +172,7 @@ func (t *txnOpCodeTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 		}
 	}()
 	// Keep a list of accounts which have had transfer opcodes, or storage slots updated.
-	if t.opts.NetBalChanges {
+	if t.opts.NBCMethod != NBCMethodNone {
 		t.captureStateNBC(op, scope)
 	}
 }
@@ -204,7 +202,7 @@ func (t *txnOpCodeTracer) CaptureEnter(typ vm.OpCode, from common.Address, to co
 	t.callStack = append(t.callStack, call)
 
 	// If we want to create NBC from decoded transactions, do so here!
-	if t.opts.NetBalChanges && t.opts.NBCMethod == "internalTransactions" {
+	if t.opts.NBCMethod == "internalTransactions" {
 		t.processNBCFromTxn(from, to, input)
 	}
 }
@@ -249,7 +247,7 @@ func (t *txnOpCodeTracer) SetStateRoot(root common.Hash) {
 
 func (t *txnOpCodeTracer) CaptureTxEnd(restGas uint64) {
 	// Do any further net balance changes processing required
-	if t.opts.NetBalChanges {
+	if t.opts.NBCMethod != NBCMethodNone {
 		t.collateNBC()
 	}
 }
