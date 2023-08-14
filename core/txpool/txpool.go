@@ -326,6 +326,27 @@ func (p *TxPool) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Subscrip
 	return p.subs.Track(event.JoinSubscriptions(subs...))
 }
 
+// SubscribeDropTxsEvent registers a subscription of core.DropTxsEvent and
+// starts sending event to the given channel.
+func (p *TxPool) SubscribeDropTxsEvent(ch chan<- core.DropTxsEvent) event.Subscription {
+	subs := make([]event.Subscription, len(p.subpools))
+	for i, subpool := range p.subpools {
+		subs[i] = subpool.SubscribeDropTxsEvent(ch)
+	}
+	return p.subs.Track(event.JoinSubscriptions(subs...))
+}
+
+// SubscribeRejectedTxEvent registers a subscription of core.RejectedTxEvent and
+// starts sending event to the given channel.
+func (p *TxPool) SubscribeRejectedTxEvent(ch chan<- core.RejectedTxEvent) event.Subscription {
+	subs := make([]event.Subscription, len(p.subpools))
+	for i, subpool := range p.subpools {
+		subs[i] = subpool.SubscribeRejectedTxEvent(ch)
+	}
+	return p.subs.Track(event.JoinSubscriptions(subs...))
+}
+
+
 // Nonce returns the next nonce of an account, with all transactions executable
 // by the pool already applied on top.
 func (p *TxPool) Nonce(addr common.Address) uint64 {

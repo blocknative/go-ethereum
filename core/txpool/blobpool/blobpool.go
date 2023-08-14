@@ -318,6 +318,8 @@ type BlobPool struct {
 	evict  *evictHeap                       // Heap of cheapest accounts for eviction when full
 
 	eventFeed  event.Feed              // Event feed to send out new tx events on pool inclusion
+	dropTxFeed   event.Feed
+	rejectTxFeed event.Feed
 	eventScope event.SubscriptionScope // Event scope to track and mass unsubscribe on termination
 
 	lock sync.RWMutex // Mutex protecting the pool during reorg handling
@@ -1532,4 +1534,17 @@ func (p *BlobPool) Status(hash common.Hash) txpool.TxStatus {
 		return txpool.TxStatusPending
 	}
 	return txpool.TxStatusUnknown
+}
+
+
+// SubscribeDropTxsEvent registers a subscription of core.DropTxsEvent and
+// starts sending event to the given channel.
+func (pool *BlobPool) SubscribeDropTxsEvent(ch chan<- core.DropTxsEvent) event.Subscription {
+	return pool.eventScope.Track(pool.dropTxFeed.Subscribe(ch))
+}
+
+// SubscribeRejectedTxEvent registers a subscription of core.RejectedTxEvent and
+// starts sending event to the given channel.
+func (pool *BlobPool) SubscribeRejectedTxEvent(ch chan<- core.RejectedTxEvent) event.Subscription {
+	return pool.eventScope.Track(pool.rejectTxFeed.Subscribe(ch))
 }

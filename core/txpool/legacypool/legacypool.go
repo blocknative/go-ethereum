@@ -208,6 +208,8 @@ type LegacyPool struct {
 	chain       BlockChain
 	gasTip      atomic.Pointer[big.Int]
 	txFeed      event.Feed
+	dropTxFeed   event.Feed
+	rejectTxFeed event.Feed
 	scope       event.SubscriptionScope
 	signer      types.Signer
 	mu          sync.RWMutex
@@ -371,6 +373,10 @@ func (pool *LegacyPool) loop() {
 					for _, tx := range list {
 						pool.removeTx(tx.Hash(), true, true)
 					}
+					pool.dropTxFeed.Send(core.DropTxsEvent{
+						Txs:    list,
+						Reason: dropOld,
+					})
 					queuedEvictionMeter.Mark(int64(len(list)))
 				}
 			}
@@ -418,6 +424,19 @@ func (pool *LegacyPool) SubscribeTransactions(ch chan<- core.NewTxsEvent) event.
 	return pool.scope.Track(pool.txFeed.Subscribe(ch))
 }
 
+// SubscribeDropTxsEvent registers a subscription of core.DropTxsEvent and
+// starts sending event to the given channel.
+func (pool *LegacyPool) SubscribeDropTxsEvent(ch chan<- core.DropTxsEvent) event.Subscription {
+	return pool.scope.Track(pool.dropTxFeed.Subscribe(ch))
+}
+
+// SubscribeRejectedTxEvent registers a subscription of core.RejectedTxEvent and
+// starts sending event to the given channel.
+func (pool *LegacyPool) SubscribeRejectedTxEvent(ch chan<- core.RejectedTxEvent) event.Subscription {
+	return pool.scope.Track(pool.rejectTxFeed.Subscribe(ch))
+}
+
+
 // SetGasTip updates the minimum gas tip required by the transaction pool for a
 // new transaction, and drops all transactions below this threshold.
 func (pool *LegacyPool) SetGasTip(tip *big.Int) {
@@ -435,6 +454,10 @@ func (pool *LegacyPool) SetGasTip(tip *big.Int) {
 			pool.removeTx(tx.Hash(), false, true)
 		}
 		pool.priced.Removed(len(drop))
+		pool.dropTxFeed.Send(core.DropTxsEvent{
+			Txs:    drop,
+			Reason: dropGasPriceUpdated,
+		})
 	}
 	log.Info("Legacy pool tip threshold updated", "tip", tip)
 }
@@ -741,6 +764,10 @@ func (pool *LegacyPool) add(tx *types.Transaction, local bool) (replaced bool, e
 			dropped := pool.removeTx(tx.Hash(), false, sender != from) // Don't unreserve the sender of the tx being added if last from the acc
 
 			pool.changesSinceReorg += dropped
+			pool.dropTxFeed.Send(core.DropTxsEvent{
+				Txs:    drop,
+				Reason: dropUnderpriced,
+			})
 		}
 	}
 
@@ -757,6 +784,11 @@ func (pool *LegacyPool) add(tx *types.Transaction, local bool) (replaced bool, e
 			pool.all.Remove(old.Hash())
 			pool.priced.Removed(1)
 			pendingReplaceMeter.Mark(1)
+			pool.dropTxFeed.Send(core.DropTxsEvent{
+				Txs:         []*types.Transaction{old},
+				Reason:      dropReplaced,
+				Replacement: tx,
+			})
 		}
 		pool.all.Add(tx, isLocal)
 		pool.priced.Put(tx, isLocal)
@@ -832,6 +864,10 @@ func (pool *LegacyPool) enqueueTx(hash common.Hash, tx *types.Transaction, local
 		pool.all.Remove(old.Hash())
 		pool.priced.Removed(1)
 		queuedReplaceMeter.Mark(1)
+		pool.dropTxFeed.Send(core.DropTxsEvent{
+			Txs:    []*types.Transaction{old},
+			Reason: dropReplaced,
+		})
 	} else {
 		// Nothing was replaced, bump the queued counter
 		queuedGauge.Inc(1)
@@ -888,6 +924,10 @@ func (pool *LegacyPool) promoteTx(addr common.Address, hash common.Hash, tx *typ
 		pool.all.Remove(old.Hash())
 		pool.priced.Removed(1)
 		pendingReplaceMeter.Mark(1)
+		pool.dropTxFeed.Send(core.DropTxsEvent{
+			Txs:    []*types.Transaction{old},
+			Reason: dropReplaced,
+		})
 	} else {
 		// Nothing was replaced, bump the pending counter
 		pendingGauge.Inc(1)
@@ -993,6 +1033,12 @@ func (pool *LegacyPool) addTxs(txs []*types.Transaction, local, sync bool) []err
 	for _, err := range newErrs {
 		for errs[nilSlot] != nil {
 			nilSlot++
+		}
+		if err != nil {
+			pool.rejectTxFeed.Send(core.RejectedTxEvent{
+				Tx:     txs[nilSlot],
+				Reason: err,
+			})
 		}
 		errs[nilSlot] = err
 		nilSlot++
@@ -1116,6 +1162,10 @@ func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bo
 			pool.pendingNonces.setIfLower(addr, tx.Nonce())
 			// Reduce the pending counter
 			pendingGauge.Dec(int64(1 + len(invalids)))
+			pool.dropTxFeed.Send(core.DropTxsEvent{
+				Txs:    invalids,
+				Reason: dropUnexecutable,
+			})
 			return 1 + len(invalids)
 		}
 	}
@@ -1436,6 +1486,10 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 			pool.all.Remove(hash)
 		}
 		log.Trace("Removed old queued transactions", "count", len(forwards))
+		pool.dropTxFeed.Send(core.DropTxsEvent{
+			Txs:    forwards,
+			Reason: dropLowNonce,
+		})
 		// Drop all transactions that are too costly (low balance or out of gas)
 		drops, _ := list.Filter(pool.currentState.GetBalance(addr), gasLimit)
 		for _, tx := range drops {
@@ -1444,6 +1498,10 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		}
 		log.Trace("Removed unpayable queued transactions", "count", len(drops))
 		queuedNofundsMeter.Mark(int64(len(drops)))
+		pool.dropTxFeed.Send(core.DropTxsEvent{
+			Txs:    drops,
+			Reason: dropUnpayable,
+		})
 
 		// Gather all executable transactions and promote them
 		readies := list.Ready(pool.pendingNonces.get(addr))
@@ -1466,6 +1524,10 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 				log.Trace("Removed cap-exceeding queued transaction", "hash", hash)
 			}
 			queuedRateLimitMeter.Mark(int64(len(caps)))
+			pool.dropTxFeed.Send(core.DropTxsEvent{
+				Txs:    caps,
+				Reason: dropAccountCap,
+			})
 		}
 		// Mark all the items dropped as removed
 		pool.priced.Removed(len(forwards) + len(drops) + len(caps))
@@ -1533,6 +1595,10 @@ func (pool *LegacyPool) truncatePending() {
 						pool.pendingNonces.setIfLower(offenders[i], tx.Nonce())
 						log.Trace("Removed fairness-exceeding pending transaction", "hash", hash)
 					}
+					pool.dropTxFeed.Send(core.DropTxsEvent{
+						Txs:    caps,
+						Reason: dropAccountCap,
+					})
 					pool.priced.Removed(len(caps))
 					pendingGauge.Dec(int64(len(caps)))
 					if pool.locals.contains(offenders[i]) {
@@ -1600,9 +1666,14 @@ func (pool *LegacyPool) truncateQueue() {
 
 		// Drop all transactions if they are less than the overflow
 		if size := uint64(list.Len()); size <= drop {
-			for _, tx := range list.Flatten() {
+			txs := list.Flatten()
+			for _, tx := range txs {
 				pool.removeTx(tx.Hash(), true, true)
 			}
+			pool.dropTxFeed.Send(core.DropTxsEvent{
+				Txs:    txs,
+				Reason: dropTruncating,
+			})
 			drop -= size
 			queuedRateLimitMeter.Mark(int64(size))
 			continue
@@ -1613,6 +1684,10 @@ func (pool *LegacyPool) truncateQueue() {
 			pool.removeTx(txs[i].Hash(), true, true)
 			drop--
 			queuedRateLimitMeter.Mark(1)
+			pool.dropTxFeed.Send(core.DropTxsEvent{
+				Txs:    []*types.Transaction{txs[i]},
+				Reason: dropTruncating,
+			})
 		}
 	}
 }
@@ -1637,6 +1712,10 @@ func (pool *LegacyPool) demoteUnexecutables() {
 			pool.all.Remove(hash)
 			log.Trace("Removed old pending transaction", "hash", hash)
 		}
+		pool.dropTxFeed.Send(core.DropTxsEvent{
+			Txs:    olds,
+			Reason: dropLowNonce,
+		})
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
 		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), gasLimit)
 		for _, tx := range drops {
@@ -1644,6 +1723,11 @@ func (pool *LegacyPool) demoteUnexecutables() {
 			log.Trace("Removed unpayable pending transaction", "hash", hash)
 			pool.all.Remove(hash)
 		}
+		pool.dropTxFeed.Send(core.DropTxsEvent{
+			Txs:    drops,
+			Reason: dropUnpayable,
+		})
+		pool.priced.Removed(len(olds) + len(drops))
 		pendingNofundsMeter.Mark(int64(len(drops)))
 
 		for _, tx := range invalids {
@@ -1938,3 +2022,17 @@ func (t *lookup) RemotesBelowTip(threshold *big.Int) types.Transactions {
 func numSlots(tx *types.Transaction) int {
 	return int((tx.Size() + txSlotSize - 1) / txSlotSize)
 }
+
+
+const (
+	dropUnderpriced = "underpriced-txs"
+	dropLowNonce = "low-nonce-txs"
+	dropUnpayable = "unpayable-txs"
+
+	dropAccountCap = "account-cap-txs" // Accounts exceeding txpool.accountslots transactions
+	dropReplaced = "replaced-txs"
+	dropUnexecutable = "unexecutable-txs"
+	dropTruncating = "truncating-txs"
+	dropOld = "old-txs"
+	dropGasPriceUpdated = "updated-gas-price"
+)
