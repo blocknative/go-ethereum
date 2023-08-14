@@ -99,15 +99,22 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 		// TODO: Here we can note creation of contracts for potential future tracing
 		t.callStack[0].Type = "CREATE"
 	}
+
+	// Start timer
+	t.trace.startTime = time.Now()
 }
 
 // CaptureEnd is called after the call finishes to finalize the tracing.
 func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
+	elapsedTime := time.Now().Sub(t.trace.startTime)
+
 	// Collect final gasUsed
 	t.callStack[0].GasUsed = uintToHex(gasUsed)
 
 	// Add total time duration for this trace request
-	t.trace.Time = fmt.Sprintf("%v", time.Since(t.beginTime))
+	// todo alex: need to find a better place to get time from the evm execution
+	// we can use t.trace.BlockContext.Time and current time to calculate this here!
+	t.trace.Time = fmt.Sprintf("%v", elapsedTime)
 
 	// If the user wants the logs, grab them from the state
 	if t.opts.Logs {

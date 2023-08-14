@@ -136,7 +136,7 @@ type Message struct {
 	Data       []byte
 	AccessList types.AccessList
 
-	// When SkipAccountCheckss is true, the message nonce is not checked against the
+	// When SkipAccountChecks is true, the message nonce is not checked against the
 	// account nonce in state. It also disables checking that the sender is an EOA.
 	// This field will be set to true for operations like RPC eth_call.
 	SkipAccountChecks bool
@@ -329,8 +329,8 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		return nil, err
 	}
 
-	if st.evm.Config.Debug {
-		st.evm.Config.Tracer.CaptureTxStart(st.initialGas)
+	if tracer := st.evm.Config.Tracer; tracer != nil {
+		tracer.CaptureTxStart(st.initialGas)
 
 		// If this tracer implements stateRootSetter then call it now
 		if t, ok := st.evm.Config.Tracer.(stateRootSetter); ok {
@@ -338,7 +338,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		}
 
 		defer func() {
-			st.evm.Config.Tracer.CaptureTxEnd(st.gasRemaining)
+			tracer.CaptureTxEnd(st.gasRemaining)
 		}()
 	}
 
