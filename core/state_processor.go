@@ -18,6 +18,7 @@ package core
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 
