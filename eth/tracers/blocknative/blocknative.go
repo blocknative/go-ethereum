@@ -1,22 +1,26 @@
 package blocknative
 
 import (
+	"encoding/json"
+	"time"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 )
 
 // todo alex: experiment with removing these in favour of common geth usage, and tracer interface which copies this from the tracers lib
-// var Tracers = map[string]func(cfg json.RawMessage) (Tracer, error){
-// 	"txnOpCodeTracer": NewTxnOpCodeTracer,
-// }
+var Tracers = map[string]func(cfg json.RawMessage) (Tracer, error){
+	"txnOpCodeTracer": func(cfg json.RawMessage) (Tracer, error) {
+		return NewTxnOpCodeTracer(cfg)
+	},
+}
 
-// type Tracer interface {
-// 	vm.EVMLogger
-// 	GetResult() (json.RawMessage, error)
-// 	Stop(err error)
-// }
+type Tracer interface {
+	vm.EVMLogger
+	GetResult() (json.RawMessage, error)
+	Stop(err error)
+}
 
-// TracerOpts configure the tracer to save or ignore various aspects of a
-// transaction execution.
+// TracerOpts configure the tracer to save or ignore various aspects of a transaction execution.
 type TracerOpts struct {
 	Logs bool `json:"logs"`
 }
@@ -27,6 +31,7 @@ type Trace struct {
 	BlockContext BlockContext `json:"blockContext"`
 	Logs         []CallLog    `json:"logs,omitempty"`
 	Time         string       `json:"time,omitempty"`
+	startTime    time.Time
 }
 
 // BlockContext contains information about the block we simulate transactions in.
