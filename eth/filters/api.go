@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"sync"
 	"time"
@@ -28,8 +29,14 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/tracers/blocknative"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -144,7 +151,7 @@ func (api *FilterAPI) NewPendingTransactionFilter(fullTx *bool) rpc.ID {
 // NewPendingTransactions creates a subscription that is triggered each time a
 // transaction enters the transaction pool. If fullTx is true the full tx is
 // sent to the client, otherwise the hash is sent.
-func (api *FilterAPI) NewPendingTransactions(ctx context.Context, fullTx *bool) (*rpc.Subscription, error) {
+func (api *FilterAPI) NewPendingTransactions(ctx context.Context, fullTx *bool, simulate *bool) (*rpc.Subscription, error) {
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
 		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
@@ -163,12 +170,28 @@ func (api *FilterAPI) NewPendingTransactions(ctx context.Context, fullTx *bool) 
 				// To keep the original behaviour, send a single tx hash in one notification.
 				// TODO(rjl493456442) Send a batch of tx hashes in one notification
 				latest := api.sys.backend.CurrentHeader()
+
+				gasPool := new(core.GasPool).AddGas(math.MaxUint64)
+				currentState, err := api.sys.chain.State()
+				if err != nil {
+					log.Error("Failed to get latest state", "err", err)
+					return
+				}
+
 				for _, tx := range txs {
-					if fullTx != nil && *fullTx {
+					switch {
+					case simulate != nil && *simulate:
+						tracedTx, err := traceTx(chainConfig, api.sys.chain, currentState, gasPool, tx)
+						if err != nil {
+							log.Error("Failed to trace tx", "err", err, "tx", tx.Hash())
+							continue
+						}
+
+						notifier.Notify(rpcSub.ID, tracedTx)
+					case fullTx != nil && *fullTx:
 						rpcTx := ethapi.NewRPCPendingTransaction(tx, latest, chainConfig)
 						notifier.Notify(rpcSub.ID, rpcTx)
-					} else {
-						notifier.Notify(rpcSub.ID, tx.Hash())
+					default:
 					}
 				}
 			case <-rpcSub.Err():
@@ -218,7 +241,7 @@ func (api *FilterAPI) NewBlockFilter() rpc.ID {
 }
 
 // NewHeads send a notification each time a new (header) block is appended to the chain.
-func (api *FilterAPI) NewHeads(ctx context.Context) (*rpc.Subscription, error) {
+func (api *FilterAPI) NewHeads(ctx context.Context, simulate *bool) (*rpc.Subscription, error) {
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
 		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
@@ -229,11 +252,22 @@ func (api *FilterAPI) NewHeads(ctx context.Context) (*rpc.Subscription, error) {
 	go func() {
 		headers := make(chan *types.Header)
 		headersSub := api.events.SubscribeNewHeads(headers)
+		chainConfig := api.sys.backend.ChainConfig()
 
 		for {
 			select {
 			case h := <-headers:
-				notifier.Notify(rpcSub.ID, h)
+				if simulate != nil && *simulate {
+					block := api.sys.chain.GetBlockByHash(h.Hash())
+					tracedBlock, err := traceBlock(chainConfig, api.sys.chain, block)
+					if err != nil {
+						log.Error("Failed to trace block", "err", err, "block", block.Hash())
+						continue
+					}
+					notifier.Notify(rpcSub.ID, tracedBlock)
+				} else {
+					notifier.Notify(rpcSub.ID, h)
+				}
 			case <-rpcSub.Err():
 				headersSub.Unsubscribe()
 				return
@@ -596,4 +630,59 @@ func decodeTopic(s string) (common.Hash, error) {
 		err = fmt.Errorf("hex has invalid length %d after decoding; expected %d for topic", len(b), common.HashLength)
 	}
 	return common.BytesToHash(b), err
+}
+
+type tracedTx struct {
+	Hash common.Hash `json:"hash"`
+	*blocknative.Trace
+}
+
+type tracedBlock struct {
+	Hash common.Hash `json:"hash"`
+	Txs  []tracedTx  `json:"transactions"`
+}
+
+func traceTx(chainConfig *params.ChainConfig, chain *core.BlockChain, state *state.StateDB, gasPool *core.GasPool, tx *types.Transaction) (tracedTx, error) {
+	latest := chain.CurrentHeader()
+	var usedGas uint64
+	tracer, err := blocknative.NewTxnOpCodeTracer([]byte(`{"nbcMethod": "internalTransactions"}`))
+	if err != nil {
+		return tracedTx{}, err
+	}
+
+	_, err = core.ApplyTransaction(chainConfig, chain, nil, gasPool, state, latest, tx, &usedGas, vm.Config{Tracer: tracer})
+	if err != nil {
+		return tracedTx{}, err
+	}
+
+	trace, err := tracer.GetTrace()
+	if err != nil {
+		return tracedTx{}, err
+	}
+
+	return tracedTx{tx.Hash(), trace}, nil
+}
+
+func traceBlock(chainConfig *params.ChainConfig, chain *core.BlockChain, block *types.Block) (tracedBlock, error) {
+	parent := chain.GetBlockByHash(block.ParentHash())
+	if parent == nil {
+		return tracedBlock{}, errors.New("parent block not found")
+	}
+
+	parentState, err := chain.StateAt(parent.Root())
+	if err != nil {
+		return tracedBlock{}, err
+	}
+
+	gasPool := new(core.GasPool).AddGas(math.MaxUint64)
+	tracedTxs := make([]tracedTx, len(block.Transactions()))
+	for i, tx := range block.Transactions() {
+		tracedTx, err := traceTx(chainConfig, chain, parentState, gasPool, tx)
+		if err != nil {
+			return tracedBlock{}, err
+		}
+		tracedTxs[i] = tracedTx
+	}
+
+	return tracedBlock{block.Hash(), tracedTxs}, nil
 }
