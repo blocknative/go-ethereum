@@ -645,7 +645,9 @@ type tracedBlock struct {
 func traceTx(chainConfig *params.ChainConfig, chain *core.BlockChain, state *state.StateDB, gasPool *core.GasPool, tx *types.Transaction) (tracedTx, error) {
 	latest := chain.CurrentHeader()
 	var usedGas uint64
-	tracer, err := blocknative.NewTxnOpCodeTracer([]byte(`{"nbcMethod": "internalTransactions"}`))
+	tracer, err := blocknative.NewTxnOpCodeTracerWithOpts(blocknative.TracerOpts{
+		NBCMethod: blocknative.NBCMethodInternalTxs,
+	})
 	if err != nil {
 		return tracedTx{}, err
 	}

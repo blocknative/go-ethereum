@@ -32,17 +32,24 @@ type txnOpCodeTracer struct {
 // NewTxnOpCodeTracer returns a new txnOpCodeTracer tracer with the given
 // options applied.
 func NewTxnOpCodeTracer(cfg json.RawMessage) (Tracer, error) {
-	// First callframe contains tx context info and is populated on start and end.
-	var t = txnOpCodeTracer{
-		callStack:           make([]CallFrame, 1),
-		tokenMetadataLoader: newTokenMetadataReader(),
-	}
+	var opts TracerOpts
 
 	// Decode raw json opts into our struct.
 	if cfg != nil {
-		if err := json.Unmarshal(cfg, &t.opts); err != nil {
+		if err := json.Unmarshal(cfg, &opts); err != nil {
 			return nil, err
 		}
+	}
+
+	return NewTxnOpCodeTracerWithOpts(opts)
+}
+
+func NewTxnOpCodeTracerWithOpts(opts TracerOpts) (Tracer, error) {
+	// First callframe contains tx context info and is populated on start and end.
+	var t = txnOpCodeTracer{
+		opts:                opts,
+		callStack:           make([]CallFrame, 1),
+		tokenMetadataLoader: newTokenMetadataReader(),
 	}
 
 	// First check the given NBC arguments are legal
