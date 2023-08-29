@@ -60,23 +60,25 @@ func NewTxnOpCodeTracer(cfg json.RawMessage) (Tracer, error) {
 
 }
 
-// GetResult returns an empty json object.
-func (t *txnOpCodeTracer) GetResult() (json.RawMessage, error) {
-	// This block used to trip on subtraces being discovered, for this tracer we do not need this,
-	// however we would like to keep this here in a possible future where we do care about such cases.
-
-	// if len(t.callStack) != 1 {
-	// 	return nil, errors.New("incorrect number of top-level calls")
-	// }
-
+// GetTrace returns the resulting Trace object.
+func (t *txnOpCodeTracer) GetTrace() (*Trace, error) {
 	// Only want the top level trace, all other indexes hold subtraces to which we do not particularly need
 	t.trace.CallFrame = t.callStack[0]
+	return &t.trace, nil
+}
 
-	res, err := json.Marshal(t.trace)
+// GetResult returns an empty json object.
+func (t *txnOpCodeTracer) GetResult() (json.RawMessage, error) {
+	trace, err := t.GetTrace()
 	if err != nil {
 		return nil, err
 	}
-	return json.RawMessage(res), t.reason
+
+	res, err := json.Marshal(trace)
+	if err != nil {
+		return nil, err
+	}
+	return res, t.reason
 }
 
 // CaptureStart implements the EVMLogger interface to initialize the tracing operation.
