@@ -316,7 +316,7 @@ func (api *FilterAPI) NewHeadsWithPeers(ctx context.Context) (*rpc.Subscription,
 // NewFullBlocksWithPeers send a notification each time a new full block plus
 // transactions and receipts is appended to the chain, and includes the peer
 // that first provided the block
-func (api *FilterAPI) NewFullBlocksWithPeers(ctx context.Context) (*rpc.Subscription, error) {
+func (api *FilterAPI) NewFullBlocksWithPeers(ctx context.Context, simulate *bool) (*rpc.Subscription, error) {
 	if blockPeerMap == nil { blockPeerMap, _ = lru.New(250) }
 	if peerIDMap == nil { peerIDMap = &sync.Map{} }
 	if tsMap == nil { tsMap, _ = lru.New(100000) }
@@ -334,6 +334,7 @@ func (api *FilterAPI) NewFullBlocksWithPeers(ctx context.Context) (*rpc.Subscrip
 		reorgSub := core.SubscribeReorgs(reorgs)
 		defer headersSub.Unsubscribe()
 		defer reorgSub.Unsubscribe()
+		chainConfig := api.sys.backend.ChainConfig()
 
 		for {
 			var hashes []common.Hash
@@ -358,44 +359,58 @@ func (api *FilterAPI) NewFullBlocksWithPeers(ctx context.Context) (*rpc.Subscrip
 				peerid, _ := blockPeerMap.Get(hash)
 
 				block, err := api.sys.backend.BlockByHash(ctx, hash)
-				if err != nil { continue }
-				marshalBlock, err := RPCMarshalBlock(block, true, true, api.sys.backend.ChainConfig())
-				if err != nil { continue }
-
-				marshalReceipts := make(map[common.Hash]map[string]interface{})
-				receipts, err := api.sys.backend.GetReceipts(ctx, hash)
 				if err != nil {
 					continue
 				}
-				for index, receipt := range receipts {
-					fields := map[string]interface{}{
-						"transactionIndex":  hexutil.Uint64(index),
-						"gasUsed":           hexutil.Uint64(receipt.GasUsed),
-						"cumulativeGasUsed": hexutil.Uint64(receipt.CumulativeGasUsed),
-						"contractAddress":   nil,
-						"logs":              receipt.Logs,
-						"logsBloom":         receipt.Bloom,
-						"status":            hexutil.Uint64(receipt.Status),
-					}
-					if receipt.Logs == nil {
-						fields["logs"] = [][]*types.Log{}
-					}
-					// If the ContractAddress is 20 0x0 bytes, assume it is not a contract creation
-					if receipt.ContractAddress != (common.Address{}) {
-						fields["contractAddress"] = receipt.ContractAddress
-					}
-					if reason, ok := core.GetRevertReason(receipt.TxHash, hash); ok {
-						fields["revertReason"] = reason
-					}
-					marshalReceipts[receipt.TxHash] = fields
-				}
-				marshalBlock["receipts"] = marshalReceipts
 
+				var blockValue interface{}
+				if simulate != nil && *simulate {
+					blockValue, err = traceBlock(chainConfig, api.sys.chain, block)
+					if err != nil {
+						log.Error("Failed to trace block", "err", err, "block", block.Hash())
+						continue
+					}
+				} else {
+					marshalBlock, err := RPCMarshalBlock(block, true, true, api.sys.backend.ChainConfig())
+					if err != nil {
+						continue
+					}
+
+					marshalReceipts := make(map[common.Hash]map[string]interface{})
+					receipts, err := api.sys.backend.GetReceipts(ctx, hash)
+					if err != nil {
+						continue
+					}
+					for index, receipt := range receipts {
+						fields := map[string]interface{}{
+							"transactionIndex":  hexutil.Uint64(index),
+							"gasUsed":           hexutil.Uint64(receipt.GasUsed),
+							"cumulativeGasUsed": hexutil.Uint64(receipt.CumulativeGasUsed),
+							"contractAddress":   nil,
+							"logs":              receipt.Logs,
+							"logsBloom":         receipt.Bloom,
+							"status":            hexutil.Uint64(receipt.Status),
+						}
+						if receipt.Logs == nil {
+							fields["logs"] = [][]*types.Log{}
+						}
+						// If the ContractAddress is 20 0x0 bytes, assume it is not a contract creation
+						if receipt.ContractAddress != (common.Address{}) {
+							fields["contractAddress"] = receipt.ContractAddress
+						}
+						if reason, ok := core.GetRevertReason(receipt.TxHash, hash); ok {
+							fields["revertReason"] = reason
+						}
+						marshalReceipts[receipt.TxHash] = fields
+					}
+					marshalBlock["receipts"] = marshalReceipts
+					blockValue = marshalBlock
+				}
 
 				p2pts, _ := tsMap.Get(hash)
 				peer, _ := peerIDMap.Load(peerid)
 				log.Debug("NewFullBlocksWithPeers", "hash", hash, "peer", peerid, "peer", peer)
-				notifier.Notify(rpcSub.ID, withPeer{Value: marshalBlock, Peer: peer, Time: time.Now().UnixNano(), P2PTime: p2pts} )
+				notifier.Notify(rpcSub.ID, withPeer{Value: blockValue, Peer: peer, Time: time.Now().UnixNano(), P2PTime: p2pts})
 			}
 		}
 	}()
@@ -406,7 +421,7 @@ func (api *FilterAPI) NewFullBlocksWithPeers(ctx context.Context) (*rpc.Subscrip
 // NewPendingTransactionsWithPeers creates a subscription that is triggered
 // each time a transaction enters the transaction pool, and includes the peer
 // that first provided the transaction
-func (api *FilterAPI) NewPendingTransactionsWithPeers(ctx context.Context) (*rpc.Subscription, error) {
+func (api *FilterAPI) NewPendingTransactionsWithPeers(ctx context.Context, simulate *bool) (*rpc.Subscription, error) {
 	if txPeerMap == nil { txPeerMap, _ = lru.New(100000) }
 	if peerIDMap == nil { peerIDMap = &sync.Map{} }
 	if tsMap == nil { tsMap, _ = lru.New(100000) }
@@ -420,16 +435,37 @@ func (api *FilterAPI) NewPendingTransactionsWithPeers(ctx context.Context) (*rpc
 	go func() {
 		txsCh := make(chan []*types.Transaction, 128)
 		pendingTxSub := api.events.SubscribePendingTxs(txsCh)
+		chainConfig := api.sys.backend.ChainConfig()
 
 		for {
 			select {
 			case txs := <-txsCh:
+				gasPool := new(core.GasPool).AddGas(math.MaxUint64)
+				currentState, err := api.sys.chain.State()
+				if err != nil {
+					log.Error("Failed to get latest state", "err", err)
+					return
+				}
+
 				for _, tx := range txs {
 					h := tx.Hash()
 					peerid, _ := txPeerMap.Get(h)
 					p2pts, _ := tsMap.Get(h)
 					peer, _ := peerIDMap.Load(peerid)
-					notifier.Notify(rpcSub.ID, withPeer{Value: newRPCPendingTransaction(api.sys.backend.GetPoolTransaction(h)), Peer: peer, Time: time.Now().UnixNano(), P2PTime: p2pts})
+
+					var txValue interface{}
+					if simulate != nil && *simulate {
+						var err error
+						txValue, err = traceTx(chainConfig, api.sys.chain, currentState, gasPool, tx)
+						if err != nil {
+							log.Error("Failed to trace tx", "err", err, "tx", tx.Hash())
+							continue
+						}
+					} else {
+						txValue = newRPCPendingTransaction(api.sys.backend.GetPoolTransaction(h))
+					}
+
+					notifier.Notify(rpcSub.ID, withPeer{Value: txValue, Peer: peer, Time: time.Now().UnixNano(), P2PTime: p2pts})
 				}
 			case <-rpcSub.Err():
 				pendingTxSub.Unsubscribe()
