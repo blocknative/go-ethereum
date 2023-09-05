@@ -89,7 +89,7 @@ type BalanceChange struct {
 }
 
 type Asset struct {
-	Address common.Address `json:"address"`
+	Address common.Address `json:"contractAddress"`
 	Type    accountType    `json:"type"`
 	TokenMetadata
 }
