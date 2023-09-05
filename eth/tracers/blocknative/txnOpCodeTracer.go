@@ -20,13 +20,15 @@ var metadataReader = newContractMetadataReader()
 // op codes and relevant gas data.
 // This is intended for Blocknative usage.
 type txnOpCodeTracer struct {
-	env            *vm.EVM     // EVM context for execution of transaction to occur within
-	trace          Trace       // Accumulated execution data the caller is interested in
-	callStack      []CallFrame // Data structure for op codes making up our trace
-	interrupt      uint32      // Atomic flag to signal execution interruption
-	reason         error       // Textual reason for the interruption (not always specific for us)
-	opts           TracerOpts
-	startTime      time.Time
+	env       *vm.EVM     // EVM context for execution of transaction to occur within
+	trace     Trace       // Accumulated execution data the caller is interested in
+	callStack []CallFrame // Data structure for op codes making up our trace
+	interrupt uint32      // Atomic flag to signal execution interruption
+	reason    error       // Textual reason for the interruption (not always specific for us)
+	opts      TracerOpts
+	startTime time.Time
+
+	balanceTracker *balanceTracker
 	metadataReader *contractMetadataReader
 }
 
@@ -53,24 +55,18 @@ func NewTxnOpCodeTracerWithOpts(opts TracerOpts) (Tracer, error) {
 		metadataReader: metadataReader,
 	}
 
-	// First check the given NBC arguments are legal
-	if err := t.checkNBCArgs(); err != nil {
-		return nil, err
-	}
-	// If we need to track NetBalChanges, initialize the struct
-	if t.opts.NBCMethod != NBCMethodNone {
-		t.trace.NetBalChanges.Pre = make(state)
-		t.trace.NetBalChanges.Post = make(state)
-		t.trace.NetBalChanges.Balances = make(balances)
-	}
-
 	return &t, nil
 
 }
 
 // GetTrace returns the resulting Trace object.
 func (t *txnOpCodeTracer) GetTrace() (*Trace, error) {
-	// Only want the top level trace, all other indexes hold subtraces to which we do not particularly need
+	// Get the final balance changes
+	if t.opts.BalanceChanges {
+		t.trace.BalanceChanges = t.balanceTracker.formatNetBalanceChanges()
+	}
+
+	// Only want the top level trace, all other indexes hold sub-traces to which we do not particularly need
 	t.trace.CallFrame = t.callStack[0]
 	return &t.trace, nil
 }
@@ -93,11 +89,6 @@ func (t *txnOpCodeTracer) GetResult() (json.RawMessage, error) {
 func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 	t.startTime = time.Now()
 	t.env = env
-
-	// If we want NetBalChanges, start by tracking the top level addresses
-	if t.opts.NBCMethod != NBCMethodNone {
-		t.captureStartNBC(from, to, gas, value)
-	}
 
 	// Blocks only contain `Random` post-merge, but we still have pre-merge tests.
 	random := ""
@@ -127,9 +118,15 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 		t.callStack[0].Type = "CREATE"
 	}
 
-	// If we want to create NBC from decoded transactions, do the top level one here
-	if t.opts.NBCMethod == NBCMethodInternalTxs {
-		t.processNBCFromCall(from, to, input)
+	// If we want balance changes then create a tracker and handle the
+	// top-level call.
+	if t.opts.BalanceChanges {
+		assetGetterFn := func(addr common.Address) (*Asset, error) {
+			return t.metadataReader.read(t.env, addr)
+		}
+
+		t.balanceTracker = newBalanceChangeTracker(t.env.StateDB, assetGetterFn)
+		t.balanceTracker.captureCall(from, to, value, input)
 	}
 }
 
@@ -154,11 +151,6 @@ func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
 		}
 	}
 
-	// If we want to collect our net balance changes of tokens via the events, do so now!
-	if t.opts.NBCMethod == "events" {
-		t.captureEventNBC(err)
-	}
-
 	// This is the final output of a call
 	if err != nil {
 		t.callStack[0].Error = err.Error()
@@ -167,7 +159,7 @@ func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
 
 			// This revert reason is found via the standard introduced in v0.8.4
 			// It uses a ABI with the method Error(string)
-			// This is the top level call, internal txns may fail while top level succeeds still
+			// This is the top level call, internal txs may fail while top level succeeds still
 			revertReason, _ := abi.UnpackRevert(output)
 			t.callStack[0].ErrorReason = revertReason
 		}
@@ -179,22 +171,17 @@ func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
 }
 
 // CaptureState implements the EVMLogger interface to trace a single step of VM execution.
-func (t *txnOpCodeTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
+func (t *txnOpCodeTracer) CaptureState(_ uint64, _ vm.OpCode, _, _ uint64, _ *vm.ScopeContext, _ []byte, depth int, _ error) {
 	defer func() {
 		if r := recover(); r != nil {
 			t.callStack[depth].Error = "internal failure"
 			log.Warn("Panic during trace. Recovered.", "err", r)
 		}
 	}()
-	// Keep a list of accounts which have had transfer opcodes, or storage slots updated.
-	if t.opts.NBCMethod != NBCMethodNone {
-		t.captureStateNBC(op, scope)
-	}
 }
 
 // CaptureFault implements the EVMLogger interface to trace an execution fault.
-func (t *txnOpCodeTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, _ *vm.ScopeContext, depth int, err error) {
-	// The err here is generated by geth, not by contract error logging
+func (t *txnOpCodeTracer) CaptureFault(_ uint64, _ vm.OpCode, _, _ uint64, _ *vm.ScopeContext, _ int, _ error) {
 }
 
 // CaptureEnter is called when EVM enters a new scope (via call, create or selfdestruct).
@@ -217,8 +204,8 @@ func (t *txnOpCodeTracer) CaptureEnter(typ vm.OpCode, from common.Address, to co
 	t.callStack = append(t.callStack, call)
 
 	// If we want to create NBC from decoded transactions, do so here
-	if t.opts.NBCMethod == NBCMethodInternalTxs {
-		t.processNBCFromCall(from, to, input)
+	if t.opts.BalanceChanges {
+		t.balanceTracker.captureCall(from, to, value, input)
 	}
 }
 
@@ -251,24 +238,19 @@ func (t *txnOpCodeTracer) CaptureExit(output []byte, gasUsed uint64, err error) 
 	t.callStack[size-1].Calls = append(t.callStack[size-1].Calls, call)
 }
 
-func (t *txnOpCodeTracer) CaptureTxStart(gasLimit uint64) {
-	t.trace.NetBalChanges.InitialGas = gasLimit
-}
+// CaptureTxStart fulfils the standard Tracer interface, but we don't use it.
+func (t *txnOpCodeTracer) CaptureTxStart(_ uint64) {}
 
-// SetStateRoot implements core.stateRootSetter and stores the given root in the trace's BlockContext.
-func (t *txnOpCodeTracer) SetStateRoot(root common.Hash) {
-	t.trace.BlockContext.StateRoot = bytesToHex(root.Bytes())
-}
-
-func (t *txnOpCodeTracer) CaptureTxEnd(restGas uint64) {
-	// Do any further net balance changes processing required
-	if t.opts.NBCMethod != NBCMethodNone {
-		t.collateNBC()
-	}
-}
+// CaptureTxEnd fulfils the standard Tracer interface, but we don't use it.
+func (t *txnOpCodeTracer) CaptureTxEnd(_ uint64) {}
 
 // Stop terminates execution of the tracer at the first opportune moment.
 func (t *txnOpCodeTracer) Stop(err error) {
 	t.reason = err
 	atomic.StoreUint32(&t.interrupt, 1)
+}
+
+// SetStateRoot implements core.stateRootSetter and stores the given root in the trace's BlockContext.
+func (t *txnOpCodeTracer) SetStateRoot(root common.Hash) {
+	t.trace.BlockContext.StateRoot = bytesToHex(root.Bytes())
 }

@@ -16,8 +16,19 @@ const (
 )
 
 var (
-	abiStringType   abi.Type
-	abiMetadataArgs abi.Arguments
+	abiStringType       abi.Type
+	abiSingleStringArgs abi.Arguments
+
+	ethAddress = common.Address{}
+	ethAsset   = &Asset{
+		Address: ethAddress,
+		Type:    assetTypeNative,
+		TokenMetadata: TokenMetadata{
+			Name:     "Ether",
+			Symbol:   "ETH",
+			Decimals: 18,
+		},
+	}
 )
 
 func init() {
@@ -27,7 +38,7 @@ func init() {
 		log.Error("failed to create abi string type", "err", err)
 	}
 
-	abiMetadataArgs = abi.Arguments{abi.Argument{Type: abiStringType, Name: "name"}}
+	abiSingleStringArgs = abi.Arguments{abi.Argument{Type: abiStringType, Name: "name"}}
 }
 
 type contractMetadataReader struct {
@@ -40,7 +51,11 @@ func newContractMetadataReader() *contractMetadataReader {
 	}
 }
 func (l *contractMetadataReader) read(evm *vm.EVM, contract common.Address) (*Asset, error) {
-	// Check the cache first.
+	if contract == ethAddress {
+		return ethAsset, nil
+	}
+
+	// Check the cache for an existing entry.
 	if asset, ok := l.cache.Get(contract); ok {
 		return asset, nil
 	}
@@ -58,25 +73,20 @@ func (l *contractMetadataReader) read(evm *vm.EVM, contract common.Address) (*As
 func (l *contractMetadataReader) readFromEVM(evm *vm.EVM, contract common.Address) (*Asset, error) {
 	asset := &Asset{
 		Address: contract,
-		Type:    findAccountType(evm.StateDB, contract),
+		Type:    findAssetType(evm.StateDB, contract),
 	}
 
 	var err error
 	switch asset.Type {
-	case accountTypeERC20:
+	case assetTypeERC20:
 		asset.TokenMetadata, err = l.readERC20Metadata(evm, contract)
 		if err != nil {
-			return nil, err
+			return asset, err
 		}
-	case accountTypeERC721:
+	case assetTypeERC721:
 		asset.TokenMetadata, err = l.readERC721Metadata(evm, contract)
 		if err != nil {
-			return nil, err
-		}
-	default:
-		asset.TokenMetadata, err = l.readERC20Metadata(evm, contract)
-		if err != nil {
-			return nil, err
+			return asset, err
 		}
 	}
 
@@ -129,7 +139,7 @@ func (l *contractMetadataReader) readMetadataString(evm *vm.EVM, contract common
 	}
 
 	// Parse into a string.
-	stringInterface, err := abiMetadataArgs.Unpack(stringBytes)
+	stringInterface, err := abiSingleStringArgs.Unpack(stringBytes)
 	if err != nil {
 		return "", err
 	}
@@ -166,21 +176,21 @@ func callEVMMethod(evm *vm.EVM, contract common.Address, method []byte) ([]byte,
 	return ret, nil
 }
 
-// findAccountType attempts to determine the type of contract by looking at
+// findAssetType attempts to determine the type of contract by looking at
 // the contract's bytecode.
-func findAccountType(state vm.StateDB, account common.Address) accountType {
+func findAssetType(state vm.StateDB, account common.Address) AssetType {
 	bytecode := state.GetCode(account)
 
 	switch {
 	case bytecode == nil:
-		return accountTypeEOA
+		return assetTypeUnknown
 	case codeContainsAllERC20Methods(bytecode):
-		return accountTypeERC20
+		return assetTypeERC20
 	case codeContainsAllERC721Methods(bytecode):
-		return accountTypeERC721
+		return assetTypeERC721
 	}
 
-	return accountTypeUnknown
+	return assetTypeUnknown
 }
 
 // bytesContainAll returns true if all given byte slices are found in the
