@@ -38,7 +38,7 @@ func (t *txnOpCodeTracer) checkNBCArgs() error {
 // LookupAccount fetches details of an account and adds it to the prestate
 // if it doesn't exist there.
 func (t *txnOpCodeTracer) lookupAccount(addr common.Address) {
-	if _, ok := t.trace.NetBalChanges.Pre[addr]; ok {
+	if _, ok := t.netBalChanges.Pre[addr]; ok {
 		return
 	}
 	var storage map[common.Hash]common.Hash
@@ -49,7 +49,7 @@ func (t *txnOpCodeTracer) lookupAccount(addr common.Address) {
 		storage = nil
 	}
 
-	t.trace.NetBalChanges.Pre[addr] = &account{
+	t.netBalChanges.Pre[addr] = &account{
 		Balance: t.env.StateDB.GetBalance(addr),
 		Storage: storage,
 	}
@@ -59,10 +59,10 @@ func (t *txnOpCodeTracer) lookupAccount(addr common.Address) {
 // it to the prestate of the given contract. It assumes `lookupAccount`
 // has been performed on the contract before.
 func (t *txnOpCodeTracer) lookupStorage(addr common.Address, key common.Hash) {
-	if _, ok := t.trace.NetBalChanges.Pre[addr].Storage[key]; ok {
+	if _, ok := t.netBalChanges.Pre[addr].Storage[key]; ok {
 		return
 	}
-	t.trace.NetBalChanges.Pre[addr].Storage[key] = t.env.StateDB.GetState(addr, key)
+	t.netBalChanges.Pre[addr].Storage[key] = t.env.StateDB.GetState(addr, key)
 }
 
 // Here we capture data for the top level calls
@@ -74,18 +74,18 @@ func (t *txnOpCodeTracer) captureStartNBC(from common.Address, to common.Address
 
 	// Update the to address
 	// The recipient balance includes the value transferred.
-	toBal := new(big.Int).Sub(t.trace.NetBalChanges.Pre[to].Balance, value)
-	t.trace.NetBalChanges.Pre[to].Balance = toBal
+	toBal := new(big.Int).Sub(t.netBalChanges.Pre[to].Balance, value)
+	t.netBalChanges.Pre[to].Balance = toBal
 
 	// Collect the gas usage
 	// We need to re-add them to get the pre-tx balance.
 	gasPrice := t.env.TxContext.GasPrice
-	consumedGas := new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(t.trace.NetBalChanges.InitialGas))
+	consumedGas := new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(t.netBalChanges.InitialGas))
 
 	// Update the from address
-	fromBal := new(big.Int).Set(t.trace.NetBalChanges.Pre[from].Balance)
+	fromBal := new(big.Int).Set(t.netBalChanges.Pre[from].Balance)
 	fromBal.Add(fromBal, new(big.Int).Add(value, consumedGas))
-	t.trace.NetBalChanges.Pre[from].Balance = fromBal
+	t.netBalChanges.Pre[from].Balance = fromBal
 }
 
 func (t *txnOpCodeTracer) captureStateNBC(op vm.OpCode, scope *vm.ScopeContext) {
@@ -148,7 +148,7 @@ func (t *txnOpCodeTracer) captureEventNBC(err error) {
 				continue
 			}
 
-			t.trace.NetBalChanges.Tokens = append(t.trace.NetBalChanges.Tokens, *tokenchange)
+			t.netBalChanges.Tokens = append(t.netBalChanges.Tokens, *tokenchange)
 		default:
 			// We pass over this event hex signature!
 		}
@@ -158,13 +158,13 @@ func (t *txnOpCodeTracer) captureEventNBC(err error) {
 func (t *txnOpCodeTracer) collateNBC() {
 	// Iterate through the collected accounts touched by the transaction execution
 	// Create a post account if something useful was modified
-	for addr, state := range t.trace.NetBalChanges.Pre {
+	for addr, state := range t.netBalChanges.Pre {
 		var postAccount *account
 		modified := false
 
 		// Check if Eth balance has changed
 		newBalance := t.env.StateDB.GetBalance(addr)
-		if newBalance.Cmp(t.trace.NetBalChanges.Pre[addr].Balance) != 0 {
+		if newBalance.Cmp(t.netBalChanges.Pre[addr].Balance) != 0 {
 			modified = true
 		}
 
@@ -177,9 +177,9 @@ func (t *txnOpCodeTracer) collateNBC() {
 
 		// Only add this if we see something useful was modified
 		if modified {
-			t.trace.NetBalChanges.Post[addr] = postAccount
+			t.netBalChanges.Post[addr] = postAccount
 		} else {
-			delete(t.trace.NetBalChanges.Pre, addr)
+			delete(t.netBalChanges.Pre, addr)
 		}
 	}
 
@@ -187,7 +187,7 @@ func (t *txnOpCodeTracer) collateNBC() {
 	// TODO(TS): Cleanup/use real algorithm
 	// Map of Account address -> [Map of token address -> Aggregated change]
 	accountTokenChanges := map[common.Address]map[common.Address]BalanceChange{}
-	for _, token := range t.trace.NetBalChanges.Tokens {
+	for _, token := range t.netBalChanges.Tokens {
 		if _, ok := accountTokenChanges[token.From]; !ok {
 			accountTokenChanges[token.From] = map[common.Address]BalanceChange{}
 		}
@@ -235,17 +235,19 @@ func (t *txnOpCodeTracer) collateNBC() {
 		for _, change := range changes {
 			abc.BalanceChanges = append(abc.BalanceChanges, change)
 		}
-		t.trace.NetBalChanges.BalanceChanges = append(t.trace.NetBalChanges.BalanceChanges, abc)
+		t.netBalChanges.BalanceChanges = append(t.netBalChanges.BalanceChanges, abc)
 	}
 
 	// Go through the modified accounts and build the net balance changes for ETH
 	t.processPostAccountEth()
+
+	t.trace.NetBalanceChanges = t.netBalChanges.BalanceChanges
 }
 
 func (t *txnOpCodeTracer) processPostAccountEth() {
-	for addr, state := range t.trace.NetBalChanges.Post {
+	for addr, state := range t.netBalChanges.Post {
 		// Add the balance and storage separately, as one may not be changed but another is.
-		preState, preExists := t.trace.NetBalChanges.Pre[addr]
+		preState, preExists := t.netBalChanges.Pre[addr]
 
 		// If the post bal exists, add it to the diff
 		var weiAmount *big.Int
@@ -259,7 +261,7 @@ func (t *txnOpCodeTracer) processPostAccountEth() {
 			Eth:      etherAmount,
 			EthInWei: weiAmount,
 		}
-		t.trace.NetBalChanges.Balances[addr] = diff
+		t.netBalChanges.Balances[addr] = diff
 	}
 }
 
@@ -270,12 +272,12 @@ func (t *txnOpCodeTracer) processPostAccountStorage(newBalance *big.Int, addr co
 	for key, val := range state.Storage {
 		// Don't include the empty slot
 		if val == (common.Hash{}) {
-			delete(t.trace.NetBalChanges.Pre[addr].Storage, key)
+			delete(t.netBalChanges.Pre[addr].Storage, key)
 		}
 		newVal := t.env.StateDB.GetState(addr, key)
 		if val == newVal {
 			// Omit unchanged slots
-			delete(t.trace.NetBalChanges.Pre[addr].Storage, key)
+			delete(t.netBalChanges.Pre[addr].Storage, key)
 		} else {
 			modified = true
 			if newVal != (common.Hash{}) {
@@ -348,7 +350,7 @@ func (t *txnOpCodeTracer) processNBCFromCall(sender common.Address, contract com
 	}
 
 	// Append a new token change object
-	t.trace.NetBalChanges.Tokens = append(t.trace.NetBalChanges.Tokens, Tokenchanges{
+	t.netBalChanges.Tokens = append(t.netBalChanges.Tokens, Tokenchanges{
 		From:     from,
 		To:       to,
 		Amount:   amount,

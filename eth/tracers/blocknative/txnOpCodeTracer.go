@@ -27,6 +27,7 @@ type txnOpCodeTracer struct {
 	reason         error       // Textual reason for the interruption (not always specific for us)
 	opts           TracerOpts
 	startTime      time.Time
+	netBalChanges  NetBalChanges
 	metadataReader *contractMetadataReader
 }
 
@@ -59,9 +60,9 @@ func NewTxnOpCodeTracerWithOpts(opts TracerOpts) (Tracer, error) {
 	}
 	// If we need to track NetBalChanges, initialize the struct
 	if t.opts.NBCMethod != NBCMethodNone {
-		t.trace.NetBalChanges.Pre = make(state)
-		t.trace.NetBalChanges.Post = make(state)
-		t.trace.NetBalChanges.Balances = make(balances)
+		t.netBalChanges.Pre = make(state)
+		t.netBalChanges.Post = make(state)
+		t.netBalChanges.Balances = make(balances)
 	}
 
 	return &t, nil
@@ -252,7 +253,7 @@ func (t *txnOpCodeTracer) CaptureExit(output []byte, gasUsed uint64, err error) 
 }
 
 func (t *txnOpCodeTracer) CaptureTxStart(gasLimit uint64) {
-	t.trace.NetBalChanges.InitialGas = gasLimit
+	t.netBalChanges.InitialGas = gasLimit
 }
 
 // SetStateRoot implements core.stateRootSetter and stores the given root in the trace's BlockContext.
