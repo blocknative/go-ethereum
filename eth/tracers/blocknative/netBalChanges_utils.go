@@ -143,7 +143,7 @@ func (t *txnOpCodeTracer) captureEventNBC(err error) {
 				Contract: log.Address,
 			}
 
-			tokenchange.Asset, err = t.tokenMetadataLoader.read(t.env, log.Address)
+			tokenchange.Asset, err = t.metadataReader.read(t.env, log.Address)
 			if err != nil {
 				continue
 			}
@@ -196,7 +196,7 @@ func (t *txnOpCodeTracer) collateNBC() {
 		}
 
 		if _, ok := accountTokenChanges[token.From][token.Contract]; !ok {
-			asset, err := t.tokenMetadataLoader.read(t.env, token.Contract)
+			asset, err := t.metadataReader.read(t.env, token.Contract)
 			if err != nil {
 				//panic(err)
 			}
@@ -206,7 +206,7 @@ func (t *txnOpCodeTracer) collateNBC() {
 			}
 		}
 		if _, ok := accountTokenChanges[token.To][token.Contract]; !ok {
-			asset, err := t.tokenMetadataLoader.read(t.env, token.Contract)
+			asset, err := t.metadataReader.read(t.env, token.Contract)
 			if err != nil {
 				//panic(err)
 			}
@@ -342,7 +342,7 @@ func (t *txnOpCodeTracer) processNBCFromCall(sender common.Address, contract com
 	}
 
 	// Attempt to load metadata, but don't fail if we don't.
-	asset, err := t.tokenMetadataLoader.read(t.env, contract)
+	asset, err := t.metadataReader.read(t.env, contract)
 	if err != nil {
 		log.Error("failed to read token metadata", "err", err)
 	}

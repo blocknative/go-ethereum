@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-var metadataReader = newTokenMetadataReader()
+var metadataReader = newContractMetadataReader()
 
 // txnOpCodeTracer is a go implementation of the Tracer interface which
 // only returns a restricted trace of a transaction consisting of transaction
@@ -28,7 +28,7 @@ type txnOpCodeTracer struct {
 	opts      TracerOpts
 	beginTime time.Time // Time object for start of trace for stats
 
-	tokenMetadataLoader *tokenMetadataReader
+	metadataReader *contractMetadataReader
 }
 
 // NewTxnOpCodeTracer returns a new txnOpCodeTracer tracer with the given
@@ -49,9 +49,9 @@ func NewTxnOpCodeTracer(cfg json.RawMessage) (Tracer, error) {
 func NewTxnOpCodeTracerWithOpts(opts TracerOpts) (Tracer, error) {
 	// First callframe contains tx context info and is populated on start and end.
 	var t = txnOpCodeTracer{
-		opts:                opts,
-		callStack:           make([]CallFrame, 1),
-		tokenMetadataLoader: metadataReader,
+		opts:           opts,
+		callStack:      make([]CallFrame, 1),
+		metadataReader: metadataReader,
 	}
 
 	// First check the given NBC arguments are legal
