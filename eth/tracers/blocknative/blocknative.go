@@ -27,7 +27,7 @@ type Trace struct {
 	BlockContext  BlockContext  `json:"blockContext"`
 	Logs          []CallLog     `json:"logs,omitempty"`
 	Time          string        `json:"time,omitempty"`
-	NetBalChanges NetBalChanges `json:"netBalChanges,omitempty"`
+	NetBalChanges NetBalChanges `json:"netBalanceChanges,omitempty"`
 }
 
 // BlockContext contains information about the block we simulate transactions in.
