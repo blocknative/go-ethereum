@@ -102,6 +102,23 @@ type TokenMetadata struct {
 
 type accountType int
 
+func (t accountType) String() string {
+	switch t {
+	case accountTypeEOA:
+		return "eoa"
+	case accountTypeERC20:
+		return "erc20"
+	case accountTypeERC721:
+		return "erc721"
+	default:
+		return "unknown"
+	}
+}
+
+func (t accountType) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.String())
+}
+
 const (
 	accountTypeUnknown accountType = iota
 	accountTypeEOA
