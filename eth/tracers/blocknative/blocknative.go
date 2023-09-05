@@ -90,7 +90,7 @@ type BalanceChange struct {
 
 type Asset struct {
 	Address common.Address `json:"contractAddress"`
-	Type    accountType    `json:"type"`
+	Type    accountType    `json:"type,omitempty"`
 	TokenMetadata
 }
 
@@ -111,7 +111,7 @@ func (t accountType) String() string {
 	case accountTypeERC721:
 		return "erc721"
 	default:
-		return "unknown"
+		return ""
 	}
 }
 
