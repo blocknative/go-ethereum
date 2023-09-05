@@ -13,21 +13,21 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-var metadataReader = newTokenMetadataReader()
+var metadataReader = newContractMetadataReader()
 
 // txnOpCodeTracer is a go implementation of the Tracer interface which
 // only returns a restricted trace of a transaction consisting of transaction
 // op codes and relevant gas data.
 // This is intended for Blocknative usage.
 type txnOpCodeTracer struct {
-	env                 *vm.EVM     // EVM context for execution of transaction to occur within
-	trace               Trace       // Accumulated execution data the caller is interested in
-	callStack           []CallFrame // Data structure for op codes making up our trace
-	interrupt           uint32      // Atomic flag to signal execution interruption
-	reason              error       // Textual reason for the interruption (not always specific for us)
-	opts                TracerOpts
-	startTime           time.Time
-	tokenMetadataLoader *tokenMetadataReader
+	env            *vm.EVM     // EVM context for execution of transaction to occur within
+	trace          Trace       // Accumulated execution data the caller is interested in
+	callStack      []CallFrame // Data structure for op codes making up our trace
+	interrupt      uint32      // Atomic flag to signal execution interruption
+	reason         error       // Textual reason for the interruption (not always specific for us)
+	opts           TracerOpts
+	startTime      time.Time
+	metadataReader *contractMetadataReader
 }
 
 // NewTxnOpCodeTracer returns a new txnOpCodeTracer tracer with the given
@@ -48,9 +48,9 @@ func NewTxnOpCodeTracer(cfg json.RawMessage) (Tracer, error) {
 func NewTxnOpCodeTracerWithOpts(opts TracerOpts) (Tracer, error) {
 	// First callframe contains tx context info and is populated on start and end.
 	var t = txnOpCodeTracer{
-		opts:                opts,
-		callStack:           make([]CallFrame, 1),
-		tokenMetadataLoader: metadataReader,
+		opts:           opts,
+		callStack:      make([]CallFrame, 1),
+		metadataReader: metadataReader,
 	}
 
 	// First check the given NBC arguments are legal
