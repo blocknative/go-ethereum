@@ -1,7 +1,9 @@
 package blocknative
 
 import (
+	"encoding/json"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 )
 
 // todo alex: experiment with removing these in favour of common geth usage, and tracer interface which copies this from the tracers lib
@@ -9,11 +11,11 @@ import (
 // 	"txnOpCodeTracer": NewTxnOpCodeTracer,
 // }
 
-// type Tracer interface {
-// 	vm.EVMLogger
-// 	GetResult() (json.RawMessage, error)
-// 	Stop(err error)
-// }
+type Tracer interface {
+	vm.EVMLogger
+	GetResult() (json.RawMessage, error)
+	Stop(err error)
+}
 
 // TracerOpts configure the tracer to save or ignore various aspects of a
 // transaction execution.

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"math/big"
 	"sync/atomic"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -24,11 +24,12 @@ type txnOpCodeTracer struct {
 	interrupt uint32      // Atomic flag to signal execution interruption
 	reason    error       // Textual reason for the interruption (not always specific for us)
 	opts      TracerOpts
+	startTime time.Time
 }
 
 // NewTxnOpCodeTracer returns a new txnOpCodeTracer tracer with the given
 // options applied.
-func newTxnOpCodeTracer(ctx *tracers.Context, cfg json.RawMessage) (tracers.Tracer, error) {
+func NewTxnOpCodeTracer(cfg json.RawMessage) (Tracer, error) {
 
 	// First callframe contains tx context info
 	// and is populated on start and end.
@@ -42,10 +43,6 @@ func newTxnOpCodeTracer(ctx *tracers.Context, cfg json.RawMessage) (tracers.Trac
 	}
 
 	return t, nil
-}
-
-func init() {
-	tracers.DefaultDirectory.Register("txnOpCodeTracer", newTxnOpCodeTracer, false)
 }
 
 // GetResult returns an empty json object.
@@ -70,6 +67,7 @@ func (t *txnOpCodeTracer) GetResult() (json.RawMessage, error) {
 
 // CaptureStart implements the EVMLogger interface to initialize the tracing operation.
 func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+	t.startTime = time.Now()
 	t.env = env
 
 	// Blocks only contain `Random` post-merge, but we still have pre-merge tests.
@@ -109,7 +107,8 @@ func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
 	// Add total time duration for this trace request
 	// todo alex: need to find a better place to get time from the evm execution
 	// we can use t.trace.BlockContext.Time and current time to calculate this here!
-	t.trace.Time = fmt.Sprintf("%v", time)
+	now := time.Now()
+	t.trace.Time = fmt.Sprintf("%v", now.Sub(t.startTime).Seconds())
 
 	// If the user wants the logs, grab them from the state
 	if t.opts.Logs {
