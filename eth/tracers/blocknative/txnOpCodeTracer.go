@@ -13,6 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
+var metadataReader = newTokenMetadataReader()
+
 // txnOpCodeTracer is a go implementation of the Tracer interface which
 // only returns a restricted trace of a transaction consisting of transaction
 // op codes and relevant gas data.
@@ -48,7 +50,7 @@ func NewTxnOpCodeTracerWithOpts(opts TracerOpts) (Tracer, error) {
 	var t = txnOpCodeTracer{
 		opts:                opts,
 		callStack:           make([]CallFrame, 1),
-		tokenMetadataLoader: newTokenMetadataReader(),
+		tokenMetadataLoader: metadataReader,
 	}
 
 	// First check the given NBC arguments are legal
