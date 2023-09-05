@@ -83,10 +83,9 @@ type AddressBalanceChanges struct {
 }
 
 type BalanceChange struct {
-	Delta         *big.Int       `json:"delta"`
-	Asset         *Asset         `json:"asset"`
-	AssetMetadata TokenMetadata  `json:"metadata"`
-	Breakdown     []Tokenchanges `json:"breakdown"`
+	Delta     *big.Int       `json:"delta"`
+	Asset     *Asset         `json:"asset"`
+	Breakdown []Tokenchanges `json:"breakdown"`
 }
 
 type Asset struct {

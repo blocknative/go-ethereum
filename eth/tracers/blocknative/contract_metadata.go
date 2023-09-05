@@ -5,9 +5,14 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/lru"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
+)
+
+const (
+	cacheSize = 10_0000
 )
 
 var (
@@ -25,17 +30,32 @@ func init() {
 	abiMetadataArgs = abi.Arguments{abi.Argument{Type: abiStringType, Name: "name"}}
 }
 
-type tokenMetadataReader struct {
-	cache map[common.Address]Asset
+type contractMetadataReader struct {
+	cache lru.BasicLRU[common.Address, *Asset]
 }
 
-func newTokenMetadataReader() *tokenMetadataReader {
-	return &tokenMetadataReader{
-		cache: make(map[common.Address]Asset),
+func newContractMetadataReader() *contractMetadataReader {
+	return &contractMetadataReader{
+		cache: lru.NewBasicLRU[common.Address, *Asset](cacheSize),
 	}
 }
+func (l *contractMetadataReader) read(evm *vm.EVM, contract common.Address) (*Asset, error) {
+	// Check the cache first.
+	if asset, ok := l.cache.Get(contract); ok {
+		return asset, nil
+	}
 
-func (l *tokenMetadataReader) read(evm *vm.EVM, contract common.Address) (*Asset, error) {
+	// Cache miss; read from EVM and add to the cache.
+	asset, err := l.readFromEVM(evm, contract)
+	if err != nil {
+		return nil, err
+	}
+	l.cache.Add(contract, asset)
+
+	return asset, nil
+}
+
+func (l *contractMetadataReader) readFromEVM(evm *vm.EVM, contract common.Address) (*Asset, error) {
 	asset := &Asset{
 		Address: contract,
 		Type:    findAccountType(evm.StateDB, contract),
@@ -64,7 +84,7 @@ func (l *tokenMetadataReader) read(evm *vm.EVM, contract common.Address) (*Asset
 }
 
 // readERC20Metadata reads the metadata for an ERC20 token from the EVM.
-func (l *tokenMetadataReader) readERC20Metadata(evm *vm.EVM, contract common.Address) (TokenMetadata, error) {
+func (l *contractMetadataReader) readERC20Metadata(evm *vm.EVM, contract common.Address) (TokenMetadata, error) {
 	metadata, err := l.readCommonMetadata(evm, contract)
 	if err != nil {
 		return TokenMetadata{}, err
@@ -79,12 +99,12 @@ func (l *tokenMetadataReader) readERC20Metadata(evm *vm.EVM, contract common.Add
 	return metadata, nil
 }
 
-func (l *tokenMetadataReader) readERC721Metadata(evm *vm.EVM, contract common.Address) (TokenMetadata, error) {
+func (l *contractMetadataReader) readERC721Metadata(evm *vm.EVM, contract common.Address) (TokenMetadata, error) {
 	return l.readCommonMetadata(evm, contract)
 }
 
 // readERC721Metadata reads the metadata for an ERC20 token from the EVM.
-func (l *tokenMetadataReader) readCommonMetadata(evm *vm.EVM, contract common.Address) (TokenMetadata, error) {
+func (l *contractMetadataReader) readCommonMetadata(evm *vm.EVM, contract common.Address) (TokenMetadata, error) {
 	name, err := l.readMetadataString(evm, contract, methodIDMetadataName)
 	if err != nil {
 		return TokenMetadata{}, err
@@ -101,7 +121,7 @@ func (l *tokenMetadataReader) readCommonMetadata(evm *vm.EVM, contract common.Ad
 	}, nil
 }
 
-func (l *tokenMetadataReader) readMetadataString(evm *vm.EVM, contract common.Address, method []byte) (string, error) {
+func (l *contractMetadataReader) readMetadataString(evm *vm.EVM, contract common.Address, method []byte) (string, error) {
 	// Load bytes from the EVM.
 	stringBytes, err := callEVMMethod(evm, contract, method)
 	if err != nil {
@@ -124,7 +144,7 @@ func (l *tokenMetadataReader) readMetadataString(evm *vm.EVM, contract common.Ad
 	return name, nil
 }
 
-func (l *tokenMetadataReader) readMetadataUint8(evm *vm.EVM, contract common.Address, method []byte) (uint8, error) {
+func (l *contractMetadataReader) readMetadataUint8(evm *vm.EVM, contract common.Address, method []byte) (uint8, error) {
 	// Load bytes from the EVM.
 	uint8Bytes, err := callEVMMethod(evm, contract, method)
 	if err != nil {
