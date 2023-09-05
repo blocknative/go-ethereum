@@ -344,7 +344,7 @@ func (t *txnOpCodeTracer) processNBCFromCall(sender common.Address, contract com
 	// Attempt to load metadata, but don't fail if we don't.
 	asset, err := t.metadataReader.read(t.env, contract)
 	if err != nil {
-		log.Error("failed to read token metadata", "err", err)
+		log.Trace("failed to read token metadata", "err", err)
 	}
 
 	// Append a new token change object
