@@ -5,9 +5,14 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/lru"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
+)
+
+const (
+	cacheSize = 10_0000
 )
 
 var (
@@ -26,16 +31,31 @@ func init() {
 }
 
 type tokenMetadataReader struct {
-	cache map[common.Address]Asset
+	cache lru.BasicLRU[common.Address, *Asset]
 }
 
 func newTokenMetadataReader() *tokenMetadataReader {
 	return &tokenMetadataReader{
-		cache: make(map[common.Address]Asset),
+		cache: lru.NewBasicLRU[common.Address, *Asset](cacheSize),
 	}
 }
-
 func (l *tokenMetadataReader) read(evm *vm.EVM, contract common.Address) (*Asset, error) {
+	// Check the cache first.
+	if asset, ok := l.cache.Get(contract); ok {
+		return asset, nil
+	}
+
+	// Cache miss; read from EVM and add to the cache.
+	asset, err := l.readFromEVM(evm, contract)
+	if err != nil {
+		return nil, err
+	}
+	l.cache.Add(contract, asset)
+
+	return asset, nil
+}
+
+func (l *tokenMetadataReader) readFromEVM(evm *vm.EVM, contract common.Address) (*Asset, error) {
 	asset := &Asset{
 		Address: contract,
 		Type:    findAccountType(evm.StateDB, contract),
