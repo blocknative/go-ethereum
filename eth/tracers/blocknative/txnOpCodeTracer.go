@@ -63,7 +63,7 @@ func NewTxnOpCodeTracerWithOpts(opts TracerOpts) (Tracer, error) {
 func (t *txnOpCodeTracer) GetTrace() (*Trace, error) {
 	// Get the final balance changes
 	if t.opts.BalanceChanges {
-		t.trace.NetBalanceChanges = t.balanceTracker.formatNetBalanceChanges()
+		t.trace.BalanceChanges = t.balanceTracker.formatNetBalanceChanges()
 	}
 
 	// Only want the top level trace, all other indexes hold sub-traces to which we do not particularly need

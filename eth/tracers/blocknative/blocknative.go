@@ -25,10 +25,10 @@ type TracerOpts struct {
 // Trace contains all the accumulated details of a transaction execution.
 type Trace struct {
 	CallFrame
-	BlockContext      BlockContext      `json:"blockContext"`
-	Logs              []CallLog         `json:"logs,omitempty"`
-	Time              string            `json:"time,omitempty"`
-	NetBalanceChanges NetBalanceChanges `json:"netBalanceChanges"`
+	BlockContext   BlockContext      `json:"blockContext"`
+	Logs           []CallLog         `json:"logs,omitempty"`
+	Time           string            `json:"time,omitempty"`
+	BalanceChanges NetBalanceChanges `json:"balanceChanges"`
 }
 
 // BlockContext contains information about the block we simulate transactions in.
@@ -91,7 +91,7 @@ type AssetTransferEvent struct {
 }
 
 type Asset struct {
-	Address common.Address `json:"contractAddress,omitempty"`
+	Address common.Address `json:"address,omitempty"`
 	Type    AssetType      `json:"type"`
 	TokenMetadata
 }
