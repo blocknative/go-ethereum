@@ -22,6 +22,7 @@ var (
 	ethAddress = common.Address{}
 	ethAsset   = &Asset{
 		Address: ethAddress,
+		Type:    assetTypeNative,
 		TokenMetadata: TokenMetadata{
 			Name:     "Ether",
 			Symbol:   "ETH",
@@ -72,17 +73,17 @@ func (l *contractMetadataReader) read(evm *vm.EVM, contract common.Address) (*As
 func (l *contractMetadataReader) readFromEVM(evm *vm.EVM, contract common.Address) (*Asset, error) {
 	asset := &Asset{
 		Address: contract,
-		Type:    findAccountType(evm.StateDB, contract),
+		Type:    findAssetType(evm.StateDB, contract),
 	}
 
 	var err error
 	switch asset.Type {
-	case accountTypeERC20:
+	case assetTypeERC20:
 		asset.TokenMetadata, err = l.readERC20Metadata(evm, contract)
 		if err != nil {
 			return asset, err
 		}
-	case accountTypeERC721:
+	case assetTypeERC721:
 		asset.TokenMetadata, err = l.readERC721Metadata(evm, contract)
 		if err != nil {
 			return asset, err
@@ -175,21 +176,21 @@ func callEVMMethod(evm *vm.EVM, contract common.Address, method []byte) ([]byte,
 	return ret, nil
 }
 
-// findAccountType attempts to determine the type of contract by looking at
+// findAssetType attempts to determine the type of contract by looking at
 // the contract's bytecode.
-func findAccountType(state vm.StateDB, account common.Address) accountType {
+func findAssetType(state vm.StateDB, account common.Address) AssetType {
 	bytecode := state.GetCode(account)
 
 	switch {
 	case bytecode == nil:
-		return accountTypeEOA
+		return assetTypeUnknown
 	case codeContainsAllERC20Methods(bytecode):
-		return accountTypeERC20
+		return assetTypeERC20
 	case codeContainsAllERC721Methods(bytecode):
-		return accountTypeERC721
+		return assetTypeERC721
 	}
 
-	return accountTypeUnknown
+	return assetTypeUnknown
 }
 
 // bytesContainAll returns true if all given byte slices are found in the

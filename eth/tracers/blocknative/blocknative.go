@@ -67,96 +67,66 @@ type CallLog struct {
 	Topics []common.Hash `json:"topics"`
 }
 
-type NetBalanceChanges []AddressBalanceChanges
+// NetBalanceChanges is a list of account balance changes.
+type NetBalanceChanges []AccountBalanceChanges
 
-type AddressBalanceChanges struct {
-	Address        common.Address       `json:"address"`
-	BalanceChanges []AssetBalanceChange `json:"balanceChanges"`
+// AccountBalanceChanges is a list of balance changes for a single account.
+type AccountBalanceChanges struct {
+	Address        common.Address  `json:"address"`
+	BalanceChanges []BalanceChange `json:"balanceChanges"`
 }
 
-type AssetBalanceChange struct {
-	Delta     Amount          `json:"delta"`
-	Asset     *Asset          `json:"asset"`
-	Breakdown []assetTransfer `json:"breakdown"`
+// BalanceChange is a change in an account's balance for a single asset.
+type BalanceChange struct {
+	Delta     Amount               `json:"delta"`
+	Asset     *Asset               `json:"asset"`
+	Breakdown []AssetTransferEvent `json:"breakdown"`
+}
+
+// AssetTransferEvent is a single transfer of an asset.
+type AssetTransferEvent struct {
+	Counterparty common.Address `json:"counterparty"`
+	Amount       Amount         `json:"amount"`
 }
 
 type Asset struct {
 	Address common.Address `json:"contractAddress"`
-	Type    accountType    `json:"type,omitempty"`
+	Type    AssetType      `json:"type"`
 	TokenMetadata
 }
 
-type TokenMetadata struct {
-	Name     string `json:"name"`
-	Symbol   string `json:"symbol"`
-	Decimals uint8  `json:"decimals,omitempty"`
-}
+type AssetType int
 
-type accountType int
-
-func (t accountType) String() string {
+func (t AssetType) String() string {
 	switch t {
-	case accountTypeEOA:
-		return "eoa"
-	case accountTypeERC20:
-		return "erc20"
-	case accountTypeERC721:
-		return "erc721"
-	default:
-		return ""
-	}
-}
-
-func (t accountType) MarshalJSON() ([]byte, error) {
-	return json.Marshal(t.String())
-}
-
-const (
-	accountTypeUnknown accountType = iota
-	accountTypeEOA
-	accountTypeERC20
-	accountTypeERC721
-)
-
-type assetType int
-
-func (t assetType) String() string {
-	switch t {
-	case assetTypeEther:
+	case assetTypeNative:
 		return "eoa"
 	case assetTypeERC20:
 		return "erc20"
 	case assetTypeERC721:
 		return "erc721"
+	case assetTypeUnknown:
+		return "unknown"
 	default:
 		return ""
 	}
 }
 
-func (t assetType) MarshalJSON() ([]byte, error) {
+func (t AssetType) MarshalJSON() ([]byte, error) {
 	return json.Marshal(t.String())
 }
 
 const (
-	assetTypeEther = iota
+	assetTypeUnknown AssetType = iota
+	assetTypeNative
 	assetTypeERC20
 	assetTypeERC721
 )
 
-type accountSnapshotsMap = map[common.Address]*accountSnapshot
-
-type accountSnapshot struct {
-	balance *big.Int
-}
-
-type amountsMap = map[common.Address]Amount
-
-type assetTransfer struct {
-	From     common.Address `json:"counterparty,omitempty"`
-	To       common.Address `json:"-"`
-	Amount   Amount         `json:"amount,omitempty"`
-	Contract common.Address `json:"-"`
-	Asset    *Asset         `json:"-"`
+type TokenMetadata struct {
+	Name     string `json:"name"`
+	Symbol   string `json:"symbol"`
+	Decimals uint8  `json:"decimals,omitempty"`
 }
 
 type Amount struct{ *big.Int }
