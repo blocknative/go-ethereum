@@ -139,7 +139,7 @@ func (t *txnOpCodeTracer) captureEventNBC(err error) {
 			tokenchange := &Tokenchanges{
 				From:     common.HexToAddress(log.Topics[1].Hex()),
 				To:       common.HexToAddress(log.Topics[2].Hex()),
-				Amount:   new(big.Int).SetBytes(log.Data),
+				Amount:   Amount{new(big.Int).SetBytes(log.Data)},
 				Contract: log.Address,
 			}
 
@@ -201,7 +201,7 @@ func (t *txnOpCodeTracer) collateNBC() {
 				//panic(err)
 			}
 			accountTokenChanges[token.From][token.Contract] = BalanceChange{
-				Delta: big.NewInt(0),
+				Delta: Amount{big.NewInt(0)},
 				Asset: asset,
 			}
 		}
@@ -211,7 +211,7 @@ func (t *txnOpCodeTracer) collateNBC() {
 				//panic(err)
 			}
 			accountTokenChanges[token.To][token.Contract] = BalanceChange{
-				Delta: big.NewInt(0),
+				Delta: Amount{big.NewInt(0)},
 				Asset: asset,
 			}
 		}
@@ -219,8 +219,8 @@ func (t *txnOpCodeTracer) collateNBC() {
 		fromChanges := accountTokenChanges[token.From][token.Contract]
 		toChanges := accountTokenChanges[token.To][token.Contract]
 
-		accountTokenChanges[token.From][token.Contract].Delta.Sub(accountTokenChanges[token.From][token.Contract].Delta, token.Amount)
-		accountTokenChanges[token.To][token.Contract].Delta.Add(accountTokenChanges[token.To][token.Contract].Delta, token.Amount)
+		accountTokenChanges[token.From][token.Contract].Delta.Sub(accountTokenChanges[token.From][token.Contract].Delta.Int, token.Amount.Int)
+		accountTokenChanges[token.To][token.Contract].Delta.Add(accountTokenChanges[token.To][token.Contract].Delta.Int, token.Amount.Int)
 		fromChanges.Breakdown = append(fromChanges.Breakdown, token)
 		toChanges.Breakdown = append(toChanges.Breakdown, token)
 
@@ -259,7 +259,7 @@ func (t *txnOpCodeTracer) processPostAccountEth() {
 
 		diff := &valueChange{
 			Eth:      etherAmount,
-			EthInWei: weiAmount,
+			EthInWei: Amount{weiAmount},
 		}
 		t.netBalChanges.Balances[addr] = diff
 	}
@@ -353,7 +353,7 @@ func (t *txnOpCodeTracer) processNBCFromCall(sender common.Address, contract com
 	t.netBalChanges.Tokens = append(t.netBalChanges.Tokens, Tokenchanges{
 		From:     from,
 		To:       to,
-		Amount:   amount,
+		Amount:   Amount{amount},
 		Contract: contract,
 		Asset:    asset,
 	})

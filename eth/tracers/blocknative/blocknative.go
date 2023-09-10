@@ -83,7 +83,7 @@ type AddressBalanceChanges struct {
 }
 
 type BalanceChange struct {
-	Delta     *big.Int       `json:"delta"`
+	Delta     Amount         `json:"delta"`
 	Asset     *Asset         `json:"asset"`
 	Breakdown []Tokenchanges `json:"breakdown"`
 }
@@ -137,15 +137,21 @@ type balances = map[common.Address]*valueChange
 
 type valueChange struct {
 	Eth      *big.Float `json:"eth,omitempty"`
-	EthInWei *big.Int   `json:"ethinwei,omitempty"`
+	EthInWei Amount     `json:"ethinwei,omitempty"`
 }
 
 type Tokenchanges struct {
 	From     common.Address `json:"counterparty,omitempty"`
 	To       common.Address `json:"-"`
-	Amount   *big.Int       `json:"amount,omitempty"`
+	Amount   Amount         `json:"amount,omitempty"`
 	Contract common.Address `json:"-"`
 	Asset    *Asset         `json:"-"`
+}
+
+type Amount struct{ *big.Int }
+
+func (b Amount) MarshalJSON() ([]byte, error) {
+	return json.Marshal(b.Int.String())
 }
 
 const (
