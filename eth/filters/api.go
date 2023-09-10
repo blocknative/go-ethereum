@@ -646,7 +646,7 @@ func traceTx(chainConfig *params.ChainConfig, chain *core.BlockChain, state *sta
 	latest := chain.CurrentHeader()
 	var usedGas uint64
 	tracer, err := blocknative.NewTxnOpCodeTracerWithOpts(blocknative.TracerOpts{
-		NetBalanceChanges: true,
+		BalanceChanges: true,
 	})
 	if err != nil {
 		return tracedTx{}, err

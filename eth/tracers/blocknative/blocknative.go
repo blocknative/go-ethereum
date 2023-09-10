@@ -17,17 +17,17 @@ type Tracer interface {
 // TracerOpts configure the tracer to save or ignore various aspects of a
 // transaction execution.
 type TracerOpts struct {
-	Logs              bool `json:"logs"`
-	NetBalanceChanges bool `json:"netBalanceChanges"`
+	Logs           bool `json:"logs"`
+	BalanceChanges bool `json:"balanceChanges"`
 }
 
 // Trace contains all the accumulated details of a transaction execution.
 type Trace struct {
 	CallFrame
-	BlockContext      BlockContext            `json:"blockContext"`
-	Logs              []CallLog               `json:"logs,omitempty"`
-	Time              string                  `json:"time,omitempty"`
-	NetBalanceChanges []AddressBalanceChanges `json:"netBalanceChanges,omitempty"`
+	BlockContext      BlockContext      `json:"blockContext"`
+	Logs              []CallLog         `json:"logs,omitempty"`
+	Time              string            `json:"time,omitempty"`
+	NetBalanceChanges NetBalanceChanges `json:"netBalanceChanges"`
 }
 
 // BlockContext contains information about the block we simulate transactions in.
@@ -67,25 +67,17 @@ type CallLog struct {
 	Topics []common.Hash `json:"topics"`
 }
 
-// NetBalChanges represents the difference of value (ETH, erc20, erc721) after the transaction for all addresses
-type NetBalChanges struct {
-	InitialGas     uint64                  `json:"-"` // Bought gas, used to find initial bal for the from address as the buy happens before trace starts
-	Pre            state                   `json:"-"` //`json:"pre"`
-	Post           state                   `json:"-"` //`json:"post"`
-	BalanceChanges []AddressBalanceChanges `json:"balanceChanges,omitempty"`
-	Balances       balances                `json:"-"`
-	Tokens         []Tokenchanges          `json:"-"`
-}
+type NetBalanceChanges []AddressBalanceChanges
 
 type AddressBalanceChanges struct {
-	Address        common.Address  `json:"address"`
-	BalanceChanges []BalanceChange `json:"balanceChanges"`
+	Address        common.Address       `json:"address"`
+	BalanceChanges []AssetBalanceChange `json:"balanceChanges"`
 }
 
-type BalanceChange struct {
-	Delta     Amount         `json:"delta"`
-	Asset     *Asset         `json:"asset"`
-	Breakdown []Tokenchanges `json:"breakdown"`
+type AssetBalanceChange struct {
+	Delta     Amount          `json:"delta"`
+	Asset     *Asset          `json:"asset"`
+	Breakdown []assetTransfer `json:"breakdown"`
 }
 
 type Asset struct {
@@ -126,20 +118,40 @@ const (
 	accountTypeERC721
 )
 
-type state = map[common.Address]*account
+type assetType int
 
-type account struct {
-	Balance *big.Int `json:"balance,omitempty"`
+func (t assetType) String() string {
+	switch t {
+	case assetTypeEther:
+		return "eoa"
+	case assetTypeERC20:
+		return "erc20"
+	case assetTypeERC721:
+		return "erc721"
+	default:
+		return ""
+	}
 }
 
-type balances = map[common.Address]*valueChange
-
-type valueChange struct {
-	Eth      *big.Float `json:"eth,omitempty"`
-	EthInWei Amount     `json:"ethinwei,omitempty"`
+func (t assetType) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.String())
 }
 
-type Tokenchanges struct {
+const (
+	assetTypeEther = iota
+	assetTypeERC20
+	assetTypeERC721
+)
+
+type accountSnapshotsMap = map[common.Address]*accountSnapshot
+
+type accountSnapshot struct {
+	balance *big.Int
+}
+
+type amountsMap = map[common.Address]Amount
+
+type assetTransfer struct {
 	From     common.Address `json:"counterparty,omitempty"`
 	To       common.Address `json:"-"`
 	Amount   Amount         `json:"amount,omitempty"`
@@ -152,10 +164,3 @@ type Amount struct{ *big.Int }
 func (b Amount) MarshalJSON() ([]byte, error) {
 	return json.Marshal(b.Int.String())
 }
-
-const (
-	// eventSigTransfer is the signature for "Transfer(address,address,uint256)"
-	// Which is used both by erc20 and erc721
-	// erc20: from, to, value; erc721: from, to, tokenId
-	eventSigTransfer = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
-)

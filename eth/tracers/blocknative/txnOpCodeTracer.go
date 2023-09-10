@@ -20,14 +20,15 @@ var metadataReader = newContractMetadataReader()
 // op codes and relevant gas data.
 // This is intended for Blocknative usage.
 type txnOpCodeTracer struct {
-	env            *vm.EVM     // EVM context for execution of transaction to occur within
-	trace          Trace       // Accumulated execution data the caller is interested in
-	callStack      []CallFrame // Data structure for op codes making up our trace
-	interrupt      uint32      // Atomic flag to signal execution interruption
-	reason         error       // Textual reason for the interruption (not always specific for us)
-	opts           TracerOpts
-	startTime      time.Time
-	netBalChanges  NetBalChanges
+	env       *vm.EVM     // EVM context for execution of transaction to occur within
+	trace     Trace       // Accumulated execution data the caller is interested in
+	callStack []CallFrame // Data structure for op codes making up our trace
+	interrupt uint32      // Atomic flag to signal execution interruption
+	reason    error       // Textual reason for the interruption (not always specific for us)
+	opts      TracerOpts
+	startTime time.Time
+
+	balanceTracker *balanceTracker
 	metadataReader *contractMetadataReader
 }
 
@@ -52,13 +53,6 @@ func NewTxnOpCodeTracerWithOpts(opts TracerOpts) (Tracer, error) {
 		opts:           opts,
 		callStack:      make([]CallFrame, 1),
 		metadataReader: metadataReader,
-	}
-
-	// If we need to track NetBalChanges, initialize the struct
-	if t.opts.NetBalanceChanges {
-		t.netBalChanges.Pre = make(state)
-		t.netBalChanges.Post = make(state)
-		t.netBalChanges.Balances = make(balances)
 	}
 
 	return &t, nil
@@ -91,11 +85,6 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 	t.startTime = time.Now()
 	t.env = env
 
-	// If we want NetBalChanges, start by tracking the top level addresses
-	if t.opts.NetBalanceChanges {
-		t.captureStartNBC(from, to, value)
-	}
-
 	// Blocks only contain `Random` post-merge, but we still have pre-merge tests.
 	random := ""
 	if env.Context.Random != nil {
@@ -124,9 +113,15 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 		t.callStack[0].Type = "CREATE"
 	}
 
-	// If we want to create NBC from decoded transactions, do the top level one here
-	if t.opts.NetBalanceChanges {
-		t.processNBCFromCall(from, to, input)
+	// If we want balance changes then create a tracker and handle the
+	// top-level call.
+	if t.opts.BalanceChanges {
+		assetGetterFn := func(addr common.Address) (*Asset, error) {
+			return t.metadataReader.read(t.env, addr)
+		}
+
+		t.balanceTracker = newBalanceChangeTracker(t.env.StateDB, assetGetterFn)
+		t.balanceTracker.captureStart(from, to, value, input, env.Context.Coinbase, gas, env.GasPrice)
 	}
 }
 
@@ -205,8 +200,8 @@ func (t *txnOpCodeTracer) CaptureEnter(typ vm.OpCode, from common.Address, to co
 	t.callStack = append(t.callStack, call)
 
 	// If we want to create NBC from decoded transactions, do so here
-	if t.opts.NetBalanceChanges {
-		t.processNBCFromCall(from, to, input)
+	if t.opts.BalanceChanges {
+		t.balanceTracker.captureCall(from, to, value, input)
 	}
 }
 
@@ -239,19 +234,17 @@ func (t *txnOpCodeTracer) CaptureExit(output []byte, gasUsed uint64, err error) 
 	t.callStack[size-1].Calls = append(t.callStack[size-1].Calls, call)
 }
 
-func (t *txnOpCodeTracer) CaptureTxStart(gasLimit uint64) {
-	t.netBalChanges.InitialGas = gasLimit
-}
+func (t *txnOpCodeTracer) CaptureTxStart(_ uint64) {}
 
 // SetStateRoot implements core.stateRootSetter and stores the given root in the trace's BlockContext.
 func (t *txnOpCodeTracer) SetStateRoot(root common.Hash) {
 	t.trace.BlockContext.StateRoot = bytesToHex(root.Bytes())
 }
 
-func (t *txnOpCodeTracer) CaptureTxEnd(restGas uint64) {
-	// Do any further net balance changes processing required
-	if t.opts.NetBalanceChanges {
-		t.collateNBC()
+func (t *txnOpCodeTracer) CaptureTxEnd(_ uint64) {
+	// Get the final balance changes
+	if t.opts.BalanceChanges {
+		t.trace.NetBalanceChanges = t.balanceTracker.calculateNetBalanceChanges()
 	}
 }
 

@@ -18,6 +18,15 @@ const (
 var (
 	abiStringType   abi.Type
 	abiMetadataArgs abi.Arguments
+
+	ethAsset = &Asset{
+		Address: common.Address{},
+		TokenMetadata: TokenMetadata{
+			Name:     "Ether",
+			Symbol:   "ETH",
+			Decimals: 18,
+		},
+	}
 )
 
 func init() {
@@ -40,6 +49,11 @@ func newContractMetadataReader() *contractMetadataReader {
 	}
 }
 func (l *contractMetadataReader) read(evm *vm.EVM, contract common.Address) (*Asset, error) {
+	// The empty address is the native eth asset.
+	if contract == (common.Address{}) {
+		return ethAsset, nil
+	}
+
 	// Check the cache first.
 	if asset, ok := l.cache.Get(contract); ok {
 		return asset, nil
@@ -66,17 +80,12 @@ func (l *contractMetadataReader) readFromEVM(evm *vm.EVM, contract common.Addres
 	case accountTypeERC20:
 		asset.TokenMetadata, err = l.readERC20Metadata(evm, contract)
 		if err != nil {
-			return nil, err
+			return asset, err
 		}
 	case accountTypeERC721:
 		asset.TokenMetadata, err = l.readERC721Metadata(evm, contract)
 		if err != nil {
-			return nil, err
-		}
-	default:
-		asset.TokenMetadata, err = l.readERC20Metadata(evm, contract)
-		if err != nil {
-			return nil, err
+			return asset, err
 		}
 	}
 
