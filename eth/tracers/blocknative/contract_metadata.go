@@ -16,11 +16,12 @@ const (
 )
 
 var (
-	abiStringType   abi.Type
-	abiMetadataArgs abi.Arguments
+	abiStringType       abi.Type
+	abiSingleStringArgs abi.Arguments
 
-	ethAsset = &Asset{
-		Address: common.Address{},
+	ethAddress = common.Address{}
+	ethAsset   = &Asset{
+		Address: ethAddress,
 		TokenMetadata: TokenMetadata{
 			Name:     "Ether",
 			Symbol:   "ETH",
@@ -36,7 +37,7 @@ func init() {
 		log.Error("failed to create abi string type", "err", err)
 	}
 
-	abiMetadataArgs = abi.Arguments{abi.Argument{Type: abiStringType, Name: "name"}}
+	abiSingleStringArgs = abi.Arguments{abi.Argument{Type: abiStringType, Name: "name"}}
 }
 
 type contractMetadataReader struct {
@@ -49,12 +50,11 @@ func newContractMetadataReader() *contractMetadataReader {
 	}
 }
 func (l *contractMetadataReader) read(evm *vm.EVM, contract common.Address) (*Asset, error) {
-	// The empty address is the native eth asset.
-	if contract == (common.Address{}) {
+	if contract == ethAddress {
 		return ethAsset, nil
 	}
 
-	// Check the cache first.
+	// Check the cache for an existing entry.
 	if asset, ok := l.cache.Get(contract); ok {
 		return asset, nil
 	}
@@ -138,7 +138,7 @@ func (l *contractMetadataReader) readMetadataString(evm *vm.EVM, contract common
 	}
 
 	// Parse into a string.
-	stringInterface, err := abiMetadataArgs.Unpack(stringBytes)
+	stringInterface, err := abiSingleStringArgs.Unpack(stringBytes)
 	if err != nil {
 		return "", err
 	}

@@ -8,14 +8,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+const CHANGE_MAP_PRE_ALLOCATION_SIZE = 4
+
 // balanceTracker represents the difference of value (ETH, erc20, erc721) after the transaction for all addresses.
 type balanceTracker struct {
 	stateDB     balanceDB
 	assetGetter assetGetter
 
 	//pre                  accountSnapshotsMap
-	nativeBalanceChanges amountsMap
-	tokenTransfers       []assetTransfer
+	//nativeBalanceChanges amountsMap
+	assetTransfers []assetTransfer
 }
 
 // newBalanceChangeTracker creates a new balanceTracker.
@@ -25,8 +27,8 @@ func newBalanceChangeTracker(stateDB balanceDB, assetGetter assetGetter) *balanc
 		assetGetter: assetGetter,
 
 		//pre:                  make(accountSnapshotsMap, 4),
-		nativeBalanceChanges: make(amountsMap, 4),
-		tokenTransfers:       make([]assetTransfer, 0, 4),
+		//nativeBalanceChanges: make(amountsMap, CHANGE_MAP_PRE_ALLOCATION_SIZE),
+		assetTransfers: []assetTransfer{},
 	}
 }
 
@@ -51,7 +53,7 @@ func (bt *balanceTracker) captureStart(from common.Address, to common.Address, v
 // captureCall decodes potential balance change data out of calldata.
 func (bt *balanceTracker) captureCall(sender common.Address, contract common.Address, value *big.Int, input []byte) {
 	// Handle native transfers
-	bt.tokenTransfers = append(bt.tokenTransfers, assetTransfer{
+	bt.assetTransfers = append(bt.assetTransfers, assetTransfer{
 		From:     sender,
 		To:       contract,
 		Contract: common.Address{},
@@ -120,7 +122,7 @@ func (bt *balanceTracker) captureCall(sender common.Address, contract common.Add
 	}
 
 	// Append a new token transfer object
-	bt.tokenTransfers = append(bt.tokenTransfers, assetTransfer{
+	bt.assetTransfers = append(bt.assetTransfers, assetTransfer{
 		From:     from,
 		To:       to,
 		Contract: contract,
@@ -159,7 +161,7 @@ func (bt *balanceTracker) calculateNetBalanceChanges() NetBalanceChanges {
 	// TODO(TS): Cleanup/use real algorithm
 	// Map of Account address -> [Map of token address -> Aggregated change]
 	accountTokenChanges := map[common.Address]map[common.Address]AssetBalanceChange{}
-	for _, transfer := range bt.tokenTransfers {
+	for _, transfer := range bt.assetTransfers {
 		if _, ok := accountTokenChanges[transfer.From]; !ok {
 			accountTokenChanges[transfer.From] = map[common.Address]AssetBalanceChange{}
 		}
@@ -191,8 +193,8 @@ func (bt *balanceTracker) calculateNetBalanceChanges() NetBalanceChanges {
 		fromChanges := accountTokenChanges[transfer.From][transfer.Contract]
 		toChanges := accountTokenChanges[transfer.To][transfer.Contract]
 
-		accountTokenChanges[transfer.From][transfer.Contract].Delta.Sub(accountTokenChanges[transfer.From][transfer.Contract].Delta.Int, transfer.Amount.Int)
-		accountTokenChanges[transfer.To][transfer.Contract].Delta.Add(accountTokenChanges[transfer.To][transfer.Contract].Delta.Int, transfer.Amount.Int)
+		accountTokenChanges[transfer.From][transfer.Contract].Delta.Int.Sub(accountTokenChanges[transfer.From][transfer.Contract].Delta.Int, transfer.Amount.Int)
+		accountTokenChanges[transfer.To][transfer.Contract].Delta.Int.Add(accountTokenChanges[transfer.To][transfer.Contract].Delta.Int, transfer.Amount.Int)
 		fromChanges.Breakdown = append(fromChanges.Breakdown, transfer)
 		toChanges.Breakdown = append(toChanges.Breakdown, transfer)
 
