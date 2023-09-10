@@ -2,7 +2,6 @@ package blocknative
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 
@@ -126,9 +125,7 @@ func (bt *balanceTracker) captureCall(sender common.Address, contract common.Add
 	if err != nil {
 		log.Trace("failed to read token metadata", "err", err)
 	}
-	if value == nil {
-		fmt.Println("amount is nil 128")
-	}
+
 	// Append a new token transfer object
 	bt.assetTransfers = append(bt.assetTransfers, assetTransfer{
 		From:     from,
