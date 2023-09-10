@@ -10,30 +10,22 @@ import (
 
 // balanceTracker represents the difference of value (ETH, erc20, erc721) after the transaction for all addresses.
 type balanceTracker struct {
-	stateDB     balanceDB
-	assetGetter assetGetter
-
-	//assetTransfers []assetTransfer
-	balanceChanges BalanceChangeByOwnerByAsset
+	stateDB        stateDB
+	assetGetter    assetGetter
+	balanceChanges balanceChangeByOwnerByAsset
 }
 
 // newBalanceChangeTracker creates a new balanceTracker.
-func newBalanceChangeTracker(stateDB balanceDB, assetGetter assetGetter) *balanceTracker {
+func newBalanceChangeTracker(stateDB stateDB, assetGetter assetGetter) *balanceTracker {
 	return &balanceTracker{
-		stateDB:     stateDB,
-		assetGetter: assetGetter,
-
-		//assetTransfers: []assetTransfer{},
-
-		balanceChanges: make(BalanceChangeByOwnerByAsset),
+		stateDB:        stateDB,
+		assetGetter:    assetGetter,
+		balanceChanges: make(balanceChangeByOwnerByAsset, 4),
 	}
 }
 
 // captureStart begins the balance change tracking process.
 func (bt *balanceTracker) captureStart(from common.Address, to common.Address, value *big.Int, input []byte, _ common.Address, _ uint64, _ *big.Int) {
-	//bt.lookupAccount(from)
-	//bt.lookupAccount(to)
-	//bt.lookupAccount(coinbase)
 	bt.captureCall(from, to, value, input)
 	//// Update the to address
 	//// The recipient balance includes the value transferred.
@@ -47,60 +39,13 @@ func (bt *balanceTracker) captureStart(from common.Address, to common.Address, v
 	//bt.pre[from].balance.Add(bt.pre[from].balance, value)
 }
 
-func (changeMap BalanceChangeByOwnerByAsset) addAssetChange(bt *balanceTracker, owner common.Address, counterparty common.Address, assetAddr common.Address, delta *big.Int) {
-	// If this is the first time we've seen this owner then create a new
-	// balanceByAsset map.
-	if _, ok := changeMap[owner]; !ok {
-		changeMap[owner] = make(BalanceChangeByAsset)
-	}
-
-	// If this is the first time we've seen this asset for this owner then
-	// create a new BalanceChange.
-	if _, ok := changeMap[owner][assetAddr]; !ok {
-		asset, err := bt.assetGetter(assetAddr)
-		if err != nil {
-			log.Trace("failed to read token metadata", "err", err)
-		}
-		changeMap[owner][assetAddr] = BalanceChange{
-			Delta: Amount{big.NewInt(0)},
-			Asset: asset,
-		}
-	}
-
-	ownerBalanceChange := changeMap[owner][assetAddr]
-	ownerBalanceChange.Delta.Int.Add(ownerBalanceChange.Delta.Int, delta)
-	ownerBalanceChange.Breakdown = append(ownerBalanceChange.Breakdown, AssetTransferEvent{
-		Counterparty: counterparty,
-		Amount:       Amount{delta},
-	})
-	changeMap[owner][assetAddr] = ownerBalanceChange
-
-}
-func (changeMap BalanceChangeByOwnerByAsset) addAssetTransfer(bt *balanceTracker, from common.Address, to common.Address, asset common.Address, value *big.Int) {
-	changeMap.addAssetChange(bt, to, from, asset, value)
-	negValue := new(big.Int).Neg(value)
-	changeMap.addAssetChange(bt, from, to, asset, negValue)
-}
-
 // captureCall decodes potential balance change data out of calldata.
 func (bt *balanceTracker) captureCall(sender common.Address, contract common.Address, value *big.Int, input []byte) {
-	// Value can potentially be nil, so we need to set it to 0.
-	if value == nil {
-		value = common.Big0
-	}
-
-	// Handle native transfers
+	// Add the native transfer
 	bt.balanceChanges.addAssetTransfer(bt, sender, contract, ethAddress, value)
-	//bt.assetTransfers = append(bt.assetTransfers, assetTransfer{
-	//	From:     sender,
-	//	To:       contract,
-	//	Contract: ethAddress,
-	//	Asset:    ethAsset,
-	//	Amount:   Amount{value},
-	//})
 
-	// Check that the input is capable of being a function call selector.
-	// If not then we're done.
+	// Check if the input is capable of being a function call selector.
+	// If not then we're done. If so then check if it's a transfer call.
 	if len(input) < 4 {
 		return
 	}
@@ -153,98 +98,14 @@ func (bt *balanceTracker) captureCall(sender common.Address, contract common.Add
 		return
 	}
 
-	//// Attempt to load metadata, but don't fail if we don't.
-	//asset, err := bt.assetGetter(contract)
-	//if err != nil {
-	//	log.Trace("failed to read token metadata", "err", err)
-	//}
-
-	// Append a new token transfer object
-	bt.balanceChanges.addAssetTransfer(bt, from, to, contract, value)
-	//bt.assetTransfers = append(bt.assetTransfers, assetTransfer{
-	//	From:     from,
-	//	To:       to,
-	//	Contract: contract,
-	//	Asset:    asset,
-	//	Amount:   Amount{amount},
-	//})
+	// Add the token transfer
+	bt.balanceChanges.addAssetTransfer(bt, from, to, contract, amount)
 }
 
-// lookupAccount fetches details of an account and adds it to the pre-state.
-//func (bt *balanceTracker) lookupAccount(addr common.Address) {
-//	if _, ok := bt.pre[addr]; ok {
-//		return
-//	}
-//
-//	bt.pre[addr] = &accountSnapshot{
-//		bt.stateDB.GetBalance(addr),
-//	}
-//}
-
-func (bt *balanceTracker) calculateNetBalanceChanges() NetBalanceChanges {
-	// Iterate through touched accounts and calculate native balance changes.
-	//for addr, preState := range bt.pre {
-	//	// Calculate the balance difference. If it's zero just continue.
-	//	balance := bt.stateDB.GetBalance(addr)
-	//	delta := new(big.Int).Sub(preState.balance, balance)
-	//	if delta.Sign() == 0 {
-	//		continue
-	//	}
-	//
-	//	// Add the diff to native balance change map.
-	//	amount := new(big.Int).Sub(preState.balance, balance)
-	//	bt.nativeBalanceChanges[addr] = Amount{amount}
-	//}
-
-	// Collate token changes
-	// TODO(TS): Cleanup/use real algorithm
-	// Map of Account address -> [Map of token address -> Aggregated change]
-	//accountTokenChanges := map[common.Address]map[common.Address]BalanceChange{}
-	//for _, transfer := range bt.assetTransfers {
-	//	if _, ok := accountTokenChanges[transfer.From]; !ok {
-	//		accountTokenChanges[transfer.From] = map[common.Address]BalanceChange{}
-	//	}
-	//	if _, ok := accountTokenChanges[transfer.To]; !ok {
-	//		accountTokenChanges[transfer.To] = map[common.Address]BalanceChange{}
-	//	}
-	//
-	//	if _, ok := accountTokenChanges[transfer.From][transfer.Contract]; !ok {
-	//		asset, err := bt.assetGetter(transfer.Contract)
-	//		if err != nil {
-	//			log.Trace("failed to read token metadata", "err", err)
-	//		}
-	//		accountTokenChanges[transfer.From][transfer.Contract] = BalanceChange{
-	//			Delta: Amount{big.NewInt(0)},
-	//			Asset: asset,
-	//		}
-	//	}
-	//	if _, ok := accountTokenChanges[transfer.To][transfer.Contract]; !ok {
-	//		asset, err := bt.assetGetter(transfer.Contract)
-	//		if err != nil {
-	//			log.Trace("failed to read token metadata", "err", err)
-	//		}
-	//		accountTokenChanges[transfer.To][transfer.Contract] = BalanceChange{
-	//			Delta: Amount{big.NewInt(0)},
-	//			Asset: asset,
-	//		}
-	//	}
-	//
-	//	fromChanges := accountTokenChanges[transfer.From][transfer.Contract]
-	//	toChanges := accountTokenChanges[transfer.To][transfer.Contract]
-	//
-	//	accountTokenChanges[transfer.From][transfer.Contract].Delta.Int.Sub(accountTokenChanges[transfer.From][transfer.Contract].Delta.Int, transfer.Amount.Int)
-	//	accountTokenChanges[transfer.To][transfer.Contract].Delta.Int.Add(accountTokenChanges[transfer.To][transfer.Contract].Delta.Int, transfer.Amount.Int)
-	//	fromChanges.Breakdown = append(fromChanges.Breakdown, transfer)
-	//	toChanges.Breakdown = append(toChanges.Breakdown, transfer)
-	//
-	//	accountTokenChanges[transfer.From][transfer.Contract] = fromChanges
-	//	accountTokenChanges[transfer.To][transfer.Contract] = toChanges
-	//}
-
-	// Turn the map into a list of [{addr, [{token, change}]}]
-	//netBalanceChanges := make(NetBalanceChanges, len(accountTokenChanges))
-	//for addr, changes := range accountTokenChanges {
-	netBalanceChanges := make(NetBalanceChanges, len(bt.balanceChanges))
+// formatNetBalanceChanges aggregates the balanceChanges into a NetBalanceChanges.
+func (bt *balanceTracker) formatNetBalanceChanges() NetBalanceChanges {
+	// Turn the balanceChanges map into a list of [{addr, [{token, change}]}]
+	netBalanceChanges := make(NetBalanceChanges, 0, len(bt.balanceChanges))
 	for addr, changes := range bt.balanceChanges {
 		abc := AccountBalanceChanges{Address: addr}
 		for _, change := range changes {
@@ -252,26 +113,62 @@ func (bt *balanceTracker) calculateNetBalanceChanges() NetBalanceChanges {
 		}
 		netBalanceChanges = append(netBalanceChanges, abc)
 	}
-
 	return netBalanceChanges
 }
 
-// balanceDB is an interface that provides access to the stateDB.
-type balanceDB interface {
+// stateDB is an interface that provides access to account balances.
+type stateDB interface {
 	GetBalance(common.Address) *big.Int
 }
 
 // assetGetter is a function that returns the metadata for a given asset address.
 type assetGetter func(common.Address) (*Asset, error)
 
-type BalanceChangeByAsset map[common.Address]BalanceChange
+// balanceChangeByAsset is a map of asset address to BalanceChange.
+type balanceChangeByAsset map[common.Address]BalanceChange
 
-type BalanceChangeByOwnerByAsset map[common.Address]BalanceChangeByAsset
+// balanceChangeByOwnerByAsset is a map of owner address to balanceChangeByAsset.
+type balanceChangeByOwnerByAsset map[common.Address]balanceChangeByAsset
 
-//type assetTransfer struct {
-//	From     common.Address `json:"counterparty,omitempty"`
-//	To       common.Address `json:"-"`
-//	Amount   Amount         `json:"amount,omitempty"`
-//	Contract common.Address `json:"-"`
-//	Asset    *Asset         `json:"-"`
-//}
+// addAssetChange adds a single-sided asset change to the balanceChangeByOwnerByAsset map.
+func (changeMap balanceChangeByOwnerByAsset) addAssetChange(bt *balanceTracker, owner common.Address, counterparty common.Address, assetAddr common.Address, delta *big.Int) {
+	// If this is the first time we've seen this owner then create a new
+	// balanceByAsset map.
+	if _, ok := changeMap[owner]; !ok {
+		changeMap[owner] = make(balanceChangeByAsset)
+	}
+
+	// If this is the first time we've seen this asset for this owner then
+	// create a new BalanceChange, including loading the asset metadata.
+	if _, ok := changeMap[owner][assetAddr]; !ok {
+		asset, err := bt.assetGetter(assetAddr)
+		if err != nil {
+			log.Trace("failed to read token metadata", "err", err)
+		}
+		changeMap[owner][assetAddr] = BalanceChange{
+			Delta: Amount{big.NewInt(0)},
+			Asset: asset,
+		}
+	}
+
+	// Update the delta and add a breakdown event.
+	ownerBalanceChange := changeMap[owner][assetAddr]
+	ownerBalanceChange.Delta.Int.Add(ownerBalanceChange.Delta.Int, delta)
+	ownerBalanceChange.Breakdown = append(ownerBalanceChange.Breakdown, AssetTransferEvent{
+		Counterparty: counterparty,
+		Amount:       Amount{delta},
+	})
+	changeMap[owner][assetAddr] = ownerBalanceChange
+
+}
+
+// addAssetTransfer adds a double-sided asset transfer to the balanceChangeByOwnerByAsset map.
+func (changeMap balanceChangeByOwnerByAsset) addAssetTransfer(bt *balanceTracker, from common.Address, to common.Address, asset common.Address, value *big.Int) {
+	if value == nil || value.Sign() == 0 {
+		return
+	}
+
+	changeMap.addAssetChange(bt, to, from, asset, value)
+	negValue := new(big.Int).Neg(value)
+	changeMap.addAssetChange(bt, from, to, asset, negValue)
+}

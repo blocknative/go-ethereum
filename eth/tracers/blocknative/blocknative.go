@@ -5,6 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"math/big"
+	"strings"
 )
 
 type Tracer interface {
@@ -90,7 +91,7 @@ type AssetTransferEvent struct {
 }
 
 type Asset struct {
-	Address common.Address `json:"contractAddress"`
+	Address common.Address `json:"contractAddress,omitempty"`
 	Type    AssetType      `json:"type"`
 	TokenMetadata
 }
@@ -100,7 +101,7 @@ type AssetType int
 func (t AssetType) String() string {
 	switch t {
 	case assetTypeNative:
-		return "eoa"
+		return "eth"
 	case assetTypeERC20:
 		return "erc20"
 	case assetTypeERC721:
@@ -114,6 +115,24 @@ func (t AssetType) String() string {
 
 func (t AssetType) MarshalJSON() ([]byte, error) {
 	return json.Marshal(t.String())
+}
+
+func (t *AssetType) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	switch strings.ToLower(s) {
+	case "eth":
+		*t = assetTypeNative
+	case "erc20":
+		*t = assetTypeERC20
+	case "erc721":
+		*t = assetTypeERC721
+	default:
+		*t = assetTypeUnknown
+	}
+	return nil
 }
 
 const (
@@ -131,6 +150,23 @@ type TokenMetadata struct {
 
 type Amount struct{ *big.Int }
 
-func (b Amount) MarshalJSON() ([]byte, error) {
-	return json.Marshal(b.Int.String())
+func (a Amount) MarshalJSON() ([]byte, error) {
+	if a.Int == nil {
+		return json.Marshal("0")
+	}
+	return json.Marshal(a.Int.String())
+}
+
+func (a Amount) UnmarshalJSON(data []byte) error {
+	if data == nil || len(data) == 0 {
+		a.Int = big.NewInt(0)
+		return nil
+	}
+
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	a.Int, _ = new(big.Int).SetString(s, 10)
+	return nil
 }
