@@ -53,6 +53,9 @@ func (bt *balanceTracker) captureStart(from common.Address, to common.Address, v
 
 // captureCall decodes potential balance change data out of calldata.
 func (bt *balanceTracker) captureCall(sender common.Address, contract common.Address, value *big.Int, input []byte) {
+	if value == nil {
+		fmt.Println("value is nil 57")
+	}
 	// Handle native transfers
 	bt.assetTransfers = append(bt.assetTransfers, assetTransfer{
 		From:     sender,
@@ -121,7 +124,9 @@ func (bt *balanceTracker) captureCall(sender common.Address, contract common.Add
 	if err != nil {
 		log.Trace("failed to read token metadata", "err", err)
 	}
-
+	if value == nil {
+		fmt.Println("amount is nil 128")
+	}
 	// Append a new token transfer object
 	bt.assetTransfers = append(bt.assetTransfers, assetTransfer{
 		From:     from,
