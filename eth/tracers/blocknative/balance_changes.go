@@ -26,7 +26,7 @@ func newBalanceChangeTracker(stateDB balanceDB, assetGetter assetGetter) *balanc
 
 		//pre:                  make(accountSnapshotsMap, 4),
 		nativeBalanceChanges: make(amountsMap, 4),
-		tokenTransfers:       make([]assetTransfer, 4),
+		tokenTransfers:       make([]assetTransfer, 0, 4),
 	}
 }
 
