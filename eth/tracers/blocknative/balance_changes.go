@@ -2,6 +2,7 @@ package blocknative
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 
@@ -193,6 +194,8 @@ func (bt *balanceTracker) calculateNetBalanceChanges() NetBalanceChanges {
 		fromChanges := accountTokenChanges[transfer.From][transfer.Contract]
 		toChanges := accountTokenChanges[transfer.To][transfer.Contract]
 
+		fmt.Println("accountTokenChanges[transfer.From][transfer.Contract].Delta.Int:", accountTokenChanges[transfer.From][transfer.Contract].Delta.Int)
+		fmt.Println("transfer.Amount.Int:", transfer.Amount.Int)
 		accountTokenChanges[transfer.From][transfer.Contract].Delta.Int.Sub(accountTokenChanges[transfer.From][transfer.Contract].Delta.Int, transfer.Amount.Int)
 		accountTokenChanges[transfer.To][transfer.Contract].Delta.Int.Add(accountTokenChanges[transfer.To][transfer.Contract].Delta.Int, transfer.Amount.Int)
 		fromChanges.Breakdown = append(fromChanges.Breakdown, transfer)
