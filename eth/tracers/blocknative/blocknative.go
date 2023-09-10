@@ -17,8 +17,8 @@ type Tracer interface {
 // TracerOpts configure the tracer to save or ignore various aspects of a
 // transaction execution.
 type TracerOpts struct {
-	Logs      bool      `json:"logs"`
-	NBCMethod NBCMethod `json:"nbcMethod"`
+	Logs              bool `json:"logs"`
+	NetBalanceChanges bool `json:"netBalanceChanges"`
 }
 
 // Trace contains all the accumulated details of a transaction execution.
@@ -129,8 +129,7 @@ const (
 type state = map[common.Address]*account
 
 type account struct {
-	Balance *big.Int                    `json:"balance,omitempty"`
-	Storage map[common.Hash]common.Hash `json:"storage,omitempty"`
+	Balance *big.Int `json:"balance,omitempty"`
 }
 
 type balances = map[common.Address]*valueChange

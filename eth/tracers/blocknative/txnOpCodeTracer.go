@@ -54,12 +54,8 @@ func NewTxnOpCodeTracerWithOpts(opts TracerOpts) (Tracer, error) {
 		metadataReader: metadataReader,
 	}
 
-	// First check the given NBC arguments are legal
-	if err := t.checkNBCArgs(); err != nil {
-		return nil, err
-	}
 	// If we need to track NetBalChanges, initialize the struct
-	if t.opts.NBCMethod != NBCMethodNone {
+	if t.opts.NetBalanceChanges {
 		t.netBalChanges.Pre = make(state)
 		t.netBalChanges.Post = make(state)
 		t.netBalChanges.Balances = make(balances)
@@ -96,8 +92,8 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 	t.env = env
 
 	// If we want NetBalChanges, start by tracking the top level addresses
-	if t.opts.NBCMethod != NBCMethodNone {
-		t.captureStartNBC(from, to, gas, value)
+	if t.opts.NetBalanceChanges {
+		t.captureStartNBC(from, to, value)
 	}
 
 	// Blocks only contain `Random` post-merge, but we still have pre-merge tests.
@@ -129,7 +125,7 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 	}
 
 	// If we want to create NBC from decoded transactions, do the top level one here
-	if t.opts.NBCMethod == NBCMethodInternalTxs {
+	if t.opts.NetBalanceChanges {
 		t.processNBCFromCall(from, to, input)
 	}
 }
@@ -153,11 +149,6 @@ func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
 				Topics:  stateLog.Topics,
 			})
 		}
-	}
-
-	// If we want to collect our net balance changes of tokens via the events, do so now!
-	if t.opts.NBCMethod == "events" {
-		t.captureEventNBC(err)
 	}
 
 	// This is the final output of a call
@@ -187,10 +178,6 @@ func (t *txnOpCodeTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 			log.Warn("Panic during trace. Recovered.", "err", r)
 		}
 	}()
-	// Keep a list of accounts which have had transfer opcodes, or storage slots updated.
-	if t.opts.NBCMethod != NBCMethodNone {
-		t.captureStateNBC(op, scope)
-	}
 }
 
 // CaptureFault implements the EVMLogger interface to trace an execution fault.
@@ -218,7 +205,7 @@ func (t *txnOpCodeTracer) CaptureEnter(typ vm.OpCode, from common.Address, to co
 	t.callStack = append(t.callStack, call)
 
 	// If we want to create NBC from decoded transactions, do so here
-	if t.opts.NBCMethod == NBCMethodInternalTxs {
+	if t.opts.NetBalanceChanges {
 		t.processNBCFromCall(from, to, input)
 	}
 }
@@ -263,7 +250,7 @@ func (t *txnOpCodeTracer) SetStateRoot(root common.Hash) {
 
 func (t *txnOpCodeTracer) CaptureTxEnd(restGas uint64) {
 	// Do any further net balance changes processing required
-	if t.opts.NBCMethod != NBCMethodNone {
+	if t.opts.NetBalanceChanges {
 		t.collateNBC()
 	}
 }
