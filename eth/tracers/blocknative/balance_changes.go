@@ -53,9 +53,11 @@ func (bt *balanceTracker) captureStart(from common.Address, to common.Address, v
 
 // captureCall decodes potential balance change data out of calldata.
 func (bt *balanceTracker) captureCall(sender common.Address, contract common.Address, value *big.Int, input []byte) {
+	// Value can potentially be nil, so we need to set it to 0.
 	if value == nil {
-		fmt.Println("value is nil 57")
+		value = common.Big0
 	}
+
 	// Handle native transfers
 	bt.assetTransfers = append(bt.assetTransfers, assetTransfer{
 		From:     sender,
@@ -199,8 +201,6 @@ func (bt *balanceTracker) calculateNetBalanceChanges() NetBalanceChanges {
 		fromChanges := accountTokenChanges[transfer.From][transfer.Contract]
 		toChanges := accountTokenChanges[transfer.To][transfer.Contract]
 
-		fmt.Println("accountTokenChanges[transfer.From][transfer.Contract].Delta.Int:", accountTokenChanges[transfer.From][transfer.Contract].Delta.Int)
-		fmt.Println("transfer.Amount.Int:", transfer.Amount.Int)
 		accountTokenChanges[transfer.From][transfer.Contract].Delta.Int.Sub(accountTokenChanges[transfer.From][transfer.Contract].Delta.Int, transfer.Amount.Int)
 		accountTokenChanges[transfer.To][transfer.Contract].Delta.Int.Add(accountTokenChanges[transfer.To][transfer.Contract].Delta.Int, transfer.Amount.Int)
 		fromChanges.Breakdown = append(fromChanges.Breakdown, transfer)
