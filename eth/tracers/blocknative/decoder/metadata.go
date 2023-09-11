@@ -2,6 +2,7 @@ package decoder
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -41,6 +42,13 @@ func init() {
 	abiSingleStringArgs = abi.Arguments{abi.Argument{Type: abiStringType, Name: "name"}}
 }
 
+type AssetID struct {
+	Address common.Address
+	TokenID *big.Int
+}
+
+var EthAssetID = AssetID{}
+
 type MetadataDecoder struct {
 	cache lru.BasicLRU[common.Address, *Asset]
 }
@@ -51,22 +59,22 @@ func NewMetadataDecoder() *MetadataDecoder {
 	}
 }
 
-func (d *MetadataDecoder) Read(evm *vm.EVM, contract common.Address) (*Asset, error) {
-	if contract == EthAddress {
+func (d *MetadataDecoder) Read(evm *vm.EVM, assetID AssetID) (*Asset, error) {
+	if assetID.Address == EthAddress {
 		return ethAsset, nil
 	}
 
 	// Check the cache for an existing entry.
-	if asset, ok := d.cache.Get(contract); ok {
+	if asset, ok := d.cache.Get(assetID.Address); ok {
 		return asset, nil
 	}
 
 	// Cache miss; read from EVM and add to the cache.
-	asset, err := d.readFromEVM(evm, contract)
+	asset, err := d.readFromEVM(evm, assetID.Address)
 	if err != nil {
 		return nil, err
 	}
-	d.cache.Add(contract, asset)
+	d.cache.Add(assetID.Address, asset)
 
 	return asset, nil
 }

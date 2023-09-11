@@ -27,14 +27,15 @@ func newBalanceChangeTracker(stateDB stateDB, assetGetter assetGetter) *balanceT
 // captureCall decodes potential balance change data out of calldata.
 func (bt *balanceTracker) captureCall(sender common.Address, contract common.Address, value *big.Int, input []byte) {
 	// Add the native transfer.
-	bt.balanceChanges.addAssetTransfer(bt, sender, contract, common.Address{}, value)
+	bt.balanceChanges.addAssetTransfer(bt, sender, contract, decoder.EthAssetID, value)
 
 	// Decode the call data and if it's a transfer then add it.
 	decodedCall := decoder.DecodeCalldata(sender, input)
 	if decodedCall == nil || decodedCall.CallType != decoder.AssetTransfer {
 		return
 	}
-	bt.balanceChanges.addAssetTransfer(bt, decodedCall.From, decodedCall.To, contract, decodedCall.Value)
+	asset := decoder.AssetID{Address: contract, TokenID: decodedCall.TokenID}
+	bt.balanceChanges.addAssetTransfer(bt, decodedCall.From, decodedCall.To, asset, decodedCall.Value)
 }
 
 // captureGas adds the gas payments to the balance changes.
@@ -76,16 +77,16 @@ type stateDB interface {
 }
 
 // assetGetter is a function that returns the metadata for a given asset address.
-type assetGetter func(common.Address) (*decoder.Asset, error)
+type assetGetter func(decoder.AssetID) (*decoder.Asset, error)
 
 // balanceChangeByAsset is a map of asset address to BalanceChange.
-type balanceChangeByAsset map[common.Address]BalanceChange
+type balanceChangeByAsset map[decoder.AssetID]BalanceChange
 
 // balanceChangeByOwnerByAsset is a map of owner address to balanceChangeByAsset.
 type balanceChangeByOwnerByAsset map[common.Address]balanceChangeByAsset
 
-// addAssetChange adds a single-sided asset change to the balanceChangeByOwnerByAsset map.
-func (changeMap balanceChangeByOwnerByAsset) addAssetChange(bt *balanceTracker, owner common.Address, counterparty common.Address, assetAddr common.Address, delta *big.Int) {
+// accountAssetChange adds a single side change of an asset transfer to the balanceChangeByOwnerByAsset map.
+func (changeMap balanceChangeByOwnerByAsset) accountAssetChange(bt *balanceTracker, owner common.Address, counterparty common.Address, assetID decoder.AssetID, delta *big.Int) {
 	// If this is the first time we've seen this owner then create a new
 	// balanceByAsset map.
 	if _, ok := changeMap[owner]; !ok {
@@ -94,35 +95,35 @@ func (changeMap balanceChangeByOwnerByAsset) addAssetChange(bt *balanceTracker, 
 
 	// If this is the first time we've seen this asset for this owner then
 	// create a new BalanceChange, including loading the asset metadata.
-	if _, ok := changeMap[owner][assetAddr]; !ok {
-		asset, err := bt.assetGetter(assetAddr)
+	if _, ok := changeMap[owner][assetID]; !ok {
+		asset, err := bt.assetGetter(assetID)
 		if err != nil {
 			log.Trace("failed to read token metadata", "err", err)
 		}
-		changeMap[owner][assetAddr] = BalanceChange{
+		changeMap[owner][assetID] = BalanceChange{
 			Delta: Amount{big.NewInt(0)},
 			Asset: asset,
 		}
 	}
 
 	// Update the delta and add a breakdown event.
-	ownerBalanceChange := changeMap[owner][assetAddr]
+	ownerBalanceChange := changeMap[owner][assetID]
 	ownerBalanceChange.Delta.Int.Add(ownerBalanceChange.Delta.Int, delta)
 	ownerBalanceChange.Breakdown = append(ownerBalanceChange.Breakdown, AssetTransferEvent{
 		Counterparty: counterparty,
 		Amount:       Amount{delta},
 	})
-	changeMap[owner][assetAddr] = ownerBalanceChange
+	changeMap[owner][assetID] = ownerBalanceChange
 
 }
 
 // addAssetTransfer adds a double-sided asset transfer to the balanceChangeByOwnerByAsset map.
-func (changeMap balanceChangeByOwnerByAsset) addAssetTransfer(bt *balanceTracker, from common.Address, to common.Address, asset common.Address, value *big.Int) {
+func (changeMap balanceChangeByOwnerByAsset) addAssetTransfer(bt *balanceTracker, from common.Address, to common.Address, assetID decoder.AssetID, value *big.Int) {
 	if value == nil || value.Sign() == 0 {
 		return
 	}
 
-	changeMap.addAssetChange(bt, to, from, asset, value)
+	changeMap.accountAssetChange(bt, to, from, assetID, value)
 	negValue := new(big.Int).Neg(value)
-	changeMap.addAssetChange(bt, from, to, asset, negValue)
+	changeMap.accountAssetChange(bt, from, to, assetID, negValue)
 }

@@ -18,6 +18,8 @@ type DecodedCall struct {
 	From     common.Address
 	To       common.Address
 	Value    *big.Int
+
+	TokenID *big.Int
 }
 
 func DecodeCalldata(sender common.Address, input []byte) *DecodedCall {
@@ -33,6 +35,7 @@ func DecodeCalldata(sender common.Address, input []byte) *DecodedCall {
 		from     common.Address
 		to       common.Address
 		amount   = new(big.Int)
+		tokenID  *big.Int
 	)
 
 	// scanWord gets the next 32 bytes and advances the index
@@ -44,7 +47,8 @@ func DecodeCalldata(sender common.Address, input []byte) *DecodedCall {
 
 	switch {
 
-	// Transfer event; payload is [to, amount]
+	// transfer(address,uint256) call.
+	// payload is [to, amount]
 	case bytes.Compare(methodID, methodIDTransfer) == 0:
 		if len(input) < 68 {
 			return nil
@@ -54,9 +58,11 @@ func DecodeCalldata(sender common.Address, input []byte) *DecodedCall {
 		to = common.BytesToAddress(scanWord())
 		amount.SetBytes(scanWord())
 
-	//(Safe)TransferFrom event; payload is [from, to, amount]
-	case bytes.Compare(methodID, methodIDTransferFrom) == 0:
-		fallthrough
+	// transferFrom(address,address,uint256) call.
+	// safeTransferFrom(address,address,uint256) call.
+	// safeTransferFrom(address,address,uint256,bytes) call.
+	//
+	// payload is [from, to, amount]
 	case bytes.Compare(methodID, methodIDTransferFrom) == 0:
 		fallthrough
 	case bytes.Compare(methodID, methodIDSafeTransferFrom) == 0:
@@ -70,6 +76,21 @@ func DecodeCalldata(sender common.Address, input []byte) *DecodedCall {
 		to = common.BytesToAddress(scanWord())
 		amount.SetBytes(scanWord())
 
+	// ERC1155 style transfers
+	//
+	// safeTransferFrom(address,address,uint256,uint256,bytes)
+	//
+	// payload is [from, to, tokenID, amount]
+	case bytes.Compare(methodID, methodIDSafeTransferFrom3) == 0:
+		if len(input) < 100 {
+			return nil
+		}
+
+		from = common.BytesToAddress(scanWord())
+		to = common.BytesToAddress(scanWord())
+		tokenID = new(big.Int).SetBytes(scanWord())
+		amount.SetBytes(scanWord())
+
 	// Not a matching event; ignore
 	default:
 		return nil
@@ -80,5 +101,6 @@ func DecodeCalldata(sender common.Address, input []byte) *DecodedCall {
 		From:     from,
 		To:       to,
 		Value:    amount,
+		TokenID:  tokenID,
 	}
 }

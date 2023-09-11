@@ -122,8 +122,8 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 	// If we want balance changes then create a tracker and handle the
 	// top-level call.
 	if t.opts.BalanceChanges {
-		assetGetterFn := func(addr common.Address) (*decoder.Asset, error) {
-			return t.metadataDecoder.Read(t.env, addr)
+		assetGetterFn := func(assetID decoder.AssetID) (*decoder.Asset, error) {
+			return t.metadataDecoder.Read(t.env, assetID)
 		}
 
 		t.balanceTracker = newBalanceChangeTracker(t.env.StateDB, assetGetterFn)

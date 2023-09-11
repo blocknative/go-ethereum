@@ -3,12 +3,14 @@ package decoder
 import (
 	"encoding/json"
 	"github.com/ethereum/go-ethereum/common"
+	"math/big"
 	"strings"
 )
 
 type Asset struct {
 	Address common.Address `json:"address,omitempty"`
 	Type    AssetType      `json:"type"`
+	TokenID *big.Int       `json:"TokenID,omitempty"`
 	TokenMetadata
 }
 
