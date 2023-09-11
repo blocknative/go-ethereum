@@ -20,9 +20,10 @@ var (
 	abiStringType       abi.Type
 	abiSingleStringArgs abi.Arguments
 
-	EthAddress = common.Address{}
+	ethAddress = common.Address{}
+	EthAssetID = AssetID{ethAddress, nil}
 	ethAsset   = &Asset{
-		Address: EthAddress,
+		Address: ethAddress,
 		Type:    AssetTypeNative,
 		TokenMetadata: TokenMetadata{
 			Name:     "Ether",
@@ -47,51 +48,50 @@ type AssetID struct {
 	TokenID *big.Int
 }
 
-var EthAssetID = AssetID{}
-
-type MetadataDecoder struct {
-	cache lru.BasicLRU[common.Address, *Asset]
+type AssetDecoder struct {
+	cache lru.BasicLRU[AssetID, *Asset]
 }
 
-func NewMetadataDecoder() *MetadataDecoder {
-	return &MetadataDecoder{
-		cache: lru.NewBasicLRU[common.Address, *Asset](cacheSize),
+func NewAssetDecoder() *AssetDecoder {
+	return &AssetDecoder{
+		cache: lru.NewBasicLRU[AssetID, *Asset](cacheSize),
 	}
 }
 
-func (d *MetadataDecoder) Read(evm *vm.EVM, assetID AssetID) (*Asset, error) {
-	if assetID.Address == EthAddress {
+func (d *AssetDecoder) Decode(evm *vm.EVM, assetID AssetID) (*Asset, error) {
+	if assetID.Address == ethAddress {
 		return ethAsset, nil
 	}
 
 	// Check the cache for an existing entry.
-	if asset, ok := d.cache.Get(assetID.Address); ok {
+	if asset, ok := d.cache.Get(assetID); ok {
 		return asset, nil
 	}
 
-	// Cache miss; read from EVM and add to the cache.
-	asset, err := d.readFromEVM(evm, assetID.Address)
+	// Cache miss; decode from EVM and add to the cache.
+	asset, err := d.decode(evm, assetID)
 	if err != nil {
 		return nil, err
 	}
-	d.cache.Add(assetID.Address, asset)
+	d.cache.Add(assetID, asset)
 
 	return asset, nil
 }
 
-func (d *MetadataDecoder) readFromEVM(evm *vm.EVM, contract common.Address) (*Asset, error) {
-	bytecode := Bytecode(evm.StateDB.GetCode(contract))
+func (d *AssetDecoder) decode(evm *vm.EVM, assetID AssetID) (*Asset, error) {
+	bytecode := Bytecode(evm.StateDB.GetCode(assetID.Address))
 
 	asset := &Asset{
-		Address: contract,
+		Address: assetID.Address,
 		Type:    AssetTypeForInterfaces(bytecode.DecodeInterfaces()),
+		TokenID: assetID.TokenID,
 	}
 
 	var err error
 
 	switch asset.Type {
 	case AssetTypeERC20:
-		asset.TokenMetadata, err = d.readERC20Metadata(evm, contract)
+		asset.TokenMetadata, err = d.decodeERC20Metadata(evm, assetID.Address)
 		if err != nil {
 			return asset, err
 		}
@@ -99,7 +99,7 @@ func (d *MetadataDecoder) readFromEVM(evm *vm.EVM, contract common.Address) (*As
 		fallthrough
 	case AssetTypeERC1155:
 		if bytecode.IsBasicMetadata() {
-			asset.TokenMetadata, err = d.readBasicMetadata(evm, contract)
+			asset.TokenMetadata, err = d.decodeBasicMetadata(evm, assetID.Address)
 			if err != nil {
 				return asset, err
 			}
@@ -109,14 +109,14 @@ func (d *MetadataDecoder) readFromEVM(evm *vm.EVM, contract common.Address) (*As
 	return asset, nil
 }
 
-// readERC20Metadata reads the metadata for an ERC20 token from the EVM.
-func (d *MetadataDecoder) readERC20Metadata(evm *vm.EVM, contract common.Address) (TokenMetadata, error) {
-	metadata, err := d.readBasicMetadata(evm, contract)
+// decodeERC20Metadata decodes the metadata for an ERC20 token from the EVM.
+func (d *AssetDecoder) decodeERC20Metadata(evm *vm.EVM, contract common.Address) (TokenMetadata, error) {
+	metadata, err := d.decodeBasicMetadata(evm, contract)
 	if err != nil {
 		return TokenMetadata{}, err
 	}
 
-	decimals, err := d.readMetadataUint8(evm, contract, methodIDDecimals)
+	decimals, err := d.decodeMetadataUint8(evm, contract, methodIDDecimals)
 	if err != nil {
 		return TokenMetadata{}, err
 	}
@@ -125,13 +125,13 @@ func (d *MetadataDecoder) readERC20Metadata(evm *vm.EVM, contract common.Address
 	return metadata, nil
 }
 
-func (d *MetadataDecoder) readBasicMetadata(evm *vm.EVM, contract common.Address) (TokenMetadata, error) {
-	name, err := d.readMetadataString(evm, contract, methodIDName)
+func (d *AssetDecoder) decodeBasicMetadata(evm *vm.EVM, contract common.Address) (TokenMetadata, error) {
+	name, err := d.decodeMetadataString(evm, contract, methodIDName)
 	if err != nil {
 		return TokenMetadata{}, err
 	}
 
-	symbol, err := d.readMetadataString(evm, contract, methodIDSymbol)
+	symbol, err := d.decodeMetadataString(evm, contract, methodIDSymbol)
 	if err != nil {
 		return TokenMetadata{}, err
 	}
@@ -142,7 +142,7 @@ func (d *MetadataDecoder) readBasicMetadata(evm *vm.EVM, contract common.Address
 	}, nil
 }
 
-func (d *MetadataDecoder) readMetadataString(evm *vm.EVM, contract common.Address, method []byte) (string, error) {
+func (d *AssetDecoder) decodeMetadataString(evm *vm.EVM, contract common.Address, method []byte) (string, error) {
 	// Load bytes from the EVM.
 	stringBytes, err := callEVMMethod(evm, contract, method)
 	if err != nil {
@@ -165,7 +165,7 @@ func (d *MetadataDecoder) readMetadataString(evm *vm.EVM, contract common.Addres
 	return name, nil
 }
 
-func (d *MetadataDecoder) readMetadataUint8(evm *vm.EVM, contract common.Address, method []byte) (uint8, error) {
+func (d *AssetDecoder) decodeMetadataUint8(evm *vm.EVM, contract common.Address, method []byte) (uint8, error) {
 	// Load bytes from the EVM.
 	uint8Bytes, err := callEVMMethod(evm, contract, method)
 	if err != nil {

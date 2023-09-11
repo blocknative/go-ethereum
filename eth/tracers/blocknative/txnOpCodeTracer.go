@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-var metadataReader = decoder.NewMetadataDecoder()
+var metadataReader = decoder.NewAssetDecoder()
 
 // txnOpCodeTracer is a go implementation of the Tracer interface which
 // only returns a restricted trace of a transaction consisting of transaction
@@ -30,7 +30,7 @@ type txnOpCodeTracer struct {
 	startTime time.Time
 
 	balanceTracker  *balanceTracker
-	metadataDecoder *decoder.MetadataDecoder
+	metadataDecoder *decoder.AssetDecoder
 }
 
 // NewTxnOpCodeTracer returns a new txnOpCodeTracer tracer with the given
@@ -123,7 +123,7 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 	// top-level call.
 	if t.opts.BalanceChanges {
 		assetGetterFn := func(assetID decoder.AssetID) (*decoder.Asset, error) {
-			return t.metadataDecoder.Read(t.env, assetID)
+			return t.metadataDecoder.Decode(t.env, assetID)
 		}
 
 		t.balanceTracker = newBalanceChangeTracker(t.env.StateDB, assetGetterFn)
