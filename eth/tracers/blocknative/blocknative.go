@@ -2,11 +2,11 @@ package blocknative
 
 import (
 	"encoding/json"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"math/big"
-	"strings"
+	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder"
 )
 
 type Tracer interface {
@@ -80,7 +80,7 @@ type AccountBalanceChanges struct {
 // BalanceChange is a change in an account's balance for a single asset.
 type BalanceChange struct {
 	Delta     Amount               `json:"delta"`
-	Asset     *Asset               `json:"asset"`
+	Asset     *decoder.Asset       `json:"asset"`
 	Breakdown []AssetTransferEvent `json:"breakdown"`
 }
 
@@ -88,64 +88,6 @@ type BalanceChange struct {
 type AssetTransferEvent struct {
 	Counterparty common.Address `json:"counterparty"`
 	Amount       Amount         `json:"amount"`
-}
-
-type Asset struct {
-	Address common.Address `json:"address,omitempty"`
-	Type    AssetType      `json:"type"`
-	TokenMetadata
-}
-
-type AssetType int
-
-func (t AssetType) String() string {
-	switch t {
-	case assetTypeNative:
-		return "eth"
-	case assetTypeERC20:
-		return "erc20"
-	case assetTypeERC721:
-		return "erc721"
-	case assetTypeUnknown:
-		return "unknown"
-	default:
-		return ""
-	}
-}
-
-func (t AssetType) MarshalJSON() ([]byte, error) {
-	return json.Marshal(t.String())
-}
-
-func (t *AssetType) UnmarshalJSON(data []byte) error {
-	var s string
-	if err := json.Unmarshal(data, &s); err != nil {
-		return err
-	}
-	switch strings.ToLower(s) {
-	case "eth":
-		*t = assetTypeNative
-	case "erc20":
-		*t = assetTypeERC20
-	case "erc721":
-		*t = assetTypeERC721
-	default:
-		*t = assetTypeUnknown
-	}
-	return nil
-}
-
-const (
-	assetTypeUnknown AssetType = iota
-	assetTypeNative
-	assetTypeERC20
-	assetTypeERC721
-)
-
-type TokenMetadata struct {
-	Name     string `json:"name"`
-	Symbol   string `json:"symbol"`
-	Decimals uint8  `json:"decimals,omitempty"`
 }
 
 type Amount struct{ *big.Int }

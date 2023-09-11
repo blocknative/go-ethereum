@@ -1,11 +1,11 @@
 package blocknative
 
 import (
-	"bytes"
-	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // balanceTracker represents the difference of value (ETH, erc20, erc721) after the transaction for all addresses.
@@ -26,65 +26,15 @@ func newBalanceChangeTracker(stateDB stateDB, assetGetter assetGetter) *balanceT
 
 // captureCall decodes potential balance change data out of calldata.
 func (bt *balanceTracker) captureCall(sender common.Address, contract common.Address, value *big.Int, input []byte) {
-	// Add the native transfer
-	bt.balanceChanges.addAssetTransfer(bt, sender, contract, ethAddress, value)
+	// Add the native transfer.
+	bt.balanceChanges.addAssetTransfer(bt, sender, contract, common.Address{}, value)
 
-	// Check if the input is capable of being a function call selector.
-	// If not then we're done. If so then check if it's a transfer call.
-	if len(input) < 4 {
+	// Decode the call data and if it's a transfer then add it.
+	decodedCall := decoder.DecodeCalldata(sender, input)
+	if decodedCall == nil || decodedCall.CallType != decoder.AssetTransfer {
 		return
 	}
-
-	var (
-		idx      = 4
-		methodID = input[:idx]
-		from     common.Address
-		to       common.Address
-		amount   = new(big.Int)
-	)
-
-	// scanWord gets the next 32 bytes and advances the index
-	scanWord := func() []byte {
-		word := input[idx : idx+32]
-		idx += 32
-		return word
-	}
-
-	switch {
-
-	// Transfer event; payload is [to, amount]
-	case bytes.Compare(methodID, methodIDERC20Transfer) == 0:
-		if len(input) < 68 {
-			return
-		}
-
-		from = sender
-		to = common.BytesToAddress(scanWord())
-		amount.SetBytes(scanWord())
-
-	// (Safe)TransferFrom event; payload is [from, to, amount]
-	case bytes.Compare(methodID, methodIDERC20TransferFrom) == 0:
-		fallthrough
-	case bytes.Compare(methodID, methodIDERC721TransferFrom) == 0:
-		fallthrough
-	case bytes.Compare(methodID, methodIDERC721SafeTransfer) == 0:
-		fallthrough
-	case bytes.Compare(methodID, methodIDERC721SafeTransferWithData) == 0:
-		if len(input) < 100 {
-			return
-		}
-
-		from = common.BytesToAddress(scanWord())
-		to = common.BytesToAddress(scanWord())
-		amount.SetBytes(scanWord())
-
-	// Not a matching event; ignore
-	default:
-		return
-	}
-
-	// Add the token transfer
-	bt.balanceChanges.addAssetTransfer(bt, from, to, contract, amount)
+	bt.balanceChanges.addAssetTransfer(bt, decodedCall.From, decodedCall.To, contract, decodedCall.Value)
 }
 
 // captureGas adds the gas payments to the balance changes.
@@ -126,7 +76,7 @@ type stateDB interface {
 }
 
 // assetGetter is a function that returns the metadata for a given asset address.
-type assetGetter func(common.Address) (*Asset, error)
+type assetGetter func(common.Address) (*decoder.Asset, error)
 
 // balanceChangeByAsset is a map of asset address to BalanceChange.
 type balanceChangeByAsset map[common.Address]BalanceChange

@@ -10,10 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder"
 	"github.com/ethereum/go-ethereum/log"
 )
 
-var metadataReader = newContractMetadataReader()
+var metadataReader = decoder.NewMetadataDecoder()
 
 // txnOpCodeTracer is a go implementation of the Tracer interface which
 // only returns a restricted trace of a transaction consisting of transaction
@@ -28,8 +29,8 @@ type txnOpCodeTracer struct {
 	opts      TracerOpts
 	startTime time.Time
 
-	balanceTracker *balanceTracker
-	metadataReader *contractMetadataReader
+	balanceTracker  *balanceTracker
+	metadataDecoder *decoder.MetadataDecoder
 }
 
 // NewTxnOpCodeTracer returns a new txnOpCodeTracer tracer with the given
@@ -50,9 +51,9 @@ func NewTxnOpCodeTracer(cfg json.RawMessage) (Tracer, error) {
 func NewTxnOpCodeTracerWithOpts(opts TracerOpts) (Tracer, error) {
 	// First callframe contains tx context info and is populated on start and end.
 	var t = txnOpCodeTracer{
-		opts:           opts,
-		callStack:      make([]CallFrame, 1),
-		metadataReader: metadataReader,
+		opts:            opts,
+		callStack:       make([]CallFrame, 1),
+		metadataDecoder: metadataReader,
 	}
 
 	return &t, nil
@@ -121,8 +122,8 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 	// If we want balance changes then create a tracker and handle the
 	// top-level call.
 	if t.opts.BalanceChanges {
-		assetGetterFn := func(addr common.Address) (*Asset, error) {
-			return t.metadataReader.read(t.env, addr)
+		assetGetterFn := func(addr common.Address) (*decoder.Asset, error) {
+			return t.metadataDecoder.Read(t.env, addr)
 		}
 
 		t.balanceTracker = newBalanceChangeTracker(t.env.StateDB, assetGetterFn)
