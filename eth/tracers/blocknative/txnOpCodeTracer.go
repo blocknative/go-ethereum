@@ -56,6 +56,10 @@ func NewTxnOpCodeTracerWithOpts(opts TracerOpts) (Tracer, error) {
 		metadataDecoder: metadataReader,
 	}
 
+	if !t.opts.DisableBlockContext {
+		t.trace.BlockContext = &BlockContext{}
+	}
+
 	return &t, nil
 
 }
@@ -98,12 +102,14 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 	}
 
 	// Populate the block context from the vm environment.
-	t.trace.BlockContext.Number = env.Context.BlockNumber.Uint64()
-	t.trace.BlockContext.BaseFee = env.Context.BaseFee.Uint64()
-	t.trace.BlockContext.Time = env.Context.Time
-	t.trace.BlockContext.Coinbase = addrToHex(env.Context.Coinbase)
-	t.trace.BlockContext.GasLimit = env.Context.GasLimit
-	t.trace.BlockContext.Random = random
+	if !t.opts.DisableBlockContext {
+		t.trace.BlockContext.Number = env.Context.BlockNumber.Uint64()
+		t.trace.BlockContext.BaseFee = env.Context.BaseFee.Uint64()
+		t.trace.BlockContext.Time = env.Context.Time
+		t.trace.BlockContext.Coinbase = addrToHex(env.Context.Coinbase)
+		t.trace.BlockContext.GasLimit = env.Context.GasLimit
+		t.trace.BlockContext.Random = random
+	}
 
 	// This is the initial call
 	t.callStack[0] = CallFrame{
@@ -258,5 +264,7 @@ func (t *txnOpCodeTracer) Stop(err error) {
 
 // SetStateRoot implements core.stateRootSetter and stores the given root in the trace's BlockContext.
 func (t *txnOpCodeTracer) SetStateRoot(root common.Hash) {
-	t.trace.BlockContext.StateRoot = bytesToHex(root.Bytes())
+	if !t.opts.DisableBlockContext {
+		t.trace.BlockContext.StateRoot = bytesToHex(root.Bytes())
+	}
 }

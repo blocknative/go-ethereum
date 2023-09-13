@@ -21,12 +21,16 @@ type Tracer interface {
 type TracerOpts struct {
 	Logs           bool `json:"logs"`
 	BalanceChanges bool `json:"balanceChanges"`
+
+	// DisableBlockContext disables the block context in the trace.
+	// The negative is used so that the empty value maintains legacy behavior.
+	DisableBlockContext bool `json:"disableBlockContext"`
 }
 
 // Trace contains all the accumulated details of a transaction execution.
 type Trace struct {
 	CallFrame
-	BlockContext   BlockContext      `json:"blockContext"`
+	BlockContext   *BlockContext     `json:"blockContext,omitempty"`
 	Logs           []CallLog         `json:"logs,omitempty"`
 	Time           string            `json:"time,omitempty"`
 	BalanceChanges NetBalanceChanges `json:"balanceChanges"`
