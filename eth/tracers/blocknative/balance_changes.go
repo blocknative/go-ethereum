@@ -87,6 +87,25 @@ func (bt *balanceTracker) captureCall(sender common.Address, contract common.Add
 	bt.balanceChanges.addAssetTransfer(bt, from, to, contract, amount)
 }
 
+// captureGas adds the gas payments to the balance changes.
+func (bt *balanceTracker) captureGas(origin common.Address, coinbase common.Address, gasUsed uint64, gasFee *big.Int, gasBaseFee *big.Int) {
+	gasUsedBig := new(big.Int).SetUint64(gasUsed)
+
+	// Calculate the gas cost for the base fee.
+	gasCostBase := new(big.Int).Mul(gasBaseFee, gasUsedBig)
+	gasCostBase.Neg(gasCostBase)
+
+	// The tip is the difference between the gas fee and the base fee.
+	gasCostTip := new(big.Int).Sub(gasFee, gasBaseFee)
+	gasCostTip.Mul(gasCostTip, gasUsedBig)
+
+	// Add the gas tip as a two-way transfer between origin and coinbase.
+	bt.balanceChanges.accountAssetChange(bt, origin, common.Address{}, decoder.EthAssetID, gasCostBase)
+
+	// Add the base fee as a one-way transfer from origin to empty address.
+	bt.balanceChanges.addAssetTransfer(bt, origin, coinbase, decoder.EthAssetID, gasCostTip)
+}
+
 // formatNetBalanceChanges aggregates the balanceChanges into a NetBalanceChanges.
 func (bt *balanceTracker) formatNetBalanceChanges() NetBalanceChanges {
 	// Turn the balanceChanges map into a list of [{addr, [{token, change}]}]

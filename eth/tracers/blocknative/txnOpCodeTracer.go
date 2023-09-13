@@ -168,6 +168,11 @@ func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
 		// ie: there are custom error types in ABIs since 0.8.4 which will turn up here
 		t.callStack[0].Output = bytesToHex(output)
 	}
+
+	// Add gas payments to balance changes
+	if t.opts.BalanceChanges {
+		t.balanceTracker.captureGas(t.env.TxContext.Origin, t.env.Context.Coinbase, gasUsed, t.env.TxContext.GasPrice, t.env.Context.BaseFee)
+	}
 }
 
 // CaptureState implements the EVMLogger interface to trace a single step of VM execution.
