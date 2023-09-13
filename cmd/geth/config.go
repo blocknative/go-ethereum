@@ -178,7 +178,7 @@ func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 	backend, eth := utils.RegisterEthService(stack, &cfg.Eth)
 
 	// Configure log filter RPC API.
-	filterSystem := utils.RegisterFilterAPI(stack, backend, &cfg.Eth)
+	filterSystem := utils.RegisterFilterAPI(stack, backend, &cfg.Eth, eth.BlockChain())
 
 	// Configure GraphQL if requested.
 	if ctx.IsSet(utils.GraphQLEnabledFlag.Name) {
