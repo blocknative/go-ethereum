@@ -10,6 +10,7 @@ import (
 
 type Tracer interface {
 	vm.EVMLogger
+	GetTrace() (*Trace, error)
 	GetResult() (json.RawMessage, error)
 	Stop(err error)
 }
