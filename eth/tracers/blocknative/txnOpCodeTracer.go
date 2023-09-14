@@ -24,7 +24,7 @@ type txnOpCodeTracer struct {
 	interrupt uint32      // Atomic flag to signal execution interruption
 	reason    error       // Textual reason for the interruption (not always specific for us)
 	opts      TracerOpts
-	beginTime time.Time // Time object for start of trace for stats
+	startTime time.Time
 }
 
 // NewTxnOpCodeTracer returns a new txnOpCodeTracer tracer with the given
@@ -67,6 +67,7 @@ func (t *txnOpCodeTracer) GetResult() (json.RawMessage, error) {
 
 // CaptureStart implements the EVMLogger interface to initialize the tracing operation.
 func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+	t.startTime = time.Now()
 	t.env = env
 
 	// Blocks only contain `Random` post-merge, but we still have pre-merge tests.
@@ -83,9 +84,6 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 	t.trace.BlockContext.GasLimit = env.Context.GasLimit
 	t.trace.BlockContext.Random = random
 
-	// Start tracing timer
-	t.beginTime = time.Now()
-
 	// This is the initial call
 	t.callStack[0] = CallFrame{
 		Type:  "CALL",
@@ -99,21 +97,16 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 		// TODO: Here we can note creation of contracts for potential future tracing
 		t.callStack[0].Type = "CREATE"
 	}
-
-	// Start timer
-	t.trace.startTime = time.Now()
 }
 
 // CaptureEnd is called after the call finishes to finalize the tracing.
 func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
-	elapsedTime := time.Now().Sub(t.trace.startTime)
+	elapsedTime := time.Now().Sub(t.startTime)
 
 	// Collect final gasUsed
 	t.callStack[0].GasUsed = uintToHex(gasUsed)
 
 	// Add total time duration for this trace request
-	// todo alex: need to find a better place to get time from the evm execution
-	// we can use t.trace.BlockContext.Time and current time to calculate this here!
 	t.trace.Time = fmt.Sprintf("%v", elapsedTime)
 
 	// If the user wants the logs, grab them from the state
