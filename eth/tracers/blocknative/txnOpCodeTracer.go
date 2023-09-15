@@ -139,13 +139,7 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 
 // CaptureEnd is called after the call finishes to finalize the tracing.
 func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
-	elapsedTime := time.Now().Sub(t.startTime)
-
-	// Collect final gasUsed
-	t.callStack[0].GasUsed = uintToHex(gasUsed)
-
-	// Add total time duration for this trace request
-	t.trace.Time = fmt.Sprintf("%v", elapsedTime)
+	finalizeCallFrame(&t.callStack[0], output, gasUsed, err)
 
 	// If the user wants the logs, grab them from the state
 	if t.opts.Logs {
@@ -158,28 +152,14 @@ func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
 		}
 	}
 
-	// This is the final output of a call
-	if err != nil {
-		t.callStack[0].Error = err.Error()
-		if err.Error() == "execution reverted" && len(output) > 0 {
-			t.callStack[0].Output = bytesToHex(output)
-
-			// This revert reason is found via the standard introduced in v0.8.4
-			// It uses a ABI with the method Error(string)
-			// This is the top level call, internal txs may fail while top level succeeds still
-			revertReason, _ := abi.UnpackRevert(output)
-			t.callStack[0].ErrorReason = revertReason
-		}
-	} else {
-		// TODO: This output is for the originally called contract, we can use the ABI to decode this for useful information
-		// ie: there are custom error types in ABIs since 0.8.4 which will turn up here
-		t.callStack[0].Output = bytesToHex(output)
-	}
-
 	// Add gas payments to balance changes
 	if t.opts.BalanceChanges {
 		t.balanceTracker.captureGas(t.env.TxContext.Origin, t.env.Context.Coinbase, gasUsed, t.env.TxContext.GasPrice, t.env.Context.BaseFee)
 	}
+
+	// Add total time duration for this trace request
+	elapsedTime := time.Now().Sub(t.startTime)
+	t.trace.Time = fmt.Sprintf("%v", elapsedTime)
 }
 
 // CaptureState implements the EVMLogger interface to trace a single step of VM execution.
@@ -223,31 +203,26 @@ func (t *txnOpCodeTracer) CaptureEnter(typ vm.OpCode, from common.Address, to co
 
 // CaptureExit is called when EVM exits a scope, even if the scope didn't execute any code.
 func (t *txnOpCodeTracer) CaptureExit(output []byte, gasUsed uint64, err error) {
+	// Skip if we have no call frames.
 	size := len(t.callStack)
+	if size == 0 {
+		return
+	}
+
+	// We have a call frame, so finalize it.
+	finalizeCallFrame(&t.callStack[size-1], output, gasUsed, err)
+
+	// We have a parent call frame, so nest this one into it.
 	if size <= 1 {
 		return
 	}
-	// pop call
-	call := t.callStack[size-1]
-	t.callStack = t.callStack[:size-1]
-	size -= 1
 
-	call.GasUsed = uintToHex(gasUsed)
-	if err == nil {
-		call.Output = bytesToHex(output)
-	} else {
-		call.Error = err.Error()
-		if err.Error() == "execution reverted" && len(output) > 0 {
-			call.Output = bytesToHex(output)
-			revertReason, _ := abi.UnpackRevert(output)
-			call.ErrorReason = revertReason
-		}
-
-		if call.Type == "CREATE" || call.Type == "CREATE2" {
-			call.To = ""
-		}
-	}
-	t.callStack[size-1].Calls = append(t.callStack[size-1].Calls, call)
+	// Pop call and append to parent.
+	end := size - 1
+	call := t.callStack[end]
+	t.callStack = t.callStack[:end]
+	end -= 1
+	t.callStack[end].Calls = append(t.callStack[end].Calls, call)
 }
 
 // CaptureTxStart fulfils the standard Tracer interface, but we don't use it.
@@ -266,5 +241,23 @@ func (t *txnOpCodeTracer) Stop(err error) {
 func (t *txnOpCodeTracer) SetStateRoot(root common.Hash) {
 	if !t.opts.DisableBlockContext {
 		t.trace.BlockContext.StateRoot = bytesToHex(root.Bytes())
+	}
+}
+
+func finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint64, err error) {
+	call.GasUsed = uintToHex(gasUsed)
+	if err == nil {
+		call.Output = bytesToHex(output)
+	} else {
+		call.Error = err.Error()
+		if err.Error() == "execution reverted" && len(output) > 0 {
+			call.Output = bytesToHex(output)
+			revertReason, _ := abi.UnpackRevert(output)
+			call.ErrorReason = revertReason
+		}
+
+		if call.Type == "CREATE" || call.Type == "CREATE2" {
+			call.To = ""
+		}
 	}
 }
