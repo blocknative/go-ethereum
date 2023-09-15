@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -127,10 +128,36 @@ func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
 	}
 }
 
+type NBCByAddress blocknative.NetBalanceChanges
+
+func (a NBCByAddress) Len() int           { return len(a) }
+func (a NBCByAddress) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a NBCByAddress) Less(i, j int) bool { return a[i].Address.String() < a[j].Address.String() }
+
+type BalanceChangesByAssetAddress []blocknative.BalanceChange
+
+func (a BalanceChangesByAssetAddress) Len() int      { return len(a) }
+func (a BalanceChangesByAssetAddress) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a BalanceChangesByAssetAddress) Less(i, j int) bool {
+	return a[i].Asset.Address.String() < a[j].Asset.Address.String()
+}
+
 func tracesEqual(x, y *blocknative.Trace) bool {
 	// Clear out non-deterministic time
 	x.Time = ""
 	y.Time = ""
+
+	// Sort the balance changes
+	if len(x.BalanceChanges) != len(y.BalanceChanges) {
+		return false
+	}
+
+	sort.Sort(NBCByAddress(x.BalanceChanges))
+	sort.Sort(NBCByAddress(y.BalanceChanges))
+	for i := range x.BalanceChanges {
+		sort.Sort(BalanceChangesByAssetAddress(x.BalanceChanges[i].BalanceChanges))
+		sort.Sort(BalanceChangesByAssetAddress(y.BalanceChanges[i].BalanceChanges))
+	}
 
 	xTrace := new(blocknative.Trace)
 	yTrace := new(blocknative.Trace)

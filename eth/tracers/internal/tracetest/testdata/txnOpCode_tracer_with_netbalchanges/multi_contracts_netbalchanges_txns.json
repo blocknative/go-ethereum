@@ -296,8 +296,7 @@
   "input": "0xf869448505d21dba00833567e09403e3d4561a8f8e975fdcd798d32857a20cf25e7e8084be9a65551ba0d4dd5fff30e83fbe630bb0fd67eeefe9e3aad0c3ee870a2b6e80fc40191bc7d4a074f93b546bfad60f3cae8e4aafef835237095d6618334154a24df4b4d49d9359",
   "tracerConfig": {
     "logs": false,
-    "netBalChanges": true,
-    "nbcMethod": "internalTransactions"
+    "balanceChanges": true
   },
   "result": {
     "type": "CALL",
@@ -2002,105 +2001,419 @@
       "coinbase": "0xea674fdde714fd979de3edf0f56aa9716b898ec8",
       "gasLimit": 4712388
     },
-    "netBalChanges": {
-      "balances": {
-        "0x6e715ab4f598eacf0016b9b35ef33e4141844ccc": {
-          "eth": "-2e-18",
-          "ethinwei": -2
-        },
-        "0xad3ecf23c0c8983b07163708be6d763b5f056193": {
-          "eth": "2e-18",
-          "ethinwei": 2
-        },
-        "0xbe3ae5cb97c253dda67181c6e34e43f5c275e08b": {
-          "eth": "-0.063705175",
-          "ethinwei": -63705175000000000
-        },
-        "0xea674fdde714fd979de3edf0f56aa9716b898ec8": {
-          "eth": "0.063705175",
-          "ethinwei": 63705175000000000
-        }
+    "balanceChanges": [
+      {
+        "address": "0x6dbfc63479ffc031f23e94dc91befa38bec2c25f",
+        "balanceChanges": [
+          {
+            "delta": "0",
+            "asset": {
+              "address": "0x304a554a310c7e546dfe434669c62820b7d83490",
+              "type": "unknown",
+              "name": "",
+              "symbol": ""
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x6e715ab4f598eacf0016b9b35ef33e4141844ccc",
+                "amount": "1"
+              },
+              {
+                "counterparty": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
+                "amount": "99"
+              },
+              {
+                "counterparty": "0xda4a4626d3e16e094de3225a751aab7128e96526",
+                "amount": "-100"
+              }
+            ]
+          }
+        ]
       },
-      "tokenchanges": [
-        {
-          "from": "0x03e3d4561a8f8e975fdcd798d32857a20cf25e7e",
-          "to": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
-          "asset": 1820847120949253496306323,
-          "contractAddress": "0xc0ee9db1a9e07ca63e4ff0d5fb6f86bf68d47b89"
-        },
-        {
-          "from": "0xc0ee9db1a9e07ca63e4ff0d5fb6f86bf68d47b89",
-          "to": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
-          "asset": 1820847120949253496306323,
-          "contractAddress": "0x304a554a310c7e546dfe434669c62820b7d83490"
-        },
-        {
-          "from": "0x03e3d4561a8f8e975fdcd798d32857a20cf25e7e",
-          "to": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
-          "asset": 1820847120949253496306294,
-          "contractAddress": "0xf835a0247b0063c04ef22006ebe57c5f11977cc4"
-        },
-        {
-          "from": "0xf835a0247b0063c04ef22006ebe57c5f11977cc4",
-          "to": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
-          "asset": 1820847120949253496306294,
-          "contractAddress": "0x304a554a310c7e546dfe434669c62820b7d83490"
-        },
-        {
-          "from": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
-          "to": "0x6e715ab4f598eacf0016b9b35ef33e4141844ccc",
-          "asset": 1821204263806396353449165,
-          "contractAddress": "0x304a554a310c7e546dfe434669c62820b7d83490"
-        },
-        {
-          "from": "0x6e715ab4f598eacf0016b9b35ef33e4141844ccc",
-          "to": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
-          "asset": 1821204263806396353449164,
-          "contractAddress": "0x304a554a310c7e546dfe434669c62820b7d83490"
-        },
-        {
-          "from": "0x6e715ab4f598eacf0016b9b35ef33e4141844ccc",
-          "to": "0x6dbfc63479ffc031f23e94dc91befa38bec2c25f",
-          "asset": 1,
-          "contractAddress": "0x304a554a310c7e546dfe434669c62820b7d83490"
-        },
-        {
-          "from": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
-          "to": "0x6dbfc63479ffc031f23e94dc91befa38bec2c25f",
-          "asset": 99,
-          "contractAddress": "0x304a554a310c7e546dfe434669c62820b7d83490"
-        },
-        {
-          "from": "0x6dbfc63479ffc031f23e94dc91befa38bec2c25f",
-          "to": "0xda4a4626d3e16e094de3225a751aab7128e96526",
-          "asset": 100,
-          "contractAddress": "0x304a554a310c7e546dfe434669c62820b7d83490"
-        },
-        {
-          "from": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
-          "to": "0x7498bb5749c9801f1f7e490baf5f966dbfe4e97b",
-          "asset": 1,
-          "contractAddress": "0x304a554a310c7e546dfe434669c62820b7d83490"
-        },
-        {
-          "from": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
-          "to": "0x7ccbc69292c7a6d7b538c91f3b283de97906cf30",
-          "asset": 1213898080632835664204172,
-          "contractAddress": "0x304a554a310c7e546dfe434669c62820b7d83490"
-        },
-        {
-          "from": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
-          "to": "0x1b9ec8ba24630b75a7a958153ffff56dd6d4b6a2",
-          "asset": 1213898080632835664204172,
-          "contractAddress": "0x304a554a310c7e546dfe434669c62820b7d83490"
-        },
-        {
-          "from": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
-          "to": "0xc3a2c744ad1f5253c736875b93bacce5b01b060b",
-          "asset": 1213898080632835664204172,
-          "contractAddress": "0x304a554a310c7e546dfe434669c62820b7d83490"
-        }
-      ]
-    }
+      {
+        "address": "0xda4a4626d3e16e094de3225a751aab7128e96526",
+        "balanceChanges": [
+          {
+            "delta": "100",
+            "asset": {
+              "address": "0x304a554a310c7e546dfe434669c62820b7d83490",
+              "type": "unknown",
+              "name": "",
+              "symbol": ""
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x6dbfc63479ffc031f23e94dc91befa38bec2c25f",
+                "amount": "100"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "address": "0x7498bb5749c9801f1f7e490baf5f966dbfe4e97b",
+        "balanceChanges": [
+          {
+            "delta": "1",
+            "asset": {
+              "address": "0x304a554a310c7e546dfe434669c62820b7d83490",
+              "type": "unknown",
+              "name": "",
+              "symbol": ""
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
+                "amount": "1"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "address": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
+        "balanceChanges": [
+          {
+            "delta": "1820847120949253496306323",
+            "asset": {
+              "address": "0xc0ee9db1a9e07ca63e4ff0d5fb6f86bf68d47b89",
+              "type": "unknown",
+              "name": "",
+              "symbol": ""
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x03e3d4561a8f8e975fdcd798d32857a20cf25e7e",
+                "amount": "1820847120949253496306323"
+              }
+            ]
+          },
+          {
+            "delta": "0",
+            "asset": {
+              "address": "0x304a554a310c7e546dfe434669c62820b7d83490",
+              "type": "unknown",
+              "name": "",
+              "symbol": ""
+            },
+            "breakdown": [
+              {
+                "counterparty": "0xc0ee9db1a9e07ca63e4ff0d5fb6f86bf68d47b89",
+                "amount": "1820847120949253496306323"
+              },
+              {
+                "counterparty": "0xf835a0247b0063c04ef22006ebe57c5f11977cc4",
+                "amount": "1820847120949253496306294"
+              },
+              {
+                "counterparty": "0x6e715ab4f598eacf0016b9b35ef33e4141844ccc",
+                "amount": "-1821204263806396353449165"
+              },
+              {
+                "counterparty": "0x6e715ab4f598eacf0016b9b35ef33e4141844ccc",
+                "amount": "1821204263806396353449164"
+              },
+              {
+                "counterparty": "0x6dbfc63479ffc031f23e94dc91befa38bec2c25f",
+                "amount": "-99"
+              },
+              {
+                "counterparty": "0x7498bb5749c9801f1f7e490baf5f966dbfe4e97b",
+                "amount": "-1"
+              },
+              {
+                "counterparty": "0x7ccbc69292c7a6d7b538c91f3b283de97906cf30",
+                "amount": "-1213898080632835664204172"
+              },
+              {
+                "counterparty": "0x1b9ec8ba24630b75a7a958153ffff56dd6d4b6a2",
+                "amount": "-1213898080632835664204172"
+              },
+              {
+                "counterparty": "0xc3a2c744ad1f5253c736875b93bacce5b01b060b",
+                "amount": "-1213898080632835664204172"
+              }
+            ]
+          },
+          {
+            "delta": "1820847120949253496306294",
+            "asset": {
+              "address": "0xf835a0247b0063c04ef22006ebe57c5f11977cc4",
+              "type": "unknown",
+              "name": "",
+              "symbol": ""
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x03e3d4561a8f8e975fdcd798d32857a20cf25e7e",
+                "amount": "1820847120949253496306294"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "address": "0xc0ee9db1a9e07ca63e4ff0d5fb6f86bf68d47b89",
+        "balanceChanges": [
+          {
+            "delta": "-1820847120949253496306323",
+            "asset": {
+              "address": "0x304a554a310c7e546dfe434669c62820b7d83490",
+              "type": "unknown",
+              "name": "",
+              "symbol": ""
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
+                "amount": "-1820847120949253496306323"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "address": "0xf835a0247b0063c04ef22006ebe57c5f11977cc4",
+        "balanceChanges": [
+          {
+            "delta": "-1820847120949253496306294",
+            "asset": {
+              "address": "0x304a554a310c7e546dfe434669c62820b7d83490",
+              "type": "unknown",
+              "name": "",
+              "symbol": ""
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
+                "amount": "-1820847120949253496306294"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "address": "0x6e715ab4f598eacf0016b9b35ef33e4141844ccc",
+        "balanceChanges": [
+          {
+            "delta": "0",
+            "asset": {
+              "address": "0x304a554a310c7e546dfe434669c62820b7d83490",
+              "type": "unknown",
+              "name": "",
+              "symbol": ""
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
+                "amount": "1821204263806396353449165"
+              },
+              {
+                "counterparty": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
+                "amount": "-1821204263806396353449164"
+              },
+              {
+                "counterparty": "0x6dbfc63479ffc031f23e94dc91befa38bec2c25f",
+                "amount": "-1"
+              }
+            ]
+          },
+          {
+            "delta": "-2",
+            "asset": {
+              "address": "0x0000000000000000000000000000000000000000",
+              "type": "eth",
+              "name": "Ether",
+              "symbol": "ETH",
+              "decimals": 18
+            },
+            "breakdown": [
+              {
+                "counterparty": "0xad3ecf23c0c8983b07163708be6d763b5f056193",
+                "amount": "-80000000000000000000"
+              },
+              {
+                "counterparty": "0xad3ecf23c0c8983b07163708be6d763b5f056193",
+                "amount": "39999999999999999999"
+              },
+              {
+                "counterparty": "0xad3ecf23c0c8983b07163708be6d763b5f056193",
+                "amount": "39999999999999999999"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "address": "0xad3ecf23c0c8983b07163708be6d763b5f056193",
+        "balanceChanges": [
+          {
+            "delta": "2",
+            "asset": {
+              "address": "0x0000000000000000000000000000000000000000",
+              "type": "eth",
+              "name": "Ether",
+              "symbol": "ETH",
+              "decimals": 18
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x6e715ab4f598eacf0016b9b35ef33e4141844ccc",
+                "amount": "80000000000000000000"
+              },
+              {
+                "counterparty": "0x6e715ab4f598eacf0016b9b35ef33e4141844ccc",
+                "amount": "-39999999999999999999"
+              },
+              {
+                "counterparty": "0x6e715ab4f598eacf0016b9b35ef33e4141844ccc",
+                "amount": "-39999999999999999999"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "address": "0xc3a2c744ad1f5253c736875b93bacce5b01b060b",
+        "balanceChanges": [
+          {
+            "delta": "1213898080632835664204172",
+            "asset": {
+              "address": "0x304a554a310c7e546dfe434669c62820b7d83490",
+              "type": "unknown",
+              "name": "",
+              "symbol": ""
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
+                "amount": "1213898080632835664204172"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "address": "0xea674fdde714fd979de3edf0f56aa9716b898ec8",
+        "balanceChanges": [
+          {
+            "delta": "65754390944499200",
+            "asset": {
+              "address": "0x0000000000000000000000000000000000000000",
+              "type": "eth",
+              "name": "Ether",
+              "symbol": "ETH",
+              "decimals": 18
+            },
+            "breakdown": [
+              {
+                "counterparty": "0xbe3ae5cb97c253dda67181c6e34e43f5c275e08b",
+                "amount": "65754390944499200"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "address": "0x7ccbc69292c7a6d7b538c91f3b283de97906cf30",
+        "balanceChanges": [
+          {
+            "delta": "1213898080632835664204172",
+            "asset": {
+              "address": "0x304a554a310c7e546dfe434669c62820b7d83490",
+              "type": "unknown",
+              "name": "",
+              "symbol": ""
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
+                "amount": "1213898080632835664204172"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "address": "0x03e3d4561a8f8e975fdcd798d32857a20cf25e7e",
+        "balanceChanges": [
+          {
+            "delta": "-1820847120949253496306323",
+            "asset": {
+              "address": "0xc0ee9db1a9e07ca63e4ff0d5fb6f86bf68d47b89",
+              "type": "unknown",
+              "name": "",
+              "symbol": ""
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
+                "amount": "-1820847120949253496306323"
+              }
+            ]
+          },
+          {
+            "delta": "-1820847120949253496306294",
+            "asset": {
+              "address": "0xf835a0247b0063c04ef22006ebe57c5f11977cc4",
+              "type": "unknown",
+              "name": "",
+              "symbol": ""
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
+                "amount": "-1820847120949253496306294"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "address": "0x1b9ec8ba24630b75a7a958153ffff56dd6d4b6a2",
+        "balanceChanges": [
+          {
+            "delta": "1213898080632835664204172",
+            "asset": {
+              "address": "0x304a554a310c7e546dfe434669c62820b7d83490",
+              "type": "unknown",
+              "name": "",
+              "symbol": ""
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
+                "amount": "1213898080632835664204172"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "address": "0xbe3ae5cb97c253dda67181c6e34e43f5c275e08b",
+        "balanceChanges": [
+          {
+            "delta": "-65798375000000000",
+            "asset": {
+              "address": "0x0000000000000000000000000000000000000000",
+              "type": "eth",
+              "name": "Ether",
+              "symbol": "ETH",
+              "decimals": 18
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x0000000000000000000000000000000000000000",
+                "amount": "-43984055500800"
+              },
+              {
+                "counterparty": "0xea674fdde714fd979de3edf0f56aa9716b898ec8",
+                "amount": "-65754390944499200"
+              }
+            ]
+          }
+        ]
+      }
+    ]
   }
 }
