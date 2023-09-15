@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -16,7 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/tests"
 )
 
@@ -29,7 +30,10 @@ type txnOpCodeTracerTest struct {
 }
 
 func TestTxnOpCodeTracer(t *testing.T) {
+	log.Root().SetHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
+
 	testTxnOpCodeTracer("txnOpCodeTracer", "txnOpCode_tracer", t)
+	testTxnOpCodeTracer("txnOpCodeTracer", "txnOpCode_tracer_with_netbalchanges", t)
 }
 
 func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
@@ -55,7 +59,8 @@ func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
 			} else if err := json.Unmarshal(blob, test); err != nil {
 				t.Fatalf("failed to parse testcase: %v", err)
 			}
-			if err := rlp.DecodeBytes(common.FromHex(test.Input), tx); err != nil {
+			// Here we use unmarshalBinary as it can account for EIP2718 typed transactions in the tests
+			if err := tx.UnmarshalBinary(common.FromHex(test.Input)); err != nil {
 				t.Fatalf("failed to parse testcase input: %v", err)
 			}
 
@@ -109,23 +114,50 @@ func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
 
 			if !tracesEqual(ret, test.Result) {
 				// Below are prints to show differences if we fail, can always just check against the specific test json files too!
-				// x, _ := json.MarshalIndent(ret, "", "")
+				// x, _ := json.MarshalIndent(ret, "  ", "  ")
 				// y, _ := json.MarshalIndent(test.Result, "", "")
-				// fmt.Println("ret")
+				// fmt.Println("Trace return: ")
 				// fmt.Println(string(x))
 				// fmt.Println("test.Result")
 				// fmt.Println(string(y))
-				t.Fatal("traces mismatch")
+				//t.Fatal("traces mismatch")
 				// t.Fatalf("trace mismatch: \nhave %+v\nwant %+v", ret, test.Result)
+				t.Fatalf("trace mismatch: \nhave %+v\nwant %+v", ret, test.Result)
 			}
 		})
 	}
+}
+
+type NBCByAddress blocknative.NetBalanceChanges
+
+func (a NBCByAddress) Len() int           { return len(a) }
+func (a NBCByAddress) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a NBCByAddress) Less(i, j int) bool { return a[i].Address.String() < a[j].Address.String() }
+
+type BalanceChangesByAssetAddress []blocknative.BalanceChange
+
+func (a BalanceChangesByAssetAddress) Len() int      { return len(a) }
+func (a BalanceChangesByAssetAddress) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a BalanceChangesByAssetAddress) Less(i, j int) bool {
+	return a[i].Asset.Address.String() < a[j].Asset.Address.String()
 }
 
 func tracesEqual(x, y *blocknative.Trace) bool {
 	// Clear out non-deterministic time
 	x.Time = ""
 	y.Time = ""
+
+	// Sort the balance changes
+	if len(x.BalanceChanges) != len(y.BalanceChanges) {
+		return false
+	}
+
+	sort.Sort(NBCByAddress(x.BalanceChanges))
+	sort.Sort(NBCByAddress(y.BalanceChanges))
+	for i := range x.BalanceChanges {
+		sort.Sort(BalanceChangesByAssetAddress(x.BalanceChanges[i].BalanceChanges))
+		sort.Sort(BalanceChangesByAssetAddress(y.BalanceChanges[i].BalanceChanges))
+	}
 
 	xTrace := new(blocknative.Trace)
 	yTrace := new(blocknative.Trace)

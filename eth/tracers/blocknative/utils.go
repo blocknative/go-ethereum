@@ -1,10 +1,11 @@
 package blocknative
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"strconv"
 	"strings"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 func bytesToHex(s []byte) string {
