@@ -143,73 +143,75 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 		}
 
 		var hashes []common.Hash
-		select {
-		case r := <-reorgs:
-			// Reverse the added blocks in the reorgs, excluding the latest block
-			// as it will be emitted on the newHeads channels.
-			hashes = make([]common.Hash, 0, len(r.Added)-1)
-			for i := len(r.Added) - 1; i > 0; i-- {
-				hashes = append(hashes, r.Added[i])
-			}
-		case h := <-headers:
-			hashes = []common.Hash{h.Hash()}
-		case <-headersSub.Err():
-			return
-		case <-reorgSub.Err():
-			return
-		case <-notifier.Closed():
-			return
-		}
-
-		for _, hash := range hashes {
-			block, err := api.sys.backend.BlockByHash(ctx, hash)
-			if err != nil {
-				log.Error("failed to get block", "err", err, "hash", hash)
-				continue
-			}
-
-			marshalBlock, err := RPCMarshalBlock(block, true, true, api.sys.backend.ChainConfig())
-			if err != nil {
-				continue
-			}
-
-			trace, err := traceBlock(block, chainConfig, api.sys.chain, tracerOpts)
-			if err != nil {
-				log.Error("failed to trace block", "err", err, "block", block.Number())
-				continue
-			}
-			marshalBlock["trace"] = trace
-
-			marshalReceipts := make(map[common.Hash]map[string]interface{})
-			receipts, err := api.sys.backend.GetReceipts(ctx, hash)
-			if err != nil {
-				continue
-			}
-			for index, receipt := range receipts {
-				fields := map[string]interface{}{
-					"transactionIndex":  hexutil.Uint64(index),
-					"gasUsed":           hexutil.Uint64(receipt.GasUsed),
-					"cumulativeGasUsed": hexutil.Uint64(receipt.CumulativeGasUsed),
-					"contractAddress":   nil,
-					"logs":              receipt.Logs,
-					"logsBloom":         receipt.Bloom,
-					"status":            hexutil.Uint64(receipt.Status),
+		for {
+			select {
+			case r := <-reorgs:
+				// Reverse the added blocks in the reorgs, excluding the latest block
+				// as it will be emitted on the newHeads channels.
+				hashes = make([]common.Hash, 0, len(r.Added)-1)
+				for i := len(r.Added) - 1; i > 0; i-- {
+					hashes = append(hashes, r.Added[i])
 				}
-				if receipt.Logs == nil {
-					fields["logs"] = [][]*types.Log{}
-				}
-				// If the ContractAddress is 20 0x0 bytes, assume it is not a contract creation
-				if receipt.ContractAddress != (common.Address{}) {
-					fields["contractAddress"] = receipt.ContractAddress
-				}
-				if reason, ok := core.GetRevertReason(receipt.TxHash, hash); ok {
-					fields["revertReason"] = reason
-				}
-				marshalReceipts[receipt.TxHash] = fields
+			case h := <-headers:
+				hashes = []common.Hash{h.Hash()}
+			case <-headersSub.Err():
+				return
+			case <-reorgSub.Err():
+				return
+			case <-notifier.Closed():
+				return
 			}
-			marshalBlock["receipts"] = marshalReceipts
 
-			notifier.Notify(rpcSub.ID, marshalBlock)
+			for _, hash := range hashes {
+				block, err := api.sys.backend.BlockByHash(ctx, hash)
+				if err != nil {
+					log.Error("failed to get block", "err", err, "hash", hash)
+					continue
+				}
+
+				marshalBlock, err := RPCMarshalBlock(block, true, true, api.sys.backend.ChainConfig())
+				if err != nil {
+					continue
+				}
+
+				trace, err := traceBlock(block, chainConfig, api.sys.chain, tracerOpts)
+				if err != nil {
+					log.Error("failed to trace block", "err", err, "block", block.Number())
+					continue
+				}
+				marshalBlock["trace"] = trace
+
+				marshalReceipts := make(map[common.Hash]map[string]interface{})
+				receipts, err := api.sys.backend.GetReceipts(ctx, hash)
+				if err != nil {
+					continue
+				}
+				for index, receipt := range receipts {
+					fields := map[string]interface{}{
+						"transactionIndex":  hexutil.Uint64(index),
+						"gasUsed":           hexutil.Uint64(receipt.GasUsed),
+						"cumulativeGasUsed": hexutil.Uint64(receipt.CumulativeGasUsed),
+						"contractAddress":   nil,
+						"logs":              receipt.Logs,
+						"logsBloom":         receipt.Bloom,
+						"status":            hexutil.Uint64(receipt.Status),
+					}
+					if receipt.Logs == nil {
+						fields["logs"] = [][]*types.Log{}
+					}
+					// If the ContractAddress is 20 0x0 bytes, assume it is not a contract creation
+					if receipt.ContractAddress != (common.Address{}) {
+						fields["contractAddress"] = receipt.ContractAddress
+					}
+					if reason, ok := core.GetRevertReason(receipt.TxHash, hash); ok {
+						fields["revertReason"] = reason
+					}
+					marshalReceipts[receipt.TxHash] = fields
+				}
+				marshalBlock["receipts"] = marshalReceipts
+
+				notifier.Notify(rpcSub.ID, marshalBlock)
+			}
 		}
 	}()
 
