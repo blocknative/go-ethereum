@@ -92,7 +92,7 @@ func NewSimulatedBackendWithDatabase(database ethdb.Database, alloc core.Genesis
 	}
 
 	filterBackend := &filterBackend{database, blockchain, backend}
-	backend.filterSystem = filters.NewFilterSystem(filterBackend, filters.Config{})
+	backend.filterSystem = filters.NewFilterSystem(filterBackend, nil, filters.Config{})
 	backend.events = filters.NewEventSystem(backend.filterSystem, false)
 
 	header := backend.blockchain.CurrentBlock()

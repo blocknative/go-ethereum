@@ -10,8 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder"
 	"github.com/ethereum/go-ethereum/log"
 )
+
+var metadataReader = decoder.NewAssetDecoder()
 
 // txnOpCodeTracer is a go implementation of the Tracer interface which
 // only returns a restricted trace of a transaction consisting of transaction
@@ -24,49 +27,72 @@ type txnOpCodeTracer struct {
 	interrupt uint32      // Atomic flag to signal execution interruption
 	reason    error       // Textual reason for the interruption (not always specific for us)
 	opts      TracerOpts
-	beginTime time.Time // Time object for start of trace for stats
+	startTime time.Time
+
+	balanceTracker  *balanceTracker
+	metadataDecoder *decoder.AssetDecoder
 }
 
 // NewTxnOpCodeTracer returns a new txnOpCodeTracer tracer with the given
 // options applied.
 func NewTxnOpCodeTracer(cfg json.RawMessage) (Tracer, error) {
-
-	// First callframe contains tx context info
-	// and is populated on start and end.
-	t := &txnOpCodeTracer{callStack: make([]CallFrame, 1)}
+	var opts TracerOpts
 
 	// Decode raw json opts into our struct.
 	if cfg != nil {
-		if err := json.Unmarshal(cfg, &t.opts); err != nil {
+		if err := json.Unmarshal(cfg, &opts); err != nil {
 			return nil, err
 		}
 	}
 
-	return t, nil
+	return NewTxnOpCodeTracerWithOpts(opts)
+}
+
+func NewTxnOpCodeTracerWithOpts(opts TracerOpts) (Tracer, error) {
+	// First callframe contains tx context info and is populated on start and end.
+	var t = txnOpCodeTracer{
+		opts:            opts,
+		callStack:       make([]CallFrame, 1),
+		metadataDecoder: metadataReader,
+	}
+
+	if !t.opts.DisableBlockContext {
+		t.trace.BlockContext = &BlockContext{}
+	}
+
+	return &t, nil
+
+}
+
+// GetTrace returns the resulting Trace object.
+func (t *txnOpCodeTracer) GetTrace() (*Trace, error) {
+	// Get the final balance changes
+	if t.opts.BalanceChanges {
+		t.trace.BalanceChanges = t.balanceTracker.formatNetBalanceChanges()
+	}
+
+	// Only want the top level trace, all other indexes hold sub-traces to which we do not particularly need
+	t.trace.CallFrame = t.callStack[0]
+	return &t.trace, nil
 }
 
 // GetResult returns an empty json object.
 func (t *txnOpCodeTracer) GetResult() (json.RawMessage, error) {
-
-	// This block used to trip on subtraces being discovered, for this tracer we do not need this,
-	// however we would like to keep this here in a possible future where we do care about such cases.
-
-	// if len(t.callStack) != 1 {
-	// 	return nil, errors.New("incorrect number of top-level calls")
-	// }
-
-	// Only want the top level trace, all other indexes hold subtraces to which we do not particularly need
-	t.trace.CallFrame = t.callStack[0]
-
-	res, err := json.Marshal(t.trace)
+	trace, err := t.GetTrace()
 	if err != nil {
 		return nil, err
 	}
-	return json.RawMessage(res), t.reason
+
+	res, err := json.Marshal(trace)
+	if err != nil {
+		return nil, err
+	}
+	return res, t.reason
 }
 
 // CaptureStart implements the EVMLogger interface to initialize the tracing operation.
 func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+	t.startTime = time.Now()
 	t.env = env
 
 	// Blocks only contain `Random` post-merge, but we still have pre-merge tests.
@@ -76,15 +102,14 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 	}
 
 	// Populate the block context from the vm environment.
-	t.trace.BlockContext.Number = env.Context.BlockNumber.Uint64()
-	t.trace.BlockContext.BaseFee = env.Context.BaseFee.Uint64()
-	t.trace.BlockContext.Time = env.Context.Time
-	t.trace.BlockContext.Coinbase = addrToHex(env.Context.Coinbase)
-	t.trace.BlockContext.GasLimit = env.Context.GasLimit
-	t.trace.BlockContext.Random = random
-
-	// Start tracing timer
-	t.beginTime = time.Now()
+	if !t.opts.DisableBlockContext {
+		t.trace.BlockContext.Number = env.Context.BlockNumber.Uint64()
+		t.trace.BlockContext.BaseFee = env.Context.BaseFee.Uint64()
+		t.trace.BlockContext.Time = env.Context.Time
+		t.trace.BlockContext.Coinbase = addrToHex(env.Context.Coinbase)
+		t.trace.BlockContext.GasLimit = env.Context.GasLimit
+		t.trace.BlockContext.Random = random
+	}
 
 	// This is the initial call
 	t.callStack[0] = CallFrame{
@@ -100,20 +125,26 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 		t.callStack[0].Type = "CREATE"
 	}
 
-	// Start timer
-	t.trace.startTime = time.Now()
+	// If we want balance changes then create a tracker and handle the
+	// top-level call.
+	if t.opts.BalanceChanges {
+		assetGetterFn := func(assetID decoder.AssetID) (*decoder.Asset, error) {
+			return t.metadataDecoder.Decode(t.env, assetID)
+		}
+
+		t.balanceTracker = newBalanceChangeTracker(t.env.StateDB, assetGetterFn)
+		t.balanceTracker.captureCall(from, to, value, input)
+	}
 }
 
 // CaptureEnd is called after the call finishes to finalize the tracing.
 func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
-	elapsedTime := time.Now().Sub(t.trace.startTime)
+	elapsedTime := time.Now().Sub(t.startTime)
 
 	// Collect final gasUsed
 	t.callStack[0].GasUsed = uintToHex(gasUsed)
 
 	// Add total time duration for this trace request
-	// todo alex: need to find a better place to get time from the evm execution
-	// we can use t.trace.BlockContext.Time and current time to calculate this here!
 	t.trace.Time = fmt.Sprintf("%v", elapsedTime)
 
 	// If the user wants the logs, grab them from the state
@@ -135,7 +166,7 @@ func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
 
 			// This revert reason is found via the standard introduced in v0.8.4
 			// It uses a ABI with the method Error(string)
-			// This is the top level call, internal txns may fail while top level succeeds still
+			// This is the top level call, internal txs may fail while top level succeeds still
 			revertReason, _ := abi.UnpackRevert(output)
 			t.callStack[0].ErrorReason = revertReason
 		}
@@ -144,28 +175,25 @@ func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
 		// ie: there are custom error types in ABIs since 0.8.4 which will turn up here
 		t.callStack[0].Output = bytesToHex(output)
 	}
+
+	// Add gas payments to balance changes
+	if t.opts.BalanceChanges {
+		t.balanceTracker.captureGas(t.env.TxContext.Origin, t.env.Context.Coinbase, gasUsed, t.env.TxContext.GasPrice, t.env.Context.BaseFee)
+	}
 }
 
 // CaptureState implements the EVMLogger interface to trace a single step of VM execution.
-func (t *txnOpCodeTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
+func (t *txnOpCodeTracer) CaptureState(_ uint64, _ vm.OpCode, _, _ uint64, _ *vm.ScopeContext, _ []byte, depth int, _ error) {
 	defer func() {
 		if r := recover(); r != nil {
 			t.callStack[depth].Error = "internal failure"
 			log.Warn("Panic during trace. Recovered.", "err", r)
 		}
 	}()
-
-	// TODO: Here we can check for specific op codes that may interest us
-	// Op codes we like at BN are:
-	// CREATE, CREATE2
-	// SELFDESTRUCT
-	// CALL, CALLCODE, DELEGATECALL, STATICCALL (picked up by CaptureEnter)
-	// REVERT
 }
 
 // CaptureFault implements the EVMLogger interface to trace an execution fault.
-func (t *txnOpCodeTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, _ *vm.ScopeContext, depth int, err error) {
-	// The err here is generated by geth, not by contract error logging
+func (t *txnOpCodeTracer) CaptureFault(_ uint64, _ vm.OpCode, _, _ uint64, _ *vm.ScopeContext, _ int, _ error) {
 }
 
 // CaptureEnter is called when EVM enters a new scope (via call, create or selfdestruct).
@@ -187,13 +215,14 @@ func (t *txnOpCodeTracer) CaptureEnter(typ vm.OpCode, from common.Address, to co
 	}
 	t.callStack = append(t.callStack, call)
 
-	// Todo: Can add a decode request here from OWL in future
+	// If we want to create NBC from decoded transactions, do so here
+	if t.opts.BalanceChanges {
+		t.balanceTracker.captureCall(from, to, value, input)
+	}
 }
 
-// CaptureExit is called when EVM exits a scope, even if the scope didn't
-// execute any code.
+// CaptureExit is called when EVM exits a scope, even if the scope didn't execute any code.
 func (t *txnOpCodeTracer) CaptureExit(output []byte, gasUsed uint64, err error) {
-
 	size := len(t.callStack)
 	if size <= 1 {
 		return
@@ -221,18 +250,21 @@ func (t *txnOpCodeTracer) CaptureExit(output []byte, gasUsed uint64, err error) 
 	t.callStack[size-1].Calls = append(t.callStack[size-1].Calls, call)
 }
 
-func (*txnOpCodeTracer) CaptureTxStart(gasLimit uint64) {
-}
+// CaptureTxStart fulfils the standard Tracer interface, but we don't use it.
+func (t *txnOpCodeTracer) CaptureTxStart(_ uint64) {}
 
-// SetStateRoot implements core.stateRootSetter and stores the given root in the trace's BlockContext.
-func (t *txnOpCodeTracer) SetStateRoot(root common.Hash) {
-	t.trace.BlockContext.StateRoot = bytesToHex(root.Bytes())
-}
-
-func (*txnOpCodeTracer) CaptureTxEnd(restGas uint64) {}
+// CaptureTxEnd fulfils the standard Tracer interface, but we don't use it.
+func (t *txnOpCodeTracer) CaptureTxEnd(_ uint64) {}
 
 // Stop terminates execution of the tracer at the first opportune moment.
 func (t *txnOpCodeTracer) Stop(err error) {
 	t.reason = err
 	atomic.StoreUint32(&t.interrupt, 1)
+}
+
+// SetStateRoot implements core.stateRootSetter and stores the given root in the trace's BlockContext.
+func (t *txnOpCodeTracer) SetStateRoot(root common.Hash) {
+	if !t.opts.DisableBlockContext {
+		t.trace.BlockContext.StateRoot = bytesToHex(root.Bytes())
+	}
 }
