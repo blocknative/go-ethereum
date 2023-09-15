@@ -101,17 +101,17 @@ func (changeMap balanceChangeByOwnerByAsset) accountAssetChange(bt *balanceTrack
 			log.Trace("failed to read token metadata", "err", err)
 		}
 		changeMap[owner][assetID] = BalanceChange{
-			Delta: Amount{big.NewInt(0)},
+			Delta: NewAmount(big.NewInt(0)),
 			Asset: asset,
 		}
 	}
 
 	// Update the delta and add a breakdown event.
 	ownerBalanceChange := changeMap[owner][assetID]
-	ownerBalanceChange.Delta.Int.Add(ownerBalanceChange.Delta.Int, delta)
+	ownerBalanceChange.Delta.Add(ownerBalanceChange.Delta, delta)
 	ownerBalanceChange.Breakdown = append(ownerBalanceChange.Breakdown, AssetTransferEvent{
 		Counterparty: counterparty,
-		Amount:       Amount{delta},
+		Amount:       NewAmount(delta),
 	})
 	changeMap[owner][assetID] = ownerBalanceChange
 

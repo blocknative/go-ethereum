@@ -2,6 +2,7 @@ package blocknative
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -79,7 +80,7 @@ type AccountBalanceChanges struct {
 
 // BalanceChange is a change in an account's balance for a single asset.
 type BalanceChange struct {
-	Delta     Amount               `json:"delta"`
+	Delta     *Amount              `json:"delta"`
 	Asset     *decoder.Asset       `json:"asset"`
 	Breakdown []AssetTransferEvent `json:"breakdown"`
 }
@@ -87,21 +88,34 @@ type BalanceChange struct {
 // AssetTransferEvent is a single transfer of an asset.
 type AssetTransferEvent struct {
 	Counterparty common.Address `json:"counterparty"`
-	Amount       Amount         `json:"amount"`
+	Amount       *Amount        `json:"amount"`
 }
 
-type Amount struct{ *big.Int }
+type Amount big.Int
 
-func (a Amount) MarshalJSON() ([]byte, error) {
-	if a.Int == nil {
-		return json.Marshal("0")
-	}
-	return json.Marshal(a.Int.String())
+func NewAmount(i *big.Int) *Amount {
+	return (*Amount)(i)
 }
 
-func (a Amount) UnmarshalJSON(data []byte) error {
+func (a *Amount) Add(x *Amount, y *big.Int) {
+	a.ToInt().Add(x.ToInt(), y)
+}
+
+func (a *Amount) ToInt() *big.Int {
+	return (*big.Int)(a)
+}
+
+func (a *Amount) String() string {
+	return a.ToInt().String()
+}
+
+func (a *Amount) MarshalJSON() ([]byte, error) {
+	return json.Marshal(a.ToInt().String())
+}
+
+func (a *Amount) UnmarshalJSON(data []byte) error {
 	if data == nil || len(data) == 0 {
-		a.Int = big.NewInt(0)
+		*a = *NewAmount(big.NewInt(0))
 		return nil
 	}
 
@@ -109,6 +123,10 @@ func (a Amount) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &s); err != nil {
 		return err
 	}
-	a.Int, _ = new(big.Int).SetString(s, 10)
+	aInt, ok := new(big.Int).SetString(s, 10)
+	if !ok {
+		return fmt.Errorf("failed to convert string to Amount")
+	}
+	*a = *(*Amount)(aInt)
 	return nil
 }
