@@ -3,6 +3,7 @@ package decoder
 import (
 	"fmt"
 	"math/big"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -49,7 +50,8 @@ type AssetID struct {
 }
 
 type AssetDecoder struct {
-	cache lru.BasicLRU[AssetID, *Asset]
+	cacheMu sync.RWMutex
+	cache   lru.BasicLRU[AssetID, *Asset]
 }
 
 func NewAssetDecoder() *AssetDecoder {
@@ -64,7 +66,10 @@ func (d *AssetDecoder) Decode(evm *vm.EVM, assetID AssetID) (*Asset, error) {
 	}
 
 	// Check the cache for an existing entry.
-	if asset, ok := d.cache.Get(assetID); ok {
+	d.cacheMu.RLock()
+	asset, ok := d.cache.Get(assetID)
+	d.cacheMu.RUnlock()
+	if ok {
 		return asset, nil
 	}
 
@@ -73,7 +78,10 @@ func (d *AssetDecoder) Decode(evm *vm.EVM, assetID AssetID) (*Asset, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	d.cacheMu.Lock()
 	d.cache.Add(assetID, asset)
+	d.cacheMu.Unlock()
 
 	return asset, nil
 }
