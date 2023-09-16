@@ -18,11 +18,10 @@ type DecodedCall struct {
 	From     common.Address
 	To       common.Address
 	Value    *big.Int
-
-	TokenID *big.Int
+	TokenID  *big.Int
 }
 
-func DecodeCalldata(sender common.Address, input []byte) *DecodedCall {
+func DecodeCalldata(sender common.Address, input []byte, contract *Contract) *DecodedCall {
 	// Check if the input is capable of being a function call selector.
 	// If not then we're done. If so then check if it's a transfer call.
 	if len(input) < 4 {
@@ -75,6 +74,13 @@ func DecodeCalldata(sender common.Address, input []byte) *DecodedCall {
 		from = common.BytesToAddress(scanWord())
 		to = common.BytesToAddress(scanWord())
 		amount.SetBytes(scanWord())
+
+		// If the contract is an ERC-721, but not an ERC-20, then move the
+		// scanned amount to the tokenID and set the amount to 1.
+		if contract.IsERC721() && !contract.IsERC20() {
+			tokenID = amount
+			amount = big.NewInt(1)
+		}
 
 	// ERC1155 style transfers
 	//
