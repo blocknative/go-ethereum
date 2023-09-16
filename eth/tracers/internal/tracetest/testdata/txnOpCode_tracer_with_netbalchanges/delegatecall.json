@@ -257,56 +257,22 @@
           {
             "type": "CALL",
             "from": "0x92f1dbea03ce08225e31e95cc926ddbe0198e6f2",
-            "to": "0x92f1dbea03ce08225e31e95cc926ddbe0198e6f2",
+            "to": "0x0000000000000000000000000000000000000004",
             "value": "0x0",
-            "gas": "0xffffffffffffffff",
-            "gasUsed": "0x640a",
-            "input": "0x06fdde03",
-            "output": "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000",
-            "calls": [
-              {
-                "type": "CALL",
-                "from": "0x92f1dbea03ce08225e31e95cc926ddbe0198e6f2",
-                "to": "0x0000000000000000000000000000000000000004",
-                "value": "0x0",
-                "gas": "0xf",
-                "gasUsed": "0xf",
-                "input": "0x",
-                "output": "0x"
-              }
-            ]
+            "gas": "0xf",
+            "gasUsed": "0xf",
+            "input": "0x",
+            "output": "0x"
           },
           {
             "type": "CALL",
             "from": "0x92f1dbea03ce08225e31e95cc926ddbe0198e6f2",
-            "to": "0x92f1dbea03ce08225e31e95cc926ddbe0198e6f2",
+            "to": "0x0000000000000000000000000000000000000004",
             "value": "0x0",
-            "gas": "0xffffffffffffffff",
-            "gasUsed": "0x2fc",
-            "input": "0x95d89b41",
-            "output": "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000",
-            "calls": [
-              {
-                "type": "CALL",
-                "from": "0x92f1dbea03ce08225e31e95cc926ddbe0198e6f2",
-                "to": "0x0000000000000000000000000000000000000004",
-                "value": "0x0",
-                "gas": "0xf",
-                "gasUsed": "0xf",
-                "input": "0x",
-                "output": "0x"
-              }
-            ]
-          },
-          {
-            "type": "CALL",
-            "from": "0x92f1dbea03ce08225e31e95cc926ddbe0198e6f2",
-            "to": "0x92f1dbea03ce08225e31e95cc926ddbe0198e6f2",
-            "value": "0x0",
-            "gas": "0xffffffffffffffff",
-            "gasUsed": "0x138",
-            "input": "0x313ce567",
-            "output": "0x0000000000000000000000000000000000000000000000000000000000000000"
+            "gas": "0xf",
+            "gasUsed": "0xf",
+            "input": "0x",
+            "output": "0x"
           }
         ]
       },
@@ -395,56 +361,22 @@
           {
             "type": "CALL",
             "from": "0xf4cbd7e037b80c2e67b80512d482685f15b1fb28",
-            "to": "0xf4cbd7e037b80c2e67b80512d482685f15b1fb28",
+            "to": "0x0000000000000000000000000000000000000004",
             "value": "0x0",
-            "gas": "0xffffffffffffffff",
-            "gasUsed": "0x1a2",
-            "input": "0x06fdde03",
-            "output": "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000",
-            "calls": [
-              {
-                "type": "CALL",
-                "from": "0xf4cbd7e037b80c2e67b80512d482685f15b1fb28",
-                "to": "0x0000000000000000000000000000000000000004",
-                "value": "0x0",
-                "gas": "0xf",
-                "gasUsed": "0xf",
-                "input": "0x",
-                "output": "0x"
-              }
-            ]
+            "gas": "0xf",
+            "gasUsed": "0xf",
+            "input": "0x",
+            "output": "0x"
           },
           {
             "type": "CALL",
             "from": "0xf4cbd7e037b80c2e67b80512d482685f15b1fb28",
-            "to": "0xf4cbd7e037b80c2e67b80512d482685f15b1fb28",
+            "to": "0x0000000000000000000000000000000000000004",
             "value": "0x0",
-            "gas": "0xffffffffffffffff",
-            "gasUsed": "0x252",
-            "input": "0x95d89b41",
-            "output": "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000",
-            "calls": [
-              {
-                "type": "CALL",
-                "from": "0xf4cbd7e037b80c2e67b80512d482685f15b1fb28",
-                "to": "0x0000000000000000000000000000000000000004",
-                "value": "0x0",
-                "gas": "0xf",
-                "gasUsed": "0xf",
-                "input": "0x",
-                "output": "0x"
-              }
-            ]
-          },
-          {
-            "type": "CALL",
-            "from": "0xf4cbd7e037b80c2e67b80512d482685f15b1fb28",
-            "to": "0xf4cbd7e037b80c2e67b80512d482685f15b1fb28",
-            "value": "0x0",
-            "gas": "0xffffffffffffffff",
-            "gasUsed": "0xe8",
-            "input": "0x313ce567",
-            "output": "0x0000000000000000000000000000000000000000000000000000000000000000"
+            "gas": "0xf",
+            "gasUsed": "0xf",
+            "input": "0x",
+            "output": "0x"
           },
           {
             "type": "DELEGATECALL",
@@ -469,20 +401,79 @@
     },
     "balanceChanges": [
       {
-        "address": "0x950ca4a06c78934a148b7a3ff3ea8fc366f77a06",
+        "address": "0x3de712784baf97260455ae25fb74f574ec9c1add",
         "balanceChanges": [
           {
-            "delta": "18565314632837192",
+            "delta": "-3074620000000000",
             "asset": {
-              "address": "0x92f1dbea03ce08225e31e95cc926ddbe0198e6f2",
-              "type": "erc20",
-              "name": "",
-              "symbol": ""
+              "address": "0x0000000000000000000000000000000000000000",
+              "name": "Ether",
+              "symbol": "ETH",
+              "decimals": 18,
+              "type": "eth"
             },
             "breakdown": [
               {
-                "counterparty": "0x5aae5c59d642e5fd45b427df6ed478b49d55fefd",
-                "amount": "18565314632837192"
+                "counterparty": "0x0000000000000000000000000000000000000000",
+                "amount": "-2569103278080"
+              },
+              {
+                "counterparty": "0x61c808d82a3ac53231750dadc13c777b59310bd9",
+                "amount": "-3072050896721920"
+              }
+            ]
+          },
+          {
+            "delta": "-9282657316418596268",
+            "asset": {
+              "address": "0x92f1dbea03ce08225e31e95cc926ddbe0198e6f2",
+              "name": "",
+              "symbol": "",
+              "type": "erc20"
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x6ca7f214ab2ddbb9a8e1a1e2c8550e3164e9dba5",
+                "amount": "-9282657316418596268"
+              }
+            ]
+          },
+          {
+            "delta": "16000000000000000000",
+            "asset": {
+              "address": "0xf4cbd7e037b80c2e67b80512d482685f15b1fb28",
+              "name": "",
+              "symbol": "",
+              "type": "erc20"
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x6ca7f214ab2ddbb9a8e1a1e2c8550e3164e9dba5",
+                "amount": "16000000000000000000"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "address": "0x5aae5c59d642e5fd45b427df6ed478b49d55fefd",
+        "balanceChanges": [
+          {
+            "delta": "9264092001785759076",
+            "asset": {
+              "address": "0x92f1dbea03ce08225e31e95cc926ddbe0198e6f2",
+              "name": "",
+              "symbol": "",
+              "type": "erc20"
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x6ca7f214ab2ddbb9a8e1a1e2c8550e3164e9dba5",
+                "amount": "9282657316418596268"
+              },
+              {
+                "counterparty": "0x950ca4a06c78934a148b7a3ff3ea8fc366f77a06",
+                "amount": "-18565314632837192"
               }
             ]
           }
@@ -495,10 +486,10 @@
             "delta": "3072050896721920",
             "asset": {
               "address": "0x0000000000000000000000000000000000000000",
-              "type": "eth",
               "name": "Ether",
               "symbol": "ETH",
-              "decimals": 18
+              "decimals": 18,
+              "type": "eth"
             },
             "breakdown": [
               {
@@ -516,9 +507,9 @@
             "delta": "0",
             "asset": {
               "address": "0x92f1dbea03ce08225e31e95cc926ddbe0198e6f2",
-              "type": "erc20",
               "name": "",
-              "symbol": ""
+              "symbol": "",
+              "type": "erc20"
             },
             "breakdown": [
               {
@@ -535,9 +526,9 @@
             "delta": "-16000000000000000000",
             "asset": {
               "address": "0xf4cbd7e037b80c2e67b80512d482685f15b1fb28",
-              "type": "erc20",
               "name": "",
-              "symbol": ""
+              "symbol": "",
+              "type": "erc20"
             },
             "breakdown": [
               {
@@ -549,79 +540,20 @@
         ]
       },
       {
-        "address": "0x3de712784baf97260455ae25fb74f574ec9c1add",
+        "address": "0x950ca4a06c78934a148b7a3ff3ea8fc366f77a06",
         "balanceChanges": [
           {
-            "delta": "-9282657316418596268",
+            "delta": "18565314632837192",
             "asset": {
               "address": "0x92f1dbea03ce08225e31e95cc926ddbe0198e6f2",
-              "type": "erc20",
               "name": "",
-              "symbol": ""
+              "symbol": "",
+              "type": "erc20"
             },
             "breakdown": [
               {
-                "counterparty": "0x6ca7f214ab2ddbb9a8e1a1e2c8550e3164e9dba5",
-                "amount": "-9282657316418596268"
-              }
-            ]
-          },
-          {
-            "delta": "16000000000000000000",
-            "asset": {
-              "address": "0xf4cbd7e037b80c2e67b80512d482685f15b1fb28",
-              "type": "erc20",
-              "name": "",
-              "symbol": ""
-            },
-            "breakdown": [
-              {
-                "counterparty": "0x6ca7f214ab2ddbb9a8e1a1e2c8550e3164e9dba5",
-                "amount": "16000000000000000000"
-              }
-            ]
-          },
-          {
-            "delta": "-3074620000000000",
-            "asset": {
-              "address": "0x0000000000000000000000000000000000000000",
-              "type": "eth",
-              "name": "Ether",
-              "symbol": "ETH",
-              "decimals": 18
-            },
-            "breakdown": [
-              {
-                "counterparty": "0x0000000000000000000000000000000000000000",
-                "amount": "-2569103278080"
-              },
-              {
-                "counterparty": "0x61c808d82a3ac53231750dadc13c777b59310bd9",
-                "amount": "-3072050896721920"
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "address": "0x5aae5c59d642e5fd45b427df6ed478b49d55fefd",
-        "balanceChanges": [
-          {
-            "delta": "9264092001785759076",
-            "asset": {
-              "address": "0x92f1dbea03ce08225e31e95cc926ddbe0198e6f2",
-              "type": "erc20",
-              "name": "",
-              "symbol": ""
-            },
-            "breakdown": [
-              {
-                "counterparty": "0x6ca7f214ab2ddbb9a8e1a1e2c8550e3164e9dba5",
-                "amount": "9282657316418596268"
-              },
-              {
-                "counterparty": "0x950ca4a06c78934a148b7a3ff3ea8fc366f77a06",
-                "amount": "-18565314632837192"
+                "counterparty": "0x5aae5c59d642e5fd45b427df6ed478b49d55fefd",
+                "amount": "18565314632837192"
               }
             ]
           }
