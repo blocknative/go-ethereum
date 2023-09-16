@@ -14,23 +14,24 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-var metadataReader = decoder.NewAssetDecoder()
+var (
+	decoderCache = decoder.NewCaches()
+)
 
 // txnOpCodeTracer is a go implementation of the Tracer interface which
 // only returns a restricted trace of a transaction consisting of transaction
 // op codes and relevant gas data.
 // This is intended for Blocknative usage.
 type txnOpCodeTracer struct {
-	env       *vm.EVM     // EVM context for execution of transaction to occur within
-	trace     Trace       // Accumulated execution data the caller is interested in
-	callStack []CallFrame // Data structure for op codes making up our trace
-	interrupt uint32      // Atomic flag to signal execution interruption
-	reason    error       // Textual reason for the interruption (not always specific for us)
-	opts      TracerOpts
-	startTime time.Time
+	opts    TracerOpts
+	env     *vm.EVM
+	decoder *decoder.Decoder
 
-	balanceTracker  *balanceTracker
-	metadataDecoder *decoder.AssetDecoder
+	trace     Trace
+	startTime time.Time
+	callStack []CallFrame
+	interrupt uint32
+	reason    error
 }
 
 // NewTxnOpCodeTracer returns a new txnOpCodeTracer tracer with the given
@@ -38,7 +39,6 @@ type txnOpCodeTracer struct {
 func NewTxnOpCodeTracer(cfg json.RawMessage) (Tracer, error) {
 	var opts TracerOpts
 
-	// Decode raw json opts into our struct.
 	if cfg != nil {
 		if err := json.Unmarshal(cfg, &opts); err != nil {
 			return nil, err
@@ -49,11 +49,11 @@ func NewTxnOpCodeTracer(cfg json.RawMessage) (Tracer, error) {
 }
 
 func NewTxnOpCodeTracerWithOpts(opts TracerOpts) (Tracer, error) {
-	// First callframe contains tx context info and is populated on start and end.
+	opts.Decode = opts.Decode || opts.BalanceChanges
+
 	var t = txnOpCodeTracer{
-		opts:            opts,
-		callStack:       make([]CallFrame, 1),
-		metadataDecoder: metadataReader,
+		opts:      opts,
+		callStack: make([]CallFrame, 1),
 	}
 
 	if !t.opts.DisableBlockContext {
@@ -66,12 +66,10 @@ func NewTxnOpCodeTracerWithOpts(opts TracerOpts) (Tracer, error) {
 
 // GetTrace returns the resulting Trace object.
 func (t *txnOpCodeTracer) GetTrace() (*Trace, error) {
-	// Get the final balance changes
-	if t.opts.BalanceChanges {
-		t.trace.BalanceChanges = t.balanceTracker.formatNetBalanceChanges()
+	if t.opts.Decode {
+		t.trace.BalanceChanges = t.decoder.GetBalanceChanges()
 	}
 
-	// Only want the top level trace, all other indexes hold sub-traces to which we do not particularly need
 	t.trace.CallFrame = t.callStack[0]
 	return &t.trace, nil
 }
@@ -95,14 +93,17 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 	t.startTime = time.Now()
 	t.env = env
 
-	// Blocks only contain `Random` post-merge, but we still have pre-merge tests.
-	random := ""
-	if env.Context.Random != nil {
-		random = bytesToHex(env.Context.Random.Bytes())
+	if t.opts.Decode {
+		t.decoder = decoder.New(decoderCache, decoderEVM{env})
 	}
 
-	// Populate the block context from the vm environment.
 	if !t.opts.DisableBlockContext {
+		// Blocks only contain `Random` post-merge, but we still have pre-merge tests.
+		random := ""
+		if env.Context.Random != nil {
+			random = bytesToHex(env.Context.Random.Bytes())
+		}
+
 		t.trace.BlockContext.Number = env.Context.BlockNumber.Uint64()
 		t.trace.BlockContext.BaseFee = env.Context.BaseFee.Uint64()
 		t.trace.BlockContext.Time = env.Context.Time
@@ -111,7 +112,7 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 		t.trace.BlockContext.Random = random
 	}
 
-	// This is the initial call
+	// Create a call-frame for the top level call.
 	t.callStack[0] = CallFrame{
 		Type:  "CALL",
 		From:  addrToHex(from),
@@ -121,19 +122,14 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 		Value: bigToHex(value),
 	}
 	if create {
-		// TODO: Here we can note creation of contracts for potential future tracing
 		t.callStack[0].Type = "CREATE"
 	}
 
-	// If we want balance changes then create a tracker and handle the
-	// top-level call.
-	if t.opts.BalanceChanges {
-		assetGetterFn := func(assetID decoder.AssetID) (*decoder.Asset, error) {
-			return t.metadataDecoder.Decode(t.env, assetID)
+	// Try adding decode information but don't fail if we can't.
+	if t.opts.Decode {
+		if decoded, err := t.decoder.DecodeCallFrame(from, to, value, input); err == nil {
+			t.callStack[0].Decoded = decoded
 		}
-
-		t.balanceTracker = newBalanceChangeTracker(t.env.StateDB, assetGetterFn)
-		t.balanceTracker.captureCall(from, to, value, input)
 	}
 }
 
@@ -153,8 +149,8 @@ func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
 	}
 
 	// Add gas payments to balance changes
-	if t.opts.BalanceChanges {
-		t.balanceTracker.captureGas(t.env.TxContext.Origin, t.env.Context.Coinbase, gasUsed, t.env.TxContext.GasPrice, t.env.Context.BaseFee)
+	if t.opts.Decode {
+		t.decoder.CaptureGas(t.env.TxContext.Origin, t.env.Context.Coinbase, gasUsed, t.env.TxContext.GasPrice, t.env.Context.BaseFee)
 	}
 
 	// Add total time duration for this trace request
@@ -184,7 +180,7 @@ func (t *txnOpCodeTracer) CaptureEnter(typ vm.OpCode, from common.Address, to co
 		return
 	}
 
-	// Apart from the starting call detected by CaptureStart, here we track every new transaction opcode
+	// Create CallFrame, decode it, and all it to the end of the callstack.
 	call := CallFrame{
 		Type:  typ.String(),
 		From:  addrToHex(from),
@@ -193,12 +189,13 @@ func (t *txnOpCodeTracer) CaptureEnter(typ vm.OpCode, from common.Address, to co
 		Gas:   uintToHex(gas),
 		Value: bigToHex(value),
 	}
-	t.callStack = append(t.callStack, call)
-
-	// If we want to create NBC from decoded transactions, do so here
-	if t.opts.BalanceChanges {
-		t.balanceTracker.captureCall(from, to, value, input)
+	if t.opts.Decode {
+		if decoded, err := t.decoder.DecodeCallFrame(from, to, value, input); err == nil {
+			call.Decoded = decoded
+		}
 	}
+
+	t.callStack = append(t.callStack, call)
 }
 
 // CaptureExit is called when EVM exits a scope, even if the scope didn't execute any code.
@@ -212,12 +209,10 @@ func (t *txnOpCodeTracer) CaptureExit(output []byte, gasUsed uint64, err error) 
 	// We have a call frame, so finalize it.
 	finalizeCallFrame(&t.callStack[size-1], output, gasUsed, err)
 
-	// We have a parent call frame, so nest this one into it.
+	// If we have a parent call frame nest this one into it.
 	if size <= 1 {
 		return
 	}
-
-	// Pop call and append to parent.
 	end := size - 1
 	call := t.callStack[end]
 	t.callStack = t.callStack[:end]
@@ -246,9 +241,9 @@ func (t *txnOpCodeTracer) SetStateRoot(root common.Hash) {
 
 func finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint64, err error) {
 	call.GasUsed = uintToHex(gasUsed)
-	if err == nil {
-		call.Output = bytesToHex(output)
-	} else {
+
+	// If there was an error then try decoding it and stop.
+	if err != nil {
 		call.Error = err.Error()
 		if err.Error() == "execution reverted" && len(output) > 0 {
 			call.Output = bytesToHex(output)
@@ -259,5 +254,9 @@ func finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint64, err error
 		if call.Type == "CREATE" || call.Type == "CREATE2" {
 			call.To = ""
 		}
+		return
 	}
+
+	// The call was successful so decode the output.
+	call.Output = bytesToHex(output)
 }

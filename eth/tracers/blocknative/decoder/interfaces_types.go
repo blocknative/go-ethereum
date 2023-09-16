@@ -6,15 +6,15 @@ import (
 )
 
 const (
-	interfaceTypeUnknown interfaceType = iota
+	interfaceTypeUnknown Interface = iota
 	interfaceTypeERC20
 	interfaceTypeERC721
 	interfaceTypeERC1155
 )
 
-type interfaceType uint8
+type Interface uint8
 
-func (t interfaceType) String() string {
+func (t Interface) String() string {
 	switch t {
 	case interfaceTypeERC20:
 		return "erc20"
@@ -27,11 +27,11 @@ func (t interfaceType) String() string {
 	}
 }
 
-func (t interfaceType) MarshalJSON() ([]byte, error) {
+func (t Interface) MarshalJSON() ([]byte, error) {
 	return json.Marshal(t.String())
 }
 
-func (t *interfaceType) UnmarshalJSON(data []byte) error {
+func (t *Interface) UnmarshalJSON(data []byte) error {
 	var s string
 	if err := json.Unmarshal(data, &s); err != nil {
 		return err

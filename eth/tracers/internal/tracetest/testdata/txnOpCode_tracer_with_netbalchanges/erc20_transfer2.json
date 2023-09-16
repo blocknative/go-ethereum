@@ -70,6 +70,13 @@
     "gasUsed": "0x6ccd",
     "input": "0xa9059cbb000000000000000000000000dbf03b407c01e7cd3cbea99509d93f8dddc8c6fb0000000000000000000000000000000000000000000000000000000000989680",
     "output": "0x",
+    "decoded": {
+      "methodID": "0xa9059cbb",
+      "args": [
+        "0xdbF03B407c01E7cD3CBea99509d93f8DDDC8C6FB",
+        "10000000"
+      ]
+    },
     "blockContext": {
       "number": 765825,
       "stateRoot": "0x1f1f6c87fe91d6d6024316d28d51481cf05cd68345dc26425a175786ab77a14f",
@@ -80,43 +87,8 @@
     },
     "balanceChanges": [
       {
-        "address": "0xdbf03b407c01e7cd3cbea99509d93f8dddc8c6fb",
-        "balanceChanges": [
-          {
-            "delta": "10000000",
-            "asset": {
-              "address": "0xf4eced2f682ce333f96f2d8966c613ded8fc95dd",
-              "type": "unknown",
-              "name": "",
-              "symbol": ""
-            },
-            "breakdown": [
-              {
-                "counterparty": "0xd1220a0cf47c7b9be7a2e6ba89f429762e7b9adb",
-                "amount": "10000000"
-              }
-            ]
-          }
-        ]
-      },
-      {
         "address": "0xd1220a0cf47c7b9be7a2e6ba89f429762e7b9adb",
         "balanceChanges": [
-          {
-            "delta": "-10000000",
-            "asset": {
-              "address": "0xf4eced2f682ce333f96f2d8966c613ded8fc95dd",
-              "type": "unknown",
-              "name": "",
-              "symbol": ""
-            },
-            "breakdown": [
-              {
-                "counterparty": "0xdbf03b407c01e7cd3cbea99509d93f8dddc8c6fb",
-                "amount": "-10000000"
-              }
-            ]
-          },
           {
             "delta": "-1392650000000000",
             "asset": {
@@ -134,6 +106,35 @@
               {
                 "counterparty": "0xe2fe6b13287f28e193333fdfe7fedf2f6df6124a",
                 "amount": "-1392184529576960"
+              }
+            ]
+          },
+          {
+            "delta": "-10000000",
+            "asset": {
+              "address": "0xf4eced2f682ce333f96f2d8966c613ded8fc95dd"
+            },
+            "breakdown": [
+              {
+                "counterparty": "0xdbf03b407c01e7cd3cbea99509d93f8dddc8c6fb",
+                "amount": "-10000000"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "address": "0xdbf03b407c01e7cd3cbea99509d93f8dddc8c6fb",
+        "balanceChanges": [
+          {
+            "delta": "10000000",
+            "asset": {
+              "address": "0xf4eced2f682ce333f96f2d8966c613ded8fc95dd"
+            },
+            "breakdown": [
+              {
+                "counterparty": "0xd1220a0cf47c7b9be7a2e6ba89f429762e7b9adb",
+                "amount": "10000000"
               }
             ]
           }

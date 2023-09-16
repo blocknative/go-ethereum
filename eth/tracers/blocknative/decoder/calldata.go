@@ -1,40 +1,34 @@
 package decoder
 
 import (
-	"bytes"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"math/big"
 )
 
-const (
-	CallTypeUnknown CallType = iota
-	AssetTransfer
-)
-
-type CallType int
-
-type DecodedCall struct {
-	CallType CallType
-	From     common.Address
-	To       common.Address
-	Value    *big.Int
-	TokenID  *big.Int
-}
-
-func DecodeCalldata(sender common.Address, input []byte, contract *Contract) *DecodedCall {
-	// Check if the input is capable of being a function call selector.
-	// If not then we're done. If so then check if it's a transfer call.
-	if len(input) < 4 {
-		return nil
+func decodeCallData(sender common.Address, contract *Contract, input []byte) (*CallData, error) {
+	// Check if the input is capable of being a function call.
+	// If not then we're done. If so then check if it's a transfer.
+	inputLen := len(input)
+	switch {
+	case inputLen < 4:
+		return nil, ErrCallDataTooShort
 	}
 
+	methodBytes := make([]byte, 4)
+	copy(methodBytes, input[:4])
+
 	var (
-		idx      = 4
-		methodID = input[:idx]
-		from     common.Address
-		to       common.Address
-		amount   = new(big.Int)
-		tokenID  *big.Int
+		idx    = 4
+		method = MethodID(methodBytes)
+		args   = make([]string, 0, 4)
+
+		from    common.Address
+		to      common.Address
+		amount  = new(Amount)
+		tokenID *big.Int
+
+		transfers []*Transfer
 	)
 
 	// scanWord gets the next 32 bytes and advances the index
@@ -46,67 +40,91 @@ func DecodeCalldata(sender common.Address, input []byte, contract *Contract) *De
 
 	switch {
 
-	// transfer(address,uint256) call.
-	// payload is [to, amount]
-	case bytes.Compare(methodID, methodIDTransfer) == 0:
+	// transfer(address,uint256).
+	case method.Is(methodIDTransfer):
 		if len(input) < 68 {
-			return nil
+			return nil, ErrCallDataTooShort
 		}
-
 		from = sender
 		to = common.BytesToAddress(scanWord())
 		amount.SetBytes(scanWord())
 
-	// transferFrom(address,address,uint256) call.
-	// safeTransferFrom(address,address,uint256) call.
-	// safeTransferFrom(address,address,uint256,bytes) call.
-	//
-	// payload is [from, to, amount]
-	case bytes.Compare(methodID, methodIDTransferFrom) == 0:
+		args = append(args, to.String(), amount.String())
+		transfers = append(transfers, &Transfer{
+			From:  from,
+			To:    to,
+			Value: amount,
+		})
+
+	// transferFrom(address,address,uint256).
+	case method.Is(methodIDTransferFrom):
 		fallthrough
-	case bytes.Compare(methodID, methodIDSafeTransferFrom) == 0:
+	// safeTransferFrom(address,address,uint256).
+	case method.Is(methodIDSafeTransferFrom):
 		fallthrough
-	case bytes.Compare(methodID, methodIDSafeTransferFrom2) == 0:
+	// safeTransferFrom(address,address,uint256,bytes).
+	case method.Is(methodIDSafeTransferFrom2):
 		if len(input) < 100 {
-			return nil
+			return nil, ErrCallDataTooShort
 		}
 
 		from = common.BytesToAddress(scanWord())
 		to = common.BytesToAddress(scanWord())
 		amount.SetBytes(scanWord())
 
+		args = append(args, from.String(), to.String(), amount.String())
+
 		// If the contract is an ERC-721, but not an ERC-20, then move the
 		// scanned amount to the tokenID and set the amount to 1.
 		if contract.IsERC721() && !contract.IsERC20() {
-			tokenID = amount
-			amount = big.NewInt(1)
+			tokenID = (*big.Int)(amount)
+			amount = NewAmount(common.Big1)
 		}
 
-	// ERC1155 style transfers
-	//
+		transfers = append(transfers, &Transfer{
+			From:    from,
+			To:      to,
+			Value:   amount,
+			TokenID: tokenID,
+		})
+
 	// safeTransferFrom(address,address,uint256,uint256,bytes)
-	//
-	// payload is [from, to, tokenID, amount]
-	case bytes.Compare(methodID, methodIDSafeTransferFrom3) == 0:
+	case method.Is(methodIDSafeTransferFrom3):
 		if len(input) < 100 {
-			return nil
+			return nil, ErrCallDataTooShort
 		}
-
 		from = common.BytesToAddress(scanWord())
 		to = common.BytesToAddress(scanWord())
 		tokenID = new(big.Int).SetBytes(scanWord())
 		amount.SetBytes(scanWord())
 
-	// Not a matching event; ignore
+		args = append(args, from.String(), to.String(), tokenID.String(), amount.String())
+
+		transfers = append(transfers, &Transfer{
+			From:    from,
+			To:      to,
+			Value:   amount,
+			TokenID: tokenID,
+		})
+
+	// safeBatchTransferFrom(address,address,uint256[],uint256[],bytes)
+	case method.Is(methodIDSafeBatchTransferFrom):
+		var err error
+		transfers, err = decodeArgsSafeBatchTransferFrom(input[idx:])
+		if err != nil {
+			return nil, err
+		}
 	default:
-		return nil
+		// We don't have a known method so we can't parse the args.
+		// Just add them as hex-encoded words.
+		for idx < len(input) {
+			args = append(args, hexutil.Encode(scanWord()))
+		}
 	}
 
-	return &DecodedCall{
-		CallType: AssetTransfer,
-		From:     from,
-		To:       to,
-		Value:    amount,
-		TokenID:  tokenID,
-	}
+	return &CallData{
+		MethodID:  method,
+		Args:      args,
+		Transfers: transfers,
+	}, nil
 }
