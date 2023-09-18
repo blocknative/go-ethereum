@@ -21,7 +21,13 @@ var (
 	}
 )
 
-func DecodeAsset(evmCall EVMCallFn, contract *Contract, assetID AssetID) (*AssetMetadata, error) {
+// evmCallFn executes the given method on the code for the given address.
+// The result is returned as raw, ABI-encoded bytes.
+type evmCallFn func(addr common.Address, method []byte) ([]byte, error)
+
+// DecodeAsset decodes the metadata for an asset by calling various methods on
+// the underlying contract inside the EVM and decoding the results.
+func DecodeAsset(evmCall evmCallFn, contract *Contract, assetID AssetID) (*AssetMetadata, error) {
 	var metadata AssetMetadata
 	switch {
 	case contract.IsERC20():
@@ -35,7 +41,7 @@ func DecodeAsset(evmCall EVMCallFn, contract *Contract, assetID AssetID) (*Asset
 }
 
 // decodeERC20Metadata decodes the metadata for an ERC20 token from the EVM.
-func decodeERC20Metadata(evmCall EVMCallFn, addr common.Address) AssetMetadata {
+func decodeERC20Metadata(evmCall evmCallFn, addr common.Address) AssetMetadata {
 	var err error
 	metadata := AssetMetadata{Type: AssetTypeERC20}
 
@@ -53,7 +59,7 @@ func decodeERC20Metadata(evmCall EVMCallFn, addr common.Address) AssetMetadata {
 }
 
 // decodeERC721Metadata decodes the metadata for an ERC721 token from the EVM.
-func decodeERC721Metadata(evmCall EVMCallFn, addr common.Address, tokenID *big.Int) AssetMetadata {
+func decodeERC721Metadata(evmCall evmCallFn, addr common.Address, tokenID *big.Int) AssetMetadata {
 	var err error
 	metadata := AssetMetadata{Type: AssetTypeERC721}
 
@@ -71,7 +77,7 @@ func decodeERC721Metadata(evmCall EVMCallFn, addr common.Address, tokenID *big.I
 }
 
 // decodeERC1155Metadata decodes the metadata for an ERC1155 token from the EVM.
-func decodeERC1155Metadata(evmCall EVMCallFn, addr common.Address, tokenID *big.Int) AssetMetadata {
+func decodeERC1155Metadata(evmCall evmCallFn, addr common.Address, tokenID *big.Int) AssetMetadata {
 	var err error
 	metadata := AssetMetadata{Type: AssetTypeERC1155}
 
@@ -83,22 +89,22 @@ func decodeERC1155Metadata(evmCall EVMCallFn, addr common.Address, tokenID *big.
 }
 
 // decodeMetadataName decodes the name of an asset from the EVM.
-func decodeMetadataName(evmCall EVMCallFn, addr common.Address) (string, error) {
+func decodeMetadataName(evmCall evmCallFn, addr common.Address) (string, error) {
 	return callAndDecodeString(evmCall, addr, methodIDName)
 }
 
 // decodeMetadataSymbol decodes the symbol of an asset from the EVM.
-func decodeMetadataSymbol(evmCall EVMCallFn, addr common.Address) (string, error) {
+func decodeMetadataSymbol(evmCall evmCallFn, addr common.Address) (string, error) {
 	return callAndDecodeString(evmCall, addr, methodIDSymbol)
 }
 
 // decodeMetadataDecimals decodes the decimals of an asset from the EVM.
-func decodeMetadataDecimals(evmCall EVMCallFn, addr common.Address) (uint8, error) {
+func decodeMetadataDecimals(evmCall evmCallFn, addr common.Address) (uint8, error) {
 	return callAndDecodeUint8(evmCall, addr, methodIDDecimals)
 }
 
 // decodeMetadataTokenURI decodes the tokenURI of an asset from the EVM.
-func decodeMetadataTokenURI(evmCall EVMCallFn, addr common.Address, tokenID *big.Int) (string, error) {
+func decodeMetadataTokenURI(evmCall evmCallFn, addr common.Address, tokenID *big.Int) (string, error) {
 	tokenIDBytes := tokenID.Bytes()
 	if len(tokenIDBytes) > 32 {
 		return "", fmt.Errorf("tokenID is too large")
@@ -109,7 +115,7 @@ func decodeMetadataTokenURI(evmCall EVMCallFn, addr common.Address, tokenID *big
 }
 
 // decodeMetadataURI decodes the URI of an asset from the EVM.
-func decodeMetadataURI(evmCall EVMCallFn, addr common.Address, tokenID *big.Int) (string, error) {
+func decodeMetadataURI(evmCall evmCallFn, addr common.Address, tokenID *big.Int) (string, error) {
 	tokenIDBytes := tokenID.Bytes()
 	if len(tokenIDBytes) > 32 {
 		return "", fmt.Errorf("tokenID is too large")
@@ -120,7 +126,7 @@ func decodeMetadataURI(evmCall EVMCallFn, addr common.Address, tokenID *big.Int)
 }
 
 // callAndDecodeString calls a method and decodes the result as a string.
-func callAndDecodeString(evmCall EVMCallFn, addr common.Address, method []byte) (string, error) {
+func callAndDecodeString(evmCall evmCallFn, addr common.Address, method []byte) (string, error) {
 	// Load bytes from the EVM.
 	stringBytes, err := evmCall(addr, method)
 	if err != nil {
@@ -144,7 +150,7 @@ func callAndDecodeString(evmCall EVMCallFn, addr common.Address, method []byte) 
 }
 
 // callAndDecodeUint8 calls a method and decodes the result as a uint8.
-func callAndDecodeUint8(evmCall EVMCallFn, addr common.Address, method []byte) (uint8, error) {
+func callAndDecodeUint8(evmCall evmCallFn, addr common.Address, method []byte) (uint8, error) {
 	// Load bytes from the EVM.
 	uint8Bytes, err := evmCall(addr, method)
 	if err != nil {

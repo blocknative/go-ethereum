@@ -27,6 +27,9 @@ func New(caches *Caches, evm evm) *Decoder {
 	}
 }
 
+// DecodeCallFrame decodes the given call frame into its method and arguments.
+// If the call frame is determined to represent one or more Asset transfers we
+// add those too.
 func (d *Decoder) DecodeCallFrame(sender common.Address, receiver common.Address, value *big.Int, input []byte) (*CallFrame, error) {
 	contract, err := d.DecodeContract(receiver)
 	if err != nil {
@@ -95,6 +98,8 @@ func (d *Decoder) DecodeContract(addr common.Address) (*Contract, error) {
 	return contract, nil
 }
 
+// GetBalanceChanges returns the net balance changes for the currently decoded
+// call-frames.
 func (d *Decoder) GetBalanceChanges() NetBalanceChanges {
 	return d.balances.formatNetBalanceChanges()
 }
@@ -106,6 +111,9 @@ func (d *Decoder) CaptureGas(origin common.Address, coinbase common.Address, gas
 	d.balances.captureGas(origin, coinbase, gasUsed, gasFee, gasBaseFee)
 }
 
+// decodeAsset finds the metadata for the given assetID. It heuristically uses
+// information from the decoded contract when possible.
+// Results are cached.
 func (d *Decoder) decodeAsset(contract *Contract, assetID AssetID) (*AssetMetadata, error) {
 	// Check for native ETH and skip the cache check entire.
 	if assetID.Address == ethAddress {
@@ -134,10 +142,8 @@ func (d *Decoder) decodeAsset(contract *Contract, assetID AssetID) (*AssetMetada
 	return asset, nil
 }
 
+// evm is the functionality we need from the EVM to decode.
 type evm interface {
 	GetCode(common.Address) []byte
 	CallCode(common.Address, []byte) ([]byte, error)
 }
-
-type EVMCallFn func(addr common.Address, method []byte) ([]byte, error)
-type GetCodeFn func(addr common.Address) []byte
