@@ -28,105 +28,224 @@ type txnOpCodeTracerTest struct {
 	Input        string             `json:"input"`
 	TracerConfig json.RawMessage    `json:"tracerConfig"`
 	Result       *blocknative.Trace `json:"result"`
+
+	name         string
+	evm          *vm.EVM
+	tx           *types.Transaction
+	msg          *core.Message
+	tracer       tracers.Tracer
+	baseFee      *big.Int
+	blockContext vm.BlockContext
+	signer       types.Signer
+	origin       common.Address
+	txContext    vm.TxContext
 }
 
 func TestTxnOpCodeTracer(t *testing.T) {
 	log.Root().SetHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
-
-	testTxnOpCodeTracer("txnOpCodeTracer", "txnOpCode_tracer", t)
-	testTxnOpCodeTracer("txnOpCodeTracer", "txnOpCode_tracer_with_netbalchanges", t)
+	testTxnOpCodeTracer("txnOpCode_tracer", t)
+	testTxnOpCodeTracer("txnOpCode_tracer_with_netbalchanges", t)
 }
 
-func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
-	files, err := os.ReadDir(filepath.Join("testdata", dirPath))
-	if err != nil {
-		t.Fatalf("failed to retrieve tracer tgest suite: %v", err)
-	}
-	for _, file := range files {
-		if !strings.HasSuffix(file.Name(), ".json") {
-			continue
-		}
-		file := file
-		t.Run(camel(strings.TrimSuffix(file.Name(), ".json")), func(t *testing.T) {
-			//t.Parallel()
+func BenchmarkTxnOpCodeTracerWithoutDecoding(b *testing.B) {
+	benchmarkTxnOpCodeTracer(b, false, "txnOpCode_tracer", "txnOpCode_tracer_with_netbalchanges")
+}
+func BenchmarkTxnOpCodeTracerWithDecoding(b *testing.B) {
+	benchmarkTxnOpCodeTracer(b, true, "txnOpCode_tracer", "txnOpCode_tracer_with_netbalchanges")
+}
 
+func benchmarkTxnOpCodeTracer(b *testing.B, decode bool, dirPaths ...string) {
+	testCases := []*txnOpCodeTracerTest{}
+
+	for _, dirPath := range dirPaths {
+		files, err := os.ReadDir(filepath.Join("testdata", dirPath))
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		for _, file := range files {
 			var (
 				test = new(txnOpCodeTracerTest)
 				tx   = new(types.Transaction)
 			)
-			// Call tracer test found, read if from disk
 			if blob, err := os.ReadFile(filepath.Join("testdata", dirPath, file.Name())); err != nil {
-				t.Fatalf("failed to read testcase: %v", err)
+				b.Fatal(err)
 			} else if err := json.Unmarshal(blob, test); err != nil {
-				t.Fatalf("failed to parse testcase: %v", err)
+				b.Fatal(err)
 			}
-			// Here we use unmarshalBinary as it can account for EIP2718 typed transactions in the tests
 			if err := tx.UnmarshalBinary(common.FromHex(test.Input)); err != nil {
-				t.Fatalf("failed to parse testcase input: %v", err)
+				b.Fatal(err)
 			}
 
-			baseFee := big.NewInt(0xFF0000)
+			baseFee := big.NewInt(0x0)
 			if test.Context.BaseFee != 0 {
 				baseFee = new(big.Int).SetUint64(uint64(test.Context.BaseFee))
 			}
 
-			// Configure a blockchain with the given prestate
-			var (
-				signer    = types.MakeSigner(test.Genesis.Config, new(big.Int).SetUint64(uint64(test.Context.Number)), uint64(test.Context.Time))
-				origin, _ = signer.Sender(tx)
-				txContext = vm.TxContext{
-					Origin:   origin,
-					GasPrice: tx.GasPrice(),
-				}
-				context = vm.BlockContext{
-					CanTransfer: core.CanTransfer,
-					Transfer:    core.Transfer,
-					Coinbase:    test.Context.Miner,
-					BlockNumber: new(big.Int).SetUint64(uint64(test.Context.Number)),
-					Time:        uint64(test.Context.Time),
-					Difficulty:  (*big.Int)(test.Context.Difficulty),
-					GasLimit:    uint64(test.Context.GasLimit),
-					BaseFee:     baseFee,
-					Random:      test.Context.Random,
-				}
-				_, _, statedb = tests.MakePreState(rawdb.NewMemoryDatabase(), test.Genesis.Alloc, false, rawdb.HashScheme)
-			)
-			tracer, err := tracers.DefaultDirectory.New(tracerName, new(tracers.Context), test.TracerConfig)
-			if err != nil {
-				t.Fatalf("failed to create call tracer: %v", err)
-			}
-			evm := vm.NewEVM(context, txContext, statedb, test.Genesis.Config, vm.Config{Tracer: tracer})
-			msg, err := core.TransactionToMessage(tx, signer, context.BaseFee)
-			if err != nil {
-				t.Fatalf("failed to prepare transaction for tracing: %v", err)
-			}
-			st := core.NewStateTransition(evm, msg, new(core.GasPool).AddGas(tx.Gas()))
-			if _, err = st.TransitionDb(); err != nil {
-				t.Fatalf("failed to execute transaction: %v", err)
+			test.name = camel(strings.TrimSuffix(file.Name(), ".json"))
+			test.tx = tx
+			test.baseFee = baseFee
+
+			test.signer = types.MakeSigner(test.Genesis.Config, new(big.Int).SetUint64(uint64(test.Context.Number)), uint64(test.Context.Time))
+			test.blockContext = vm.BlockContext{
+				CanTransfer: core.CanTransfer,
+				Transfer:    core.Transfer,
+				Coinbase:    test.Context.Miner,
+				BlockNumber: new(big.Int).SetUint64(uint64(test.Context.Number)),
+				Time:        uint64(test.Context.Time),
+				Difficulty:  (*big.Int)(test.Context.Difficulty),
+				GasLimit:    uint64(test.Context.GasLimit),
+				BaseFee:     test.baseFee,
+				Random:      test.Context.Random,
 			}
 
-			res, err := tracer.GetResult()
-			if err != nil {
-				t.Fatalf("failed to retrieve trace result: %v", err)
-			}
-			ret := new(blocknative.Trace)
-			if err := json.Unmarshal(res, ret); err != nil {
-				t.Fatalf("failed to unmarshal trace result: %v", err)
+			test.origin, _ = test.signer.Sender(tx)
+			test.txContext = vm.TxContext{
+				Origin:   test.origin,
+				GasPrice: tx.GasPrice(),
 			}
 
-			if !tracesEqual(ret, test.Result) {
-				// Below are prints to show differences if we fail, can always just check against the specific test json files too!
-				//fmt.Println("Trace return: ")
-				//x, _ := json.Marshal(ret)
-				////x, _ := json.MarshalIndent(ret, "", "	")
-				//y, _ := json.Marshal(test.Result)
-				//fmt.Println(string(x))
-				//fmt.Println("test.Result")
-				//fmt.Println(string(y))
-				t.Fatal("traces mismatch")
-				//t.Fatalf("trace mismatch: \nhave %+v\nwant %+v", ret, test.Result)
-			}
+			testCases = append(testCases, test)
+		}
+	}
+
+	for i := 0; i < b.N; i++ {
+		test := testCases[i%len(testCases)]
+		tx := test.tx
+
+		_, _, statedb := tests.MakePreState(rawdb.NewMemoryDatabase(), test.Genesis.Alloc, false, rawdb.HashScheme)
+		opts := blocknative.TracerOpts{Decode: decode}
+		tracer, err := blocknative.NewTxnOpCodeTracerWithOpts(opts)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		evm := vm.NewEVM(test.blockContext, test.txContext, statedb, test.Genesis.Config, vm.Config{Tracer: tracer})
+		msg, err := core.TransactionToMessage(tx, test.signer, test.blockContext.BaseFee)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		test.evm = evm
+		test.msg = msg
+		test.tracer = tracer
+
+		executeTestCase(test, b, false)
+
+	}
+}
+
+func testTxnOpCodeTracer(dirPath string, t *testing.T) {
+	testsCases, err := loadTestTxs(dirPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, test := range testsCases {
+		t.Run(test.name, func(t *testing.T) {
+			executeTestCase(test, t, true)
 		})
+	}
+}
+
+func loadTestTxs(dirPath string) ([]*txnOpCodeTracerTest, error) {
+	files, err := os.ReadDir(filepath.Join("testdata", dirPath))
+	if err != nil {
+		return nil, err
+	}
+
+	testCases := make([]*txnOpCodeTracerTest, 0, len(files))
+	for _, file := range files {
+		if !strings.HasSuffix(file.Name(), ".json") {
+			continue
+		}
+
+		var (
+			test = new(txnOpCodeTracerTest)
+			tx   = new(types.Transaction)
+		)
+		if blob, err := os.ReadFile(filepath.Join("testdata", dirPath, file.Name())); err != nil {
+			return nil, err
+		} else if err := json.Unmarshal(blob, test); err != nil {
+			return nil, err
+		}
+		if err := tx.UnmarshalBinary(common.FromHex(test.Input)); err != nil {
+			return nil, err
+		}
+
+		baseFee := big.NewInt(0xFF0000)
+		if test.Context.BaseFee != 0 {
+			baseFee = new(big.Int).SetUint64(uint64(test.Context.BaseFee))
+		}
+
+		// Configure a blockchain with the given prestate
+		var (
+			signer    = types.MakeSigner(test.Genesis.Config, new(big.Int).SetUint64(uint64(test.Context.Number)), uint64(test.Context.Time))
+			origin, _ = signer.Sender(tx)
+			txContext = vm.TxContext{
+				Origin:   origin,
+				GasPrice: tx.GasPrice(),
+			}
+			context = vm.BlockContext{
+				CanTransfer: core.CanTransfer,
+				Transfer:    core.Transfer,
+				Coinbase:    test.Context.Miner,
+				BlockNumber: new(big.Int).SetUint64(uint64(test.Context.Number)),
+				Time:        uint64(test.Context.Time),
+				Difficulty:  (*big.Int)(test.Context.Difficulty),
+				GasLimit:    uint64(test.Context.GasLimit),
+				BaseFee:     baseFee,
+				Random:      test.Context.Random,
+			}
+			_, _, statedb = tests.MakePreState(rawdb.NewMemoryDatabase(), test.Genesis.Alloc, false, rawdb.HashScheme)
+		)
+		tracer, err := blocknative.NewTxnOpCodeTracer(test.TracerConfig)
+		if err != nil {
+			return nil, err
+		}
+		evm := vm.NewEVM(context, txContext, statedb, test.Genesis.Config, vm.Config{Tracer: tracer})
+		msg, err := core.TransactionToMessage(tx, signer, context.BaseFee)
+		if err != nil {
+			return nil, err
+		}
+
+		test.name = camel(strings.TrimSuffix(file.Name(), ".json"))
+		test.evm = evm
+		test.tx = tx
+		test.msg = msg
+		test.tracer = tracer
+		testCases = append(testCases, test)
+	}
+
+	return testCases, nil
+}
+
+func executeTestCase(test *txnOpCodeTracerTest, t testing.TB, checkResult bool) {
+	st := core.NewStateTransition(test.evm, test.msg, new(core.GasPool).AddGas(test.tx.Gas()))
+	if _, err := st.TransitionDb(); err != nil {
+		t.Fatalf("failed to execute transaction: %v", err)
+	}
+
+	res, err := test.tracer.GetResult()
+	if err != nil {
+		t.Fatalf("failed to retrieve trace result: %v", err)
+	}
+	ret := new(blocknative.Trace)
+	if err := json.Unmarshal(res, ret); err != nil {
+		t.Fatalf("failed to unmarshal trace result: %v", err)
+	}
+
+	if checkResult && !tracesEqual(ret, test.Result) {
+		// Below are prints to show differences if we fail, can always just check against the specific test json files too!
+		//fmt.Println("Trace return: ")
+		//x, _ := json.Marshal(ret)
+		////x, _ := json.MarshalIndent(ret, "", "	")
+		//y, _ := json.Marshal(test.Result)
+		//fmt.Println(string(x))
+		//fmt.Println("test.Result")
+		//fmt.Println(string(y))
+		t.Fatal("traces mismatch")
+		//t.Fatalf("trace mismatch: \nhave %+v\nwant %+v", ret, test.Result)
 	}
 }
 

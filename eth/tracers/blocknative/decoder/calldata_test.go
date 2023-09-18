@@ -146,7 +146,7 @@ func executeTests(t testing.TB, tt decodeCallDataTest) {
 
 	gotJSON, _ := json.Marshal(got)
 	wantJSON, _ := json.Marshal(tt.want)
-	require.Equal(t, string(gotJSON), string(wantJSON))
+	require.Equal(t, string(wantJSON), string(gotJSON))
 }
 
 func parseBigInt(s string) *big.Int {
