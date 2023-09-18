@@ -33,7 +33,7 @@ type txnOpCodeTracerTest struct {
 func TestTxnOpCodeTracer(t *testing.T) {
 	log.Root().SetHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
 
-	//testTxnOpCodeTracer("txnOpCodeTracer", "txnOpCode_tracer", t)
+	testTxnOpCodeTracer("txnOpCodeTracer", "txnOpCode_tracer", t)
 	testTxnOpCodeTracer("txnOpCodeTracer", "txnOpCode_tracer_with_netbalchanges", t)
 }
 
