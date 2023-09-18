@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative"
+	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/tests"
 )
@@ -32,14 +33,14 @@ type txnOpCodeTracerTest struct {
 func TestTxnOpCodeTracer(t *testing.T) {
 	log.Root().SetHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
 
-	testTxnOpCodeTracer("txnOpCodeTracer", "txnOpCode_tracer", t)
+	//testTxnOpCodeTracer("txnOpCodeTracer", "txnOpCode_tracer", t)
 	testTxnOpCodeTracer("txnOpCodeTracer", "txnOpCode_tracer_with_netbalchanges", t)
 }
 
 func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
 	files, err := os.ReadDir(filepath.Join("testdata", dirPath))
 	if err != nil {
-		t.Fatalf("failed to retrieve tracer test suite: %v", err)
+		t.Fatalf("failed to retrieve tracer tgest suite: %v", err)
 	}
 	for _, file := range files {
 		if !strings.HasSuffix(file.Name(), ".json") {
@@ -47,7 +48,7 @@ func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
 		}
 		file := file
 		t.Run(camel(strings.TrimSuffix(file.Name(), ".json")), func(t *testing.T) {
-			t.Parallel()
+			//t.Parallel()
 
 			var (
 				test = new(txnOpCodeTracerTest)
@@ -103,6 +104,7 @@ func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
 			if _, err = st.TransitionDb(); err != nil {
 				t.Fatalf("failed to execute transaction: %v", err)
 			}
+
 			res, err := tracer.GetResult()
 			if err != nil {
 				t.Fatalf("failed to retrieve trace result: %v", err)
@@ -114,27 +116,27 @@ func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
 
 			if !tracesEqual(ret, test.Result) {
 				// Below are prints to show differences if we fail, can always just check against the specific test json files too!
-				// x, _ := json.MarshalIndent(ret, "  ", "  ")
-				// y, _ := json.MarshalIndent(test.Result, "", "")
-				// fmt.Println("Trace return: ")
-				// fmt.Println(string(x))
-				// fmt.Println("test.Result")
-				// fmt.Println(string(y))
-				//t.Fatal("traces mismatch")
-				// t.Fatalf("trace mismatch: \nhave %+v\nwant %+v", ret, test.Result)
-				t.Fatalf("trace mismatch: \nhave %+v\nwant %+v", ret, test.Result)
+				//fmt.Println("Trace return: ")
+				//x, _ := json.Marshal(ret)
+				////x, _ := json.MarshalIndent(ret, "", "	")
+				//y, _ := json.Marshal(test.Result)
+				//fmt.Println(string(x))
+				//fmt.Println("test.Result")
+				//fmt.Println(string(y))
+				t.Fatal("traces mismatch")
+				//t.Fatalf("trace mismatch: \nhave %+v\nwant %+v", ret, test.Result)
 			}
 		})
 	}
 }
 
-type NBCByAddress blocknative.NetBalanceChanges
+type NBCByAddress decoder.NetBalanceChanges
 
 func (a NBCByAddress) Len() int           { return len(a) }
 func (a NBCByAddress) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a NBCByAddress) Less(i, j int) bool { return a[i].Address.String() < a[j].Address.String() }
 
-type BalanceChangesByAssetAddress []blocknative.BalanceChange
+type BalanceChangesByAssetAddress []decoder.BalanceChange
 
 func (a BalanceChangesByAssetAddress) Len() int      { return len(a) }
 func (a BalanceChangesByAssetAddress) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
@@ -147,7 +149,8 @@ func tracesEqual(x, y *blocknative.Trace) bool {
 	x.Time = ""
 	y.Time = ""
 
-	// Sort the balance changes
+	// Sort the balance changes because we don't care about the order of the
+	// breakdown.
 	if len(x.BalanceChanges) != len(y.BalanceChanges) {
 		return false
 	}

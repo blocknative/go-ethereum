@@ -1,0 +1,139 @@
+package decoder
+
+import (
+	"errors"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+	"math/big"
+)
+
+var (
+	ErrAccountNotAContract  = errors.New("account is not a contract")
+	ErrCallDataTooShort     = errors.New("call data too short")
+	ErrCallDataNotFullWords = errors.New("call data not full words")
+)
+
+type Decoder struct {
+	caches   *Caches
+	evm      evm
+	balances *balances
+}
+
+func New(caches *Caches, evm evm) *Decoder {
+	return &Decoder{
+		caches:   caches,
+		evm:      evm,
+		balances: newBalances(),
+	}
+}
+
+// DecodeCallFrame decodes the given call frame into its method and arguments.
+// If the call frame is determined to represent one or more Asset transfers we
+// add those too.
+func (d *Decoder) DecodeCallFrame(sender common.Address, receiver common.Address, value *big.Int, input []byte) (*CallFrame, error) {
+	contract, err := d.DecodeContract(receiver)
+	if err != nil {
+		return nil, err
+	}
+
+	callData, err := decodeCallData(sender, contract, input)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add decoded Assets to any transfers.
+	for _, transfer := range callData.Transfers {
+		// Always add the assetID.
+		assetID := AssetID{Address: receiver, TokenID: transfer.TokenID}
+		transfer.Asset = &Asset{AssetID: assetID}
+
+		// Add metadata if we can decode it but don't fail if we can't.
+		assetMetadata, err := d.decodeAsset(contract, assetID)
+		if err != nil {
+			log.Trace("failed to decode asset", "err", err)
+			continue
+		}
+		transfer.Asset.AssetMetadata = assetMetadata
+	}
+
+	cf := &CallFrame{Contract: contract, CallData: callData}
+
+	d.balances.captureCall(sender, receiver, NewAmount(value), cf)
+
+	return cf, nil
+}
+
+// DecodeContract decodes the contract at the given address.
+func (d *Decoder) DecodeContract(addr common.Address) (*Contract, error) {
+	// Check the cache for an existing entry.
+	contract, ok := d.caches.contracts.Get(addr)
+	if ok {
+		if contract == nil {
+			return nil, ErrAccountNotAContract
+		}
+		return contract, nil
+	}
+
+	// Cache miss; First check if the account has code. If it doesn't we cache
+	// a nil to avoid hitting the stateDB repeatedly for accounts that don't
+	// have code.
+	bytecode := ByteCode(d.evm.GetCode(addr))
+	if len(bytecode) == 0 {
+		d.caches.contracts.Add(addr, nil)
+		return nil, ErrAccountNotAContract
+	}
+
+	// We have an unknown contract; decode itm, add it to the cache, and return it.
+	contract, err := decodeContract(bytecode)
+	if err != nil {
+		return nil, err
+	}
+	d.caches.contracts.Add(addr, contract)
+	return contract, nil
+}
+
+// GetBalanceChanges returns the net balance changes for the currently decoded
+// call-frames.
+func (d *Decoder) GetBalanceChanges() NetBalanceChanges {
+	return d.balances.formatNetBalanceChanges()
+}
+
+// CaptureGas is a hack to expose the captureGas method to the tracer.
+// Ideally this would happen internally but requires the tracer to cal
+// DecodeCallFrame in CaptureEnd/CaptureExit instead of Start/Enter.
+func (d *Decoder) CaptureGas(origin common.Address, coinbase common.Address, gasUsed uint64, gasFee *big.Int, gasBaseFee *big.Int) {
+	d.balances.captureGas(origin, coinbase, gasUsed, gasFee, gasBaseFee)
+}
+
+// decodeAsset finds the metadata for the given assetID. It heuristically uses
+// information from the decoded contract when possible.
+// Results are cached.
+func (d *Decoder) decodeAsset(contract *Contract, assetID AssetID) (*AssetMetadata, error) {
+	// Check for native ETH and skip the cache check entire.
+	if assetID.Address == ethAddress {
+		return EthAsset.AssetMetadata, nil
+	}
+
+	// Check the cache for an existing entry.
+	asset, ok := d.caches.assets.Get(assetID)
+	if ok {
+		return asset, nil
+	}
+
+	// Cache miss; decode and add to the cache.
+
+	asset, err := DecodeAsset(d.evm.CallCode, contract, assetID)
+	if err != nil {
+		return nil, err
+	}
+
+	d.caches.assets.Add(assetID, asset)
+
+	return asset, nil
+}
+
+// evm is the functionality we need from the EVM to decode.
+type evm interface {
+	GetCode(common.Address) []byte
+	CallCode(common.Address, []byte) ([]byte, error)
+}

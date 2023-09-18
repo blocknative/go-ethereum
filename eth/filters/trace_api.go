@@ -77,34 +77,43 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					tracedTxs   = make([]*RPCTransaction, 0, len(txs))
 					blockNumber = hexutil.Big(*header.Number)
 					blockHash   = header.Hash()
+					txIndex     = hexutil.Uint64(0)
 				)
 
 				statedb, err := api.sys.chain.State()
 				if err != nil {
-					log.Error("NewPendingTransactionsWithTrace failed to get state", "err", err)
+					log.Error("failed to get state", "err", err)
 					return
 				}
 
 				for _, tx := range txs {
 					msg, _ = core.TransactionToMessage(tx, signer, header.BaseFee)
 					if err != nil {
-						log.Error("NewPendingTransactionsWithTrace failed to create tx message", "err", err, "tx", tx.Hash())
+						log.Error("failed to create tx message", "err", err, "tx", tx.Hash())
 						continue
 					}
 
 					traceCtx.TxHash = tx.Hash()
 					trace, err := traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
 					if err != nil {
-						log.Error("NewPendingTransactionsWithTrace failed to trace tx", "err", err, "tx", tx.Hash())
+						log.Error("failed to trace tx", "err", err, "tx", tx.Hash())
 						continue
 					}
 
+					gasPrice := hexutil.Big(*tx.GasPrice())
 					rpcTx := newRPCPendingTransaction(tx)
 					rpcTx.BlockHash = &blockHash
 					rpcTx.BlockNumber = &blockNumber
+					rpcTx.TransactionIndex = &txIndex
 					rpcTx.Trace = trace
+					rpcTx.GasPrice = &gasPrice
 					tracedTxs = append(tracedTxs, rpcTx)
 				}
+
+				if len(tracedTxs) == 0 {
+					continue
+				}
+
 				notifier.Notify(rpcSub.ID, tracedTxs)
 			case <-rpcSub.Err():
 				return
