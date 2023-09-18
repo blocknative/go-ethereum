@@ -3,6 +3,7 @@ package blocknative
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"sync/atomic"
 	"time"
