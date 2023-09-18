@@ -66,9 +66,7 @@ func (d *Decoder) DecodeCallFrame(sender common.Address, receiver common.Address
 // DecodeContract decodes the contract at the given address.
 func (d *Decoder) DecodeContract(addr common.Address) (*Contract, error) {
 	// Check the cache for an existing entry.
-	d.caches.contractsMu.RLock()
 	contract, ok := d.caches.contracts.Get(addr)
-	d.caches.contractsMu.RUnlock()
 	if ok {
 		if contract == nil {
 			return nil, ErrAccountNotAContract
@@ -81,9 +79,7 @@ func (d *Decoder) DecodeContract(addr common.Address) (*Contract, error) {
 	// have code.
 	bytecode := ByteCode(d.evm.GetCode(addr))
 	if len(bytecode) == 0 {
-		d.caches.contractsMu.Lock()
 		d.caches.contracts.Add(addr, nil)
-		d.caches.contractsMu.Unlock()
 		return nil, ErrAccountNotAContract
 	}
 
@@ -92,9 +88,7 @@ func (d *Decoder) DecodeContract(addr common.Address) (*Contract, error) {
 	if err != nil {
 		return nil, err
 	}
-	d.caches.contractsMu.Lock()
 	d.caches.contracts.Add(addr, contract)
-	d.caches.contractsMu.Unlock()
 	return contract, nil
 }
 
@@ -121,9 +115,7 @@ func (d *Decoder) decodeAsset(contract *Contract, assetID AssetID) (*AssetMetada
 	}
 
 	// Check the cache for an existing entry.
-	d.caches.assetsMu.RLock()
 	asset, ok := d.caches.assets.Get(assetID)
-	d.caches.assetsMu.RUnlock()
 	if ok {
 		return asset, nil
 	}
@@ -135,9 +127,7 @@ func (d *Decoder) decodeAsset(contract *Contract, assetID AssetID) (*AssetMetada
 		return nil, err
 	}
 
-	d.caches.assetsMu.Lock()
 	d.caches.assets.Add(assetID, asset)
-	d.caches.assetsMu.Unlock()
 
 	return asset, nil
 }

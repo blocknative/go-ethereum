@@ -1,8 +1,6 @@
 package decoder
 
 import (
-	"sync"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/lru"
 )
@@ -13,15 +11,13 @@ const (
 )
 
 type Caches struct {
-	contractsMu sync.RWMutex
-	contracts   lru.BasicLRU[common.Address, *Contract]
-	assetsMu    sync.RWMutex
-	assets      lru.BasicLRU[AssetID, *AssetMetadata]
+	contracts *lru.Cache[common.Address, *Contract]
+	assets    *lru.Cache[AssetID, *AssetMetadata]
 }
 
 func NewCaches() *Caches {
 	return &Caches{
-		contracts: lru.NewBasicLRU[common.Address, *Contract](cacheSizeContracts),
-		assets:    lru.NewBasicLRU[AssetID, *AssetMetadata](cacheSizeAssets),
+		contracts: lru.NewCache[common.Address, *Contract](cacheSizeContracts),
+		assets:    lru.NewCache[AssetID, *AssetMetadata](cacheSizeAssets),
 	}
 }
