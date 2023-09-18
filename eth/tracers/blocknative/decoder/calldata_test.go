@@ -48,8 +48,9 @@ func getTestCases() []decodeCallDataTest {
 				&Contract{interfaces: []Interface{interfaceTypeERC20}},
 			},
 			&CallData{
-				MethodID: methodIDTransferFrom,
-				Args:     []string{"0x5470c5a6Fce7447aFd2C9BE3A0F25e362C093661", "0x479ee0363a7Ac2ef34cba7ee82D2C2E0652D4669", "6341"},
+				MethodID:  methodIDTransferFrom,
+				Signature: methodSignatures[methodIDTransferFrom.String()],
+				Args:      []string{"0x5470c5a6Fce7447aFd2C9BE3A0F25e362C093661", "0x479ee0363a7Ac2ef34cba7ee82D2C2E0652D4669", "6341"},
 				Transfers: []*Transfer{{
 					From:    common.HexToAddress("0x5470c5a6Fce7447aFd2C9BE3A0F25e362C093661"),
 					To:      common.HexToAddress("0x479ee0363a7Ac2ef34cba7ee82D2C2E0652D4669"),
@@ -66,8 +67,9 @@ func getTestCases() []decodeCallDataTest {
 				&Contract{interfaces: []Interface{interfaceTypeERC721}},
 			},
 			&CallData{
-				MethodID: methodIDTransferFrom,
-				Args:     []string{"0x5470c5a6Fce7447aFd2C9BE3A0F25e362C093661", "0x479ee0363a7Ac2ef34cba7ee82D2C2E0652D4669", "6341"},
+				MethodID:  methodIDTransferFrom,
+				Signature: methodSignatures[methodIDTransferFrom.String()],
+				Args:      []string{"0x5470c5a6Fce7447aFd2C9BE3A0F25e362C093661", "0x479ee0363a7Ac2ef34cba7ee82D2C2E0652D4669", "6341"},
 				Transfers: []*Transfer{{
 					From:    common.HexToAddress("0x5470c5a6Fce7447aFd2C9BE3A0F25e362C093661"),
 					To:      common.HexToAddress("0x479ee0363a7Ac2ef34cba7ee82D2C2E0652D4669"),
@@ -84,8 +86,9 @@ func getTestCases() []decodeCallDataTest {
 				&Contract{interfaces: []Interface{interfaceTypeERC20, interfaceTypeERC721}},
 			},
 			&CallData{
-				MethodID: methodIDTransferFrom,
-				Args:     []string{"0x5470c5a6Fce7447aFd2C9BE3A0F25e362C093661", "0x479ee0363a7Ac2ef34cba7ee82D2C2E0652D4669", "6341"},
+				MethodID:  methodIDTransferFrom,
+				Signature: methodSignatures[methodIDTransferFrom.String()],
+				Args:      []string{"0x5470c5a6Fce7447aFd2C9BE3A0F25e362C093661", "0x479ee0363a7Ac2ef34cba7ee82D2C2E0652D4669", "6341"},
 				Transfers: []*Transfer{{
 					From:    common.HexToAddress("0x5470c5a6fce7447afd2c9be3a0f25e362c093661"),
 					To:      common.HexToAddress("0x479ee0363a7Ac2ef34cba7ee82D2C2E0652D4669"),
@@ -102,8 +105,9 @@ func getTestCases() []decodeCallDataTest {
 				&Contract{interfaces: []Interface{interfaceTypeERC20, interfaceTypeERC721}},
 			},
 			&CallData{
-				MethodID: methodIDSafeTransferFrom3,
-				Args:     []string{"0xcb89354a1c6e7ABd1972a68466Db238e48a3B0C8", "0x20964f741d2dfFD2cCec658CA086e21aF1D7dF8E", "29", "1"},
+				MethodID:  methodIDSafeTransferFrom3,
+				Signature: methodSignatures[methodIDSafeTransferFrom3.String()],
+				Args:      []string{"0xcb89354a1c6e7ABd1972a68466Db238e48a3B0C8", "0x20964f741d2dfFD2cCec658CA086e21aF1D7dF8E", "29", "1"},
 				Transfers: []*Transfer{{
 					From:    common.HexToAddress("0xcb89354a1c6e7ABd1972a68466Db238e48a3B0C8"),
 					To:      common.HexToAddress("0x20964f741d2dffd2ccec658ca086e21af1d7df8e"),
@@ -120,7 +124,8 @@ func getTestCases() []decodeCallDataTest {
 				&Contract{interfaces: []Interface{interfaceTypeERC20, interfaceTypeERC721}},
 			},
 			&CallData{
-				MethodID: methodIDSafeBatchTransferFrom,
+				MethodID:  methodIDSafeBatchTransferFrom,
+				Signature: methodSignatures[methodIDSafeBatchTransferFrom.String()],
 				Transfers: []*Transfer{{
 					From:    common.HexToAddress("0x381E840F4eBe33d0153e9A312105554594A98C42"),
 					To:      common.HexToAddress("0xA2b876dbb382d40cECeE2ACC670f55AD95c4767e"),

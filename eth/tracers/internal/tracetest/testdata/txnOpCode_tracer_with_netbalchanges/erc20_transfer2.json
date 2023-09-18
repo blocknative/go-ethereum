@@ -71,7 +71,8 @@
     "input": "0xa9059cbb000000000000000000000000dbf03b407c01e7cd3cbea99509d93f8dddc8c6fb0000000000000000000000000000000000000000000000000000000000989680",
     "output": "0x",
     "decoded": {
-      "methodID": "0xa9059cbb",
+      "method": "0xa9059cbb",
+      "signature": "transfer(address,uint256)",
       "args": [
         "0xdbF03B407c01E7cD3CBea99509d93f8DDDC8C6FB",
         "10000000"
