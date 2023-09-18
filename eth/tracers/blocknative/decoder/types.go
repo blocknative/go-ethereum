@@ -18,7 +18,8 @@ type Contract struct {
 }
 
 type CallData struct {
-	MethodID  MethodID    `json:"methodID"`
+	MethodID  MethodID    `json:"method"`
+	Signature string      `json:"signature,omitempty"`
 	Args      []string    `json:"args,omitempty"`
 	Transfers []*Transfer `json:"-"`
 }

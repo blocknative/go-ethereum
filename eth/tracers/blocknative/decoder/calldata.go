@@ -124,6 +124,7 @@ func decodeCallData(sender common.Address, contract *Contract, input []byte) (*C
 
 	return &CallData{
 		MethodID:  method,
+		Signature: method.Signature(),
 		Args:      args,
 		Transfers: transfers,
 	}, nil
