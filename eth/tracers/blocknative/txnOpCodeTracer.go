@@ -119,8 +119,8 @@ func (t *txnOpCodeTracer) CaptureStart(env *vm.EVM, from common.Address, to comm
 		From:  addrToHex(from),
 		To:    addrToHex(to),
 		Input: bytesToHex(input),
-		Gas:   uintToHex(gas),
-		Value: bigToHex(value),
+		Gas:   gas,
+		Value: value.Uint64(),
 	}
 	if create {
 		t.callStack[0].Type = "CREATE"
@@ -187,8 +187,8 @@ func (t *txnOpCodeTracer) CaptureEnter(typ vm.OpCode, from common.Address, to co
 		From:  addrToHex(from),
 		To:    addrToHex(to),
 		Input: bytesToHex(input),
-		Gas:   uintToHex(gas),
-		Value: bigToHex(value),
+		Gas:   gas,
+		Value: value.Uint64(),
 	}
 	if t.opts.Decode {
 		if decoded, err := t.decoder.DecodeCallFrame(from, to, value, input); err == nil {
@@ -241,7 +241,7 @@ func (t *txnOpCodeTracer) SetStateRoot(root common.Hash) {
 }
 
 func finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint64, err error) {
-	call.GasUsed = uintToHex(gasUsed)
+	call.GasUsed = gasUsed
 
 	// If there was an error then try decoding it and stop.
 	if err != nil {

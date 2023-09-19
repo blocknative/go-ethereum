@@ -2,6 +2,7 @@ package blocknative
 
 import (
 	"encoding/json"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder"
@@ -49,9 +50,9 @@ type CallFrame struct {
 	Type        string             `json:"type"`
 	From        string             `json:"from"`
 	To          string             `json:"to,omitempty"`
-	Value       string             `json:"value,omitempty"`
-	Gas         string             `json:"gas"`
-	GasUsed     string             `json:"gasUsed"`
+	Value       uint64             `json:"value,omitempty"`
+	Gas         uint64             `json:"gas"`
+	GasUsed     uint64             `json:"gasUsed"`
 	Input       string             `json:"input"`
 	Output      string             `json:"output,omitempty"`
 	Error       string             `json:"error,omitempty"`
