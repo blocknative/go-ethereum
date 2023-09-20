@@ -88,7 +88,7 @@ func testTxnOpCodeTracer(tracerName string, dirPath string, t *testing.T) {
 					BaseFee:     baseFee,
 					Random:      test.Context.Random,
 				}
-				_, statedb = tests.MakePreState(rawdb.NewMemoryDatabase(), test.Genesis.Alloc, false)
+				_, _, statedb = tests.MakePreState(rawdb.NewMemoryDatabase(), test.Genesis.Alloc, false, rawdb.HashScheme)
 			)
 			tracer, err := tracers.DefaultDirectory.New(tracerName, new(tracers.Context), test.TracerConfig)
 			if err != nil {
