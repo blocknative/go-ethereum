@@ -33,8 +33,12 @@ func decodeCallData(sender common.Address, contract *Contract, input []byte) (*C
 
 	// scanWord gets the next 32 bytes and advances the index
 	scanWord := func() []byte {
-		word := input[idx : idx+32]
-		idx += 32
+		endIdx := idx + 32
+		if endIdx > inputLen {
+			endIdx = inputLen
+		}
+		word := input[idx:endIdx]
+		idx = endIdx
 		return word
 	}
 
