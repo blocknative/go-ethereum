@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
+	"sync"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
@@ -14,10 +18,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative"
+	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/cache"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
-	"math/big"
 )
 
 var defaultTxTraceOpts = blocknative.TracerOpts{
@@ -227,13 +231,45 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 	return rpcSub, nil
 }
 
+var (
+	txTraceLocksMu      sync.RWMutex
+	txTraceLocks        = make(map[common.Hash]chan struct{})
+	txTraceLocksTimeout = 1 * time.Second
+)
+
 // traceTx traces a transaction with the given contexts.
 func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*blocknative.Trace, error) {
+	// Check cached trace or an in-progress trace before executing.
+	trace, ok := cache.GetTrace(txCtx.TxHash, txCtx.BlockHash)
+	if ok {
+		return trace, nil
+	}
+
+	// Check if there is an in-progress trace for this transaction.
+	// If there is then wait for it to finish and return it.
+	// If there is not then lock the trace and create a new one.
+	// Don't wait longer than a second for the cache to finish.
+	txTraceLocksMu.Lock()
+	if unlockCh, ok := txTraceLocks[txCtx.TxHash]; ok {
+		timeOut := time.NewTimer(txTraceLocksTimeout)
+		select {
+		case <-unlockCh:
+			if trace, ok := cache.GetTrace(txCtx.TxHash, txCtx.BlockHash); ok {
+				txTraceLocksMu.Unlock()
+				return trace, nil
+			}
+		case <-timeOut.C:
+		}
+	}
+	unlockCh := make(chan struct{})
+	txTraceLocks[txCtx.TxHash] = unlockCh
+	txTraceLocksMu.Unlock()
+
+	// No trace in cache or in-progress so create a new one.
 	tracer, err := blocknative.NewTxnOpCodeTracerWithOpts(tracerOpts)
 	if err != nil {
 		return nil, err
 	}
-
 	txContext := core.NewEVMTxContext(message)
 	vmenv := vm.NewEVM(vmctx, txContext, statedb, chainConfig, vm.Config{Tracer: tracer})
 	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
@@ -241,7 +277,19 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 	if _, err = core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit)); err != nil {
 		return nil, fmt.Errorf("tracing failed: %w", err)
 	}
-	return tracer.GetTrace()
+	trace, err = tracer.GetTrace()
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache the result and unlock/delete the trace lock.
+	cache.PutTrace(txCtx.TxHash, txCtx.BlockHash, trace)
+	close(unlockCh)
+	txTraceLocksMu.Lock()
+	delete(txTraceLocks, txCtx.TxHash)
+	txTraceLocksMu.Unlock()
+
+	return trace, err
 }
 
 // traceBlock traces all transactions in a block.
