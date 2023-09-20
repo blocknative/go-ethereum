@@ -1,9 +1,9 @@
 package blocknative
 
 import (
+	"encoding/hex"
 	"math/big"
 	"strconv"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -24,5 +24,8 @@ func uintToHex(n uint64) string {
 }
 
 func addrToHex(a common.Address) string {
-	return strings.ToLower(a.Hex())
+	var buf [len(a)*2 + 2]byte
+	copy(buf[:2], "0x")
+	hex.Encode(buf[2:], a[:])
+	return string(buf[:])
 }
