@@ -65,6 +65,10 @@ func benchmarkBlocknativeTracer(b *testing.B, decode bool, dirPaths ...string) {
 		}
 
 		for _, file := range files {
+			if file.IsDir() {
+				continue
+			}
+
 			var (
 				test = new(blocknativeTracerTest)
 				tx   = new(types.Transaction)
