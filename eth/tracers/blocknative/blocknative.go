@@ -30,7 +30,7 @@ type Trace struct {
 	CallFrame
 	BlockContext   *BlockContext             `json:"blockContext,omitempty"`
 	Logs           []CallLog                 `json:"logs,omitempty"`
-	Time           string                    `json:"time,omitempty"`
+	Time           int64                     `json:"time,omitempty"`
 	BalanceChanges decoder.NetBalanceChanges `json:"balanceChanges"`
 }
 
