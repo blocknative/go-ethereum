@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"math/big"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -36,6 +38,85 @@ func BenchmarkDecodeCalldata(B *testing.B) {
 	for i := 0; i < B.N; i++ {
 		executeTests(B, tests[i%len(tests)])
 	}
+}
+func BenchmarkDecodeCalldataWithStandardVectors(b *testing.B) {
+	testVectors, err := loadTestVectors()
+	require.NoError(b, err)
+
+	calls := []*testCall{}
+	var addAllCalls func(calls []*testVector)
+	addAllCalls = func(tests []*testVector) {
+		for _, test := range tests {
+			input, err := hex.DecodeString(test.Input[2:])
+			require.NoError(b, err)
+			value, _ := new(big.Int).SetString(test.Value, 10)
+			contract := &Contract{Type: contractTypesByName[test.Type]}
+			calls = append(calls, &testCall{
+				contract: contract,
+				from:     common.HexToAddress(test.From),
+				to:       common.HexToAddress(test.To),
+				value:    NewAmount(value),
+				input:    input,
+			})
+			addAllCalls(test.Calls)
+		}
+	}
+	for _, v := range testVectors {
+		addAllCalls(v.Calls)
+	}
+
+	// Run the benchmark, decoding each call in turn.
+	var call testCall
+	for i := 0; i < b.N; i++ {
+		call = *calls[i%len(calls)]
+		_, _ = decodeCallData(call.from, call.contract, call.input)
+	}
+}
+
+type testVector struct {
+	Type  string        `json:"type"`
+	From  string        `json:"from"`
+	To    string        `json:"to,omitempty"`
+	Value string        `json:"value,omitempty"`
+	Input string        `json:"input"`
+	Calls []*testVector `json:"calls,omitempty"`
+}
+
+type testCall struct {
+	contract *Contract
+	from     common.Address
+	to       common.Address
+	value    *Amount
+	input    []byte
+}
+
+func loadTestVectors() ([]*testVector, error) {
+	testVectorDirs := []string{
+		"../../internal/tracetest/testdata/txnOpCode_tracer",
+		"../../internal/tracetest/testdata/txnOpCode_tracer_with_netbalchanges",
+	}
+
+	var testVectors []*testVector
+	for _, dirPath := range testVectorDirs {
+		files, err := os.ReadDir(dirPath)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, file := range files {
+			test := new(struct {
+				Result *testVector `json:"result"`
+			})
+			if blob, err := os.ReadFile(filepath.Join(dirPath, file.Name())); err != nil {
+				return nil, err
+			} else if err := json.Unmarshal(blob, test); err != nil {
+				return nil, err
+			}
+
+			testVectors = append(testVectors, test.Result.Calls...)
+		}
+	}
+	return testVectors, nil
 }
 
 func getTestCases() []decodeCallDataTest {
