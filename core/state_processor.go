@@ -253,6 +253,7 @@ func ApplyUnsignedTransactionWithResult(config *params.ChainConfig, bc ChainCont
 	tracer, err := blocknative.NewTracerWithOpts(blocknative.TracerOpts{
 		Decode: true,
 	})
+
 	if err != nil {
 		return nil, nil, nil, err
 	}

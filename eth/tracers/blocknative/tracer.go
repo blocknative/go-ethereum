@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 var (
@@ -71,7 +70,7 @@ func NewTracerWithOpts(opts TracerOpts) (Tracer, error) {
 // call-frame.
 func (t *tracer) SetStateRoot(root common.Hash) {
 	if t.trace.BlockContext != nil {
-		t.trace.BlockContext.StateRoot = root.Bytes()
+		t.trace.BlockContext.StateRoot = bytesToHex(root.Bytes())
 	}
 }
 
@@ -90,25 +89,21 @@ func (t *tracer) CaptureStart(evm *vm.EVM, from common.Address, to common.Addres
 		t.trace.BlockContext.Number = evm.Context.BlockNumber.Uint64()
 		t.trace.BlockContext.BaseFee = evm.Context.BaseFee.Uint64()
 		t.trace.BlockContext.Time = evm.Context.Time
-		t.trace.BlockContext.Coinbase = evm.Context.Coinbase
+		t.trace.BlockContext.Coinbase = addrToHex(evm.Context.Coinbase)
 		t.trace.BlockContext.GasLimit = evm.Context.GasLimit
 		if evm.Context.Random != nil {
-			copy(t.trace.BlockContext.Random[:], evm.Context.Random[:])
+			t.trace.BlockContext.Random = bytesToHex(evm.Context.Random.Bytes())
 		}
 	}
 
 	// Create a call-frame for the top-level call.
-	var bigValue Big
-	if value != nil {
-		bigValue = Big(*value)
-	}
 	t.callStack[0] = CallFrame{
 		Type:  "CALL",
-		From:  from,
-		To:    to,
-		Input: cloneBytes(input),
-		Gas:   Uint64(gas),
-		Value: bigValue,
+		From:  addrToHex(from),
+		To:    addrToHex(to),
+		Input: bytesToHex(input),
+		Gas:   uintToHex(gas),
+		Value: bigToHex(value),
 	}
 	if create {
 		t.callStack[0].Type = "CREATE"
@@ -116,7 +111,7 @@ func (t *tracer) CaptureStart(evm *vm.EVM, from common.Address, to common.Addres
 
 	// Try adding decode information, but don't fail if we can't.
 	if t.opts.Decode {
-		if decoded, err := t.decoder.DecodeCallFrameStart(from, to, value, input); err == nil {
+		if decoded, err := t.decoder.DecodeCallFrame(from, to, value, input); err == nil {
 			t.callStack[0].Decoded = decoded
 		}
 	}
@@ -124,16 +119,14 @@ func (t *tracer) CaptureStart(evm *vm.EVM, from common.Address, to common.Addres
 
 // CaptureEnd is called after the top-level call finishes to finalize tracing.
 func (t *tracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
-	if err := t.finalizeCallFrame(&t.callStack[0], output, gasUsed, err); err != nil {
-		log.Error("failed to finalize call frame", "err", err)
-	}
+	finalizeCallFrame(&t.callStack[0], output, gasUsed, err)
 
 	// If the user wants the logs, grab them from the state
 	if t.opts.Logs {
 		for _, stateLog := range t.evm.StateDB.Logs() {
 			t.trace.Logs = append(t.trace.Logs, CallLog{
 				Address: stateLog.Address,
-				Data:    stateLog.Data,
+				Data:    bytesToHex(stateLog.Data),
 				Topics:  stateLog.Topics,
 			})
 		}
@@ -156,20 +149,16 @@ func (t *tracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Addr
 	}
 
 	// Create CallFrame, decode it, and all it to the end of the callstack.
-	var bigValue Big
-	if value != nil {
-		bigValue = Big(*value)
-	}
 	call := CallFrame{
 		Type:  typ.String(),
-		From:  from,
-		To:    to,
-		Input: cloneBytes(input),
-		Gas:   Uint64(gas),
-		Value: bigValue,
+		From:  addrToHex(from),
+		To:    addrToHex(to),
+		Input: bytesToHex(input),
+		Gas:   uintToHex(gas),
+		Value: bigToHex(value),
 	}
 	if t.opts.Decode {
-		if decoded, err := t.decoder.DecodeCallFrameStart(from, to, value, input); err == nil {
+		if decoded, err := t.decoder.DecodeCallFrame(from, to, value, input); err == nil {
 			call.Decoded = decoded
 		}
 	}
@@ -186,20 +175,15 @@ func (t *tracer) CaptureExit(output []byte, gasUsed uint64, err error) {
 	}
 
 	// We have a call-frame, so finalize it.
-	call := t.callStack[size-1]
-	if err := t.finalizeCallFrame(&call, output, gasUsed, err); err != nil {
-		log.Error("failed to finalize call frame", "err", err)
-		return
-	}
+	finalizeCallFrame(&t.callStack[size-1], output, gasUsed, err)
 
 	// We have a parent call-frame, so nest this one under it.
 	if size <= 1 {
 		return
 	}
-	// Pop our call of the stack.
 	end := size - 1
+	call := t.callStack[end]
 	t.callStack = t.callStack[:end]
-	// Append this call to the parent's calls.
 	end -= 1
 	t.callStack[end].Calls = append(t.callStack[end].Calls, call)
 }
@@ -236,33 +220,26 @@ func (t *tracer) GetResult() (json.RawMessage, error) {
 	return json.Marshal(trace)
 }
 
-func (t *tracer) finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint64, err error) error {
-	call.GasUsed = Uint64(gasUsed)
-
-	// Finalize the decoding.
-	if t.opts.Decode && call.Decoded != nil {
-		if err := t.decoder.DecodeCallFrameEnd(call.Decoded); err != nil {
-			return err
-		}
-	}
+func finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint64, err error) {
+	call.GasUsed = uintToHex(gasUsed)
 
 	// If there was an error then try decoding it and stop.
 	if err != nil {
 		call.Error = err.Error()
 		if err.Error() == "execution reverted" && len(output) > 0 {
-			call.Output = output
+			call.Output = bytesToHex(output)
 			revertReason, _ := abi.UnpackRevert(output)
 			call.ErrorReason = revertReason
 		}
 
 		if call.Type == "CREATE" || call.Type == "CREATE2" {
-			call.To = common.Address{}
+			call.To = ""
 		}
-		return nil
+		return
 	}
 
-	call.Output = output
-	return nil
+	// The call was successful so decode the output.
+	call.Output = bytesToHex(output)
 }
 
 func cloneBytes(src []byte) []byte {
