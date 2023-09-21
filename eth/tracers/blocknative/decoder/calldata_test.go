@@ -8,8 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type decodeCallDataTest struct {
@@ -92,8 +93,8 @@ type testCall struct {
 
 func loadTestVectors() ([]*testVector, error) {
 	testVectorDirs := []string{
-		"../../internal/tracetest/testdata/txnOpCode_tracer",
-		"../../internal/tracetest/testdata/txnOpCode_tracer_with_netbalchanges",
+		"../../internal/tracetest/testdata/blocknative",
+		"../../internal/tracetest/testdata/blocknative/with_decoding",
 	}
 
 	var testVectors []*testVector

@@ -266,7 +266,7 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 	txTraceLocksMu.Unlock()
 
 	// No trace in cache or in-progress so create a new one.
-	tracer, err := blocknative.NewTxnOpCodeTracerWithOpts(tracerOpts)
+	tracer, err := blocknative.NewTracerWithOpts(tracerOpts)
 	if err != nil {
 		return nil, err
 	}
