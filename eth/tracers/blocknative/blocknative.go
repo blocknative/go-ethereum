@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder"
 )
@@ -40,28 +41,29 @@ type Trace struct {
 
 // BlockContext contains information about the block we simulate transactions in.
 type BlockContext struct {
-	Number    uint64 `json:"number"`
-	StateRoot string `json:"stateRoot,omitempty"`
-	BaseFee   uint64 `json:"baseFee"`
-	Time      uint64 `json:"time"`
-	Coinbase  string `json:"coinbase"`
-	GasLimit  uint64 `json:"gasLimit"`
-	Random    string `json:"random,omitempty"`
+	Number    uint64         `json:"number"`
+	BaseFee   uint64         `json:"baseFee"`
+	GasLimit  uint64         `json:"gasLimit"`
+	Time      uint64         `json:"time"`
+	Coinbase  common.Address `json:"coinbase"`
+	StateRoot common.Hash    `json:"stateRoot"`
+	Random    common.Hash    `json:"random,omitempty"`
 }
 
 type CallFrame struct {
-	Type        string             `json:"type"`
-	From        string             `json:"from"`
-	To          string             `json:"to,omitempty"`
-	Value       string             `json:"value,omitempty"`
-	Gas         string             `json:"gas"`
-	GasUsed     string             `json:"gasUsed"`
-	Input       string             `json:"input"`
-	Output      string             `json:"output,omitempty"`
-	Error       string             `json:"error,omitempty"`
-	ErrorReason string             `json:"errorReason,omitempty"`
-	Calls       []CallFrame        `json:"calls,omitempty"`
-	Decoded     *decoder.CallFrame `json:"decoded,omitempty"`
+	Type    string             `json:"type"`
+	From    common.Address     `json:"from"`
+	To      common.Address     `json:"to,omitempty"`
+	Value   hexutil.Big        `json:"value,omitempty"`
+	Gas     hexutil.Uint64     `json:"gas"`
+	GasUsed hexutil.Uint64     `json:"gasUsed"`
+	Input   hexutil.Bytes      `json:"input"`
+	Output  hexutil.Bytes      `json:"output,omitempty"`
+	Calls   []CallFrame        `json:"calls,omitempty"`
+	Decoded *decoder.CallFrame `json:"decoded,omitempty"`
+
+	Error       string `json:"error,omitempty"`
+	ErrorReason string `json:"errorReason,omitempty"`
 }
 
 // CallLog represents a single log entry from the receipt of a transaction.
@@ -70,7 +72,7 @@ type CallLog struct {
 	Address common.Address `json:"address"`
 
 	// Data is the encoded memory provided with the log.
-	Data string `json:"data"`
+	Data hexutil.Bytes `json:"data"`
 
 	// Topics is a slice of up to 4 32byte words provided with the log.
 	Topics []common.Hash `json:"topics"`
