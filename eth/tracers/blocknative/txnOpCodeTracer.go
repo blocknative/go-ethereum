@@ -2,7 +2,6 @@ package blocknative
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -154,8 +153,7 @@ func (t *txnOpCodeTracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
 	}
 
 	// Add total time duration for this trace request
-	elapsedTime := time.Now().Sub(t.startTime)
-	t.trace.Time = fmt.Sprintf("%v", elapsedTime)
+	t.trace.Time = time.Now().Sub(t.startTime).Nanoseconds()
 }
 
 // CaptureState implements the EVMLogger interface to trace a single step of VM execution.
