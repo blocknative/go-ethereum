@@ -92,9 +92,9 @@ func (t *tracer) CaptureStart(evm *vm.EVM, from common.Address, to common.Addres
 		t.trace.BlockContext.Time = evm.Context.Time
 		t.trace.BlockContext.Coinbase = evm.Context.Coinbase
 		t.trace.BlockContext.GasLimit = evm.Context.GasLimit
-		// if evm.Context.Random != nil {
-		// 	copy(t.trace.BlockContext.Random[:], evm.Context.Random[:])
-		// }
+		if evm.Context.Random != nil {
+			copy(t.trace.BlockContext.Random[:], evm.Context.Random[:])
+		}
 	}
 
 	// Create a call-frame for the top-level call.

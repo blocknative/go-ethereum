@@ -47,23 +47,23 @@ type BlockContext struct {
 	Time      uint64         `json:"time"`
 	Coinbase  common.Address `json:"coinbase"`
 	StateRoot common.Hash    `json:"stateRoot"`
-	Random    common.Hash    `json:"random,omitempty"`
+	Random    common.Hash    `json:"random"`
 }
 
 type CallFrame struct {
-	Type    string             `json:"type"`
-	From    common.Address     `json:"from"`
-	To      common.Address     `json:"to,omitempty"`
-	Value   hexutil.Big        `json:"value,omitempty"`
-	Gas     hexutil.Uint64     `json:"gas"`
-	GasUsed hexutil.Uint64     `json:"gasUsed"`
-	Input   hexutil.Bytes      `json:"input"`
-	Output  hexutil.Bytes      `json:"output,omitempty"`
-	Calls   []CallFrame        `json:"calls,omitempty"`
-	Decoded *decoder.CallFrame `json:"decoded,omitempty"`
+	Type    string         `json:"type"`
+	From    common.Address `json:"from"`
+	To      common.Address `json:"to"`
+	Value   hexutil.Big    `json:"value"`
+	Gas     hexutil.Uint64 `json:"gas"`
+	GasUsed hexutil.Uint64 `json:"gasUsed"`
+	Input   hexutil.Bytes  `json:"input"`
+	Output  hexutil.Bytes  `json:"output"`
 
-	Error       string `json:"error,omitempty"`
-	ErrorReason string `json:"errorReason,omitempty"`
+	Calls       []CallFrame        `json:"calls,omitempty"`
+	Decoded     *decoder.CallFrame `json:"decoded,omitempty"`
+	Error       string             `json:"error,omitempty"`
+	ErrorReason string             `json:"errorReason,omitempty"`
 }
 
 // CallLog represents a single log entry from the receipt of a transaction.
