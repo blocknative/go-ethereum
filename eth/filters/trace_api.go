@@ -265,7 +265,7 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 
 // traceTx traces a transaction with the given contexts.
 func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*blocknative.Trace, error) {
-	tracer, err := blocknative.NewTxnOpCodeTracerWithOpts(tracerOpts)
+	tracer, err := blocknative.NewTracerWithOpts(tracerOpts)
 	if err != nil {
 		return nil, err
 	}
