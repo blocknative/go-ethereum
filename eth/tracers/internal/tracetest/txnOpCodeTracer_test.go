@@ -265,8 +265,8 @@ func (a BalanceChangesByAssetAddress) Less(i, j int) bool {
 
 func tracesEqual(x, y *blocknative.Trace) bool {
 	// Clear out non-deterministic time
-	x.Time = ""
-	y.Time = ""
+	x.Time = 0
+	y.Time = 0
 
 	// Sort the balance changes because we don't care about the order of the
 	// breakdown.
