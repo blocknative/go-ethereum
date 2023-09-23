@@ -242,6 +242,12 @@ func finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint64, err error
 	call.Output = bytesToHex(output)
 }
 
+// EmptyCache is for testing purposes. It clears the global cache so tests don't
+// interfere with each other.
+func EmptyCache() {
+	decoderCache = decoder.NewCaches()
+}
+
 //
 // Unused interface methods.
 //
