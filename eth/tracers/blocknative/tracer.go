@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 var (
@@ -115,7 +116,7 @@ func (t *tracer) CaptureStart(evm *vm.EVM, from common.Address, to common.Addres
 
 	// Try adding decode information, but don't fail if we can't.
 	if t.opts.Decode {
-		if decoded, err := t.decoder.DecodeCallFrame(from, to, value, input); err == nil {
+		if decoded, err := t.decoder.DecodeCallFrameStart(from, to, value, input); err == nil {
 			t.callStack[0].Decoded = decoded
 		}
 	}
@@ -123,7 +124,9 @@ func (t *tracer) CaptureStart(evm *vm.EVM, from common.Address, to common.Addres
 
 // CaptureEnd is called after the top-level call finishes to finalize tracing.
 func (t *tracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
-	finalizeCallFrame(&t.callStack[0], output, gasUsed, err)
+	if err := t.finalizeCallFrame(&t.callStack[0], output, gasUsed, err); err != nil {
+		log.Error("failed to finalize call frame", "err", err)
+	}
 
 	// If the user wants the logs, grab them from the state
 	if t.opts.Logs {
@@ -166,7 +169,7 @@ func (t *tracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Addr
 		Value: bigValue,
 	}
 	if t.opts.Decode {
-		if decoded, err := t.decoder.DecodeCallFrame(from, to, value, input); err == nil {
+		if decoded, err := t.decoder.DecodeCallFrameStart(from, to, value, input); err == nil {
 			call.Decoded = decoded
 		}
 	}
@@ -183,15 +186,20 @@ func (t *tracer) CaptureExit(output []byte, gasUsed uint64, err error) {
 	}
 
 	// We have a call-frame, so finalize it.
-	finalizeCallFrame(&t.callStack[size-1], output, gasUsed, err)
+	call := t.callStack[size-1]
+	if err := t.finalizeCallFrame(&call, output, gasUsed, err); err != nil {
+		log.Error("failed to finalize call frame", "err", err)
+		return
+	}
 
 	// We have a parent call-frame, so nest this one under it.
 	if size <= 1 {
 		return
 	}
+	// Pop our call of the stack.
 	end := size - 1
-	call := t.callStack[end]
 	t.callStack = t.callStack[:end]
+	// Append this call to the parent's calls.
 	end -= 1
 	t.callStack[end].Calls = append(t.callStack[end].Calls, call)
 }
@@ -228,8 +236,15 @@ func (t *tracer) GetResult() (json.RawMessage, error) {
 	return json.Marshal(trace)
 }
 
-func finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint64, err error) {
+func (t *tracer) finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint64, err error) error {
 	call.GasUsed = Uint64(gasUsed)
+
+	// Finalize the decoding.
+	if t.opts.Decode && call.Decoded != nil {
+		if err := t.decoder.DecodeCallFrameEnd(call.Decoded); err != nil {
+			return err
+		}
+	}
 
 	// If there was an error then try decoding it and stop.
 	if err != nil {
@@ -243,10 +258,11 @@ func finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint64, err error
 		if call.Type == "CREATE" || call.Type == "CREATE2" {
 			call.To = common.Address{}
 		}
-		return
+		return nil
 	}
 
 	call.Output = output
+	return nil
 }
 
 func cloneBytes(src []byte) []byte {
