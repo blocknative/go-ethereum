@@ -280,15 +280,14 @@ func executeTestCase(test *blocknativeTracerTest, t testing.TB, checkResult bool
 
 	if checkResult && !tracesEqual(ret, test.Result) {
 		// Below are prints to show differences if we fail, can always just check against the specific test json files too!
-		fmt.Println("Trace return: ")
+		fmt.Println("Got Trace:")
 		x, _ := json.Marshal(ret)
-		// //x, _ := json.MarshalIndent(ret, "", "	")
-		// y, _ := json.Marshal(test.Result)
 		fmt.Println(string(x))
-		fmt.Println("test.Result")
+
+		// fmt.Println("Expected Trace:")
+		// y, _ := json.Marshal(test.Result)
 		// fmt.Println(string(y))
 		t.Fatal("traces mismatch")
-		// t.Fatalf("trace mismatch: \nhave %+v\nwant %+v", ret, test.Result)
 	}
 }
 
