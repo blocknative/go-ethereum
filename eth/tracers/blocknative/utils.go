@@ -1,31 +1,35 @@
 package blocknative
 
 import (
-	"encoding/hex"
 	"math/big"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
-func bytesToHex(s []byte) string {
-	return "0x" + common.Bytes2Hex(s)
+// Big overrides hexutil.Big to to use a faster serialization method.
+type Big hexutil.Big
+
+// MarshalText implements encoding.TextMarshaler
+func (b Big) MarshalText() ([]byte, error) {
+	b2 := big.Int(b)
+	return []byte("0x" + b2.Text(16)), nil
 }
 
-func bigToHex(n *big.Int) string {
-	if n == nil {
-		return ""
-	}
-	return "0x" + n.Text(16)
+func (b Big) UnmarshalJSON(input []byte) error {
+	b2 := hexutil.Big(b)
+	return b2.UnmarshalJSON(input)
 }
 
-func uintToHex(n uint64) string {
-	return "0x" + strconv.FormatUint(n, 16)
+// Uint64 overrides hexutil.Uint64 to to use a faster serialization method.
+type Uint64 hexutil.Uint64
+
+// MarshalText implements encoding.TextMarshaler.
+func (b Uint64) MarshalText() ([]byte, error) {
+	return []byte("0x" + strconv.FormatUint(uint64(b), 16)), nil
 }
 
-func addrToHex(a common.Address) string {
-	var buf [len(a)*2 + 2]byte
-	copy(buf[:2], "0x")
-	hex.Encode(buf[2:], a[:])
-	return string(buf[:])
+func (b Uint64) UnmarshalJSON(input []byte) error {
+	u := hexutil.Uint64(b)
+	return u.UnmarshalJSON(input)
 }
