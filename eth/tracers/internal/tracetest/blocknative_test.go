@@ -24,7 +24,10 @@ import (
 	"github.com/ethereum/go-ethereum/tests"
 )
 
-var testFileFlag = flag.String("file", "", "Name of the file to run the test for")
+var (
+	testFlagLogLevl = flag.String("loglevel", "info", "Log level to use")
+	testFlagFile    = flag.String("file", "", "Name of the file to run the test for")
+)
 
 func TestMain(m *testing.M) {
 	flag.Parse()
@@ -51,7 +54,7 @@ type blocknativeTracerTest struct {
 }
 
 func TestBlocknativeTracer(t *testing.T) {
-	log.Root().SetHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
+	setLogging(t)
 
 	testsCases, err := loadTestTxs("blocknative")
 	if err != nil {
@@ -64,8 +67,8 @@ func TestBlocknativeTracer(t *testing.T) {
 	testsCases = append(testsCases, decodingTestsCases...)
 
 	for _, test := range testsCases {
-		if *testFileFlag != "" {
-			a := strings.ToLower(*testFileFlag)
+		if *testFlagFile != "" {
+			a := strings.ToLower(*testFlagFile)
 			b := strings.ToLower(test.name)
 			if a != b {
 				continue
@@ -166,6 +169,19 @@ func benchmarkBlocknativeTracer(b *testing.B, decode bool, dirPaths ...string) {
 		executeTestCase(test, b, false)
 
 	}
+}
+
+func setLogging(t testing.TB) {
+	logHandler := log.StreamHandler(os.Stdout, log.TerminalFormat(true))
+	level := log.LvlDebug
+	if *testFlagLogLevl != "" {
+		var err error
+		level, err = log.LvlFromString(*testFlagLogLevl)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	log.Root().SetHandler(log.LvlFilterHandler(level, logHandler))
 }
 
 func loadTestTxs(dirPath string) ([]*blocknativeTracerTest, error) {
