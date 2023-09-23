@@ -70,7 +70,7 @@ func NewTracerWithOpts(opts TracerOpts) (Tracer, error) {
 // call-frame.
 func (t *tracer) SetStateRoot(root common.Hash) {
 	if t.trace.BlockContext != nil {
-		t.trace.BlockContext.StateRoot = bytesToHex(root.Bytes())
+		t.trace.BlockContext.StateRoot = root.Bytes()
 	}
 }
 
@@ -89,21 +89,25 @@ func (t *tracer) CaptureStart(evm *vm.EVM, from common.Address, to common.Addres
 		t.trace.BlockContext.Number = evm.Context.BlockNumber.Uint64()
 		t.trace.BlockContext.BaseFee = evm.Context.BaseFee.Uint64()
 		t.trace.BlockContext.Time = evm.Context.Time
-		t.trace.BlockContext.Coinbase = addrToHex(evm.Context.Coinbase)
+		t.trace.BlockContext.Coinbase = evm.Context.Coinbase
 		t.trace.BlockContext.GasLimit = evm.Context.GasLimit
 		if evm.Context.Random != nil {
-			t.trace.BlockContext.Random = bytesToHex(evm.Context.Random.Bytes())
+			copy(t.trace.BlockContext.Random[:], evm.Context.Random[:])
 		}
 	}
 
 	// Create a call-frame for the top-level call.
+	var bigValue Big
+	if value != nil {
+		bigValue = Big(*value)
+	}
 	t.callStack[0] = CallFrame{
 		Type:  "CALL",
-		From:  addrToHex(from),
-		To:    addrToHex(to),
-		Input: bytesToHex(input),
-		Gas:   uintToHex(gas),
-		Value: bigToHex(value),
+		From:  from,
+		To:    to,
+		Input: cloneBytes(input),
+		Gas:   Uint64(gas),
+		Value: bigValue,
 	}
 	if create {
 		t.callStack[0].Type = "CREATE"
@@ -126,7 +130,7 @@ func (t *tracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
 		for _, stateLog := range t.evm.StateDB.Logs() {
 			t.trace.Logs = append(t.trace.Logs, CallLog{
 				Address: stateLog.Address,
-				Data:    bytesToHex(stateLog.Data),
+				Data:    stateLog.Data,
 				Topics:  stateLog.Topics,
 			})
 		}
@@ -149,13 +153,17 @@ func (t *tracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Addr
 	}
 
 	// Create CallFrame, decode it, and all it to the end of the callstack.
+	var bigValue Big
+	if value != nil {
+		bigValue = Big(*value)
+	}
 	call := CallFrame{
 		Type:  typ.String(),
-		From:  addrToHex(from),
-		To:    addrToHex(to),
-		Input: bytesToHex(input),
-		Gas:   uintToHex(gas),
-		Value: bigToHex(value),
+		From:  from,
+		To:    to,
+		Input: cloneBytes(input),
+		Gas:   Uint64(gas),
+		Value: bigValue,
 	}
 	if t.opts.Decode {
 		if decoded, err := t.decoder.DecodeCallFrame(from, to, value, input); err == nil {
@@ -221,25 +229,30 @@ func (t *tracer) GetResult() (json.RawMessage, error) {
 }
 
 func finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint64, err error) {
-	call.GasUsed = uintToHex(gasUsed)
+	call.GasUsed = Uint64(gasUsed)
 
 	// If there was an error then try decoding it and stop.
 	if err != nil {
 		call.Error = err.Error()
 		if err.Error() == "execution reverted" && len(output) > 0 {
-			call.Output = bytesToHex(output)
+			call.Output = output
 			revertReason, _ := abi.UnpackRevert(output)
 			call.ErrorReason = revertReason
 		}
 
 		if call.Type == "CREATE" || call.Type == "CREATE2" {
-			call.To = ""
+			call.To = common.Address{}
 		}
 		return
 	}
 
-	// The call was successful so decode the output.
-	call.Output = bytesToHex(output)
+	call.Output = output
+}
+
+func cloneBytes(src []byte) []byte {
+	dst := make([]byte, len(src))
+	copy(dst, src)
+	return dst
 }
 
 // EmptyCache is for testing purposes. It clears the global cache so tests don't
