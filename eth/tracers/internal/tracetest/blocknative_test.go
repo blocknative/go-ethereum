@@ -65,6 +65,9 @@ func benchmarkBlocknativeTracer(b *testing.B, decode bool, dirPaths ...string) {
 		}
 
 		for _, file := range files {
+			if file.IsDir() {
+				continue
+			}
 			var (
 				test = new(blocknativeTracerTest)
 				tx   = new(types.Transaction)
@@ -241,10 +244,10 @@ func executeTestCase(test *blocknativeTracerTest, t testing.TB, checkResult bool
 		fmt.Println("Trace return: ")
 		x, _ := json.Marshal(ret)
 		// //x, _ := json.MarshalIndent(ret, "", "	")
-		y, _ := json.Marshal(test.Result)
+		// y, _ := json.Marshal(test.Result)
 		fmt.Println(string(x))
 		fmt.Println("test.Result")
-		fmt.Println(string(y))
+		// fmt.Println(string(y))
 		t.Fatal("traces mismatch")
 		// t.Fatalf("trace mismatch: \nhave %+v\nwant %+v", ret, test.Result)
 	}
