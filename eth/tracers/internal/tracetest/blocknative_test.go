@@ -2,6 +2,7 @@ package tracetest
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"math/big"
 	"os"
@@ -23,6 +24,16 @@ import (
 	"github.com/ethereum/go-ethereum/tests"
 )
 
+var (
+	testFlagLogLevl = flag.String("loglevel", "info", "Log level to use")
+	testFlagFile    = flag.String("file", "", "Name of the file to run the test for")
+)
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	os.Exit(m.Run())
+}
+
 type blocknativeTracerTest struct {
 	Genesis      *core.Genesis      `json:"genesis"`
 	Context      *callContext       `json:"context"`
@@ -43,9 +54,30 @@ type blocknativeTracerTest struct {
 }
 
 func TestBlocknativeTracer(t *testing.T) {
-	log.Root().SetHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
-	testBlocknativeTracer("blocknative", t)
-	testBlocknativeTracer("blocknative/with_decoding", t)
+	setLogging(t)
+
+	testsCases, err := loadTestTxs("blocknative")
+	if err != nil {
+		t.Fatal(err)
+	}
+	decodingTestsCases, err := loadTestTxs("blocknative/with_decoding")
+	if err != nil {
+		t.Fatal(err)
+	}
+	testsCases = append(testsCases, decodingTestsCases...)
+
+	for _, test := range testsCases {
+		if *testFlagFile != "" {
+			a := strings.ToLower(*testFlagFile)
+			b := strings.ToLower(test.name)
+			if a != b {
+				continue
+			}
+		}
+		t.Run(test.name, func(t *testing.T) {
+			executeTestCase(test, t, true)
+		})
+	}
 }
 
 func BenchmarkBlocknativeTracerWithoutDecoding(b *testing.B) {
@@ -139,17 +171,17 @@ func benchmarkBlocknativeTracer(b *testing.B, decode bool, dirPaths ...string) {
 	}
 }
 
-func testBlocknativeTracer(dirPath string, t *testing.T) {
-	testsCases, err := loadTestTxs(dirPath)
-	if err != nil {
-		t.Fatal(err)
+func setLogging(t testing.TB) {
+	logHandler := log.StreamHandler(os.Stdout, log.TerminalFormat(true))
+	level := log.LvlDebug
+	if *testFlagLogLevl != "" {
+		var err error
+		level, err = log.LvlFromString(*testFlagLogLevl)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
-
-	for _, test := range testsCases {
-		t.Run(test.name, func(t *testing.T) {
-			executeTestCase(test, t, true)
-		})
-	}
+	log.Root().SetHandler(log.LvlFilterHandler(level, logHandler))
 }
 
 func loadTestTxs(dirPath string) ([]*blocknativeTracerTest, error) {
@@ -213,7 +245,14 @@ func loadTestTxs(dirPath string) ([]*blocknativeTracerTest, error) {
 			return nil, err
 		}
 
-		test.name = camel(strings.TrimSuffix(file.Name(), ".json"))
+		name := strings.TrimPrefix(dirPath, "blocknative")
+		name = strings.TrimPrefix(name, "/")
+		if name != "" {
+			name = name + "/"
+		}
+		name = name + camel(strings.TrimSuffix(file.Name(), ".json"))
+
+		test.name = name
 		test.evm = evm
 		test.tx = tx
 		test.msg = msg
@@ -225,6 +264,8 @@ func loadTestTxs(dirPath string) ([]*blocknativeTracerTest, error) {
 }
 
 func executeTestCase(test *blocknativeTracerTest, t testing.TB, checkResult bool) {
+	blocknative.EmptyCache()
+
 	st := core.NewStateTransition(test.evm, test.msg, new(core.GasPool).AddGas(test.tx.Gas()))
 	if _, err := st.TransitionDb(); err != nil {
 		t.Fatalf("failed to execute transaction: %v", err)
@@ -241,15 +282,14 @@ func executeTestCase(test *blocknativeTracerTest, t testing.TB, checkResult bool
 
 	if checkResult && !tracesEqual(ret, test.Result) {
 		// Below are prints to show differences if we fail, can always just check against the specific test json files too!
-		fmt.Println("Trace return: ")
+		fmt.Println("Got Trace:")
 		x, _ := json.Marshal(ret)
-		// //x, _ := json.MarshalIndent(ret, "", "	")
-		// y, _ := json.Marshal(test.Result)
 		fmt.Println(string(x))
-		fmt.Println("test.Result")
+
+		// fmt.Println("Expected Trace:")
+		// y, _ := json.Marshal(test.Result)
 		// fmt.Println(string(y))
 		t.Fatal("traces mismatch")
-		// t.Fatalf("trace mismatch: \nhave %+v\nwant %+v", ret, test.Result)
 	}
 }
 
