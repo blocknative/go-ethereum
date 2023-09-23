@@ -2,6 +2,7 @@ package tracetest
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"math/big"
 	"os"
@@ -22,6 +23,13 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/tests"
 )
+
+var testFileFlag = flag.String("file", "", "Name of the file to run the test for")
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	os.Exit(m.Run())
+}
 
 type blocknativeTracerTest struct {
 	Genesis      *core.Genesis      `json:"genesis"`
@@ -44,8 +52,29 @@ type blocknativeTracerTest struct {
 
 func TestBlocknativeTracer(t *testing.T) {
 	log.Root().SetHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
-	testBlocknativeTracer("blocknative", t)
-	testBlocknativeTracer("blocknative/with_decoding", t)
+
+	testsCases, err := loadTestTxs("blocknative")
+	if err != nil {
+		t.Fatal(err)
+	}
+	decodingTestsCases, err := loadTestTxs("blocknative/with_decoding")
+	if err != nil {
+		t.Fatal(err)
+	}
+	testsCases = append(testsCases, decodingTestsCases...)
+
+	for _, test := range testsCases {
+		if *testFileFlag != "" {
+			a := strings.ToLower(*testFileFlag)
+			b := strings.ToLower(test.name)
+			if a != b {
+				continue
+			}
+		}
+		t.Run(test.name, func(t *testing.T) {
+			executeTestCase(test, t, true)
+		})
+	}
 }
 
 func BenchmarkBlocknativeTracerWithoutDecoding(b *testing.B) {
@@ -139,19 +168,6 @@ func benchmarkBlocknativeTracer(b *testing.B, decode bool, dirPaths ...string) {
 	}
 }
 
-func testBlocknativeTracer(dirPath string, t *testing.T) {
-	testsCases, err := loadTestTxs(dirPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, test := range testsCases {
-		t.Run(test.name, func(t *testing.T) {
-			executeTestCase(test, t, true)
-		})
-	}
-}
-
 func loadTestTxs(dirPath string) ([]*blocknativeTracerTest, error) {
 	files, err := os.ReadDir(filepath.Join("testdata", dirPath))
 	if err != nil {
@@ -213,7 +229,14 @@ func loadTestTxs(dirPath string) ([]*blocknativeTracerTest, error) {
 			return nil, err
 		}
 
-		test.name = camel(strings.TrimSuffix(file.Name(), ".json"))
+		name := strings.TrimPrefix(dirPath, "blocknative")
+		name = strings.TrimPrefix(name, "/")
+		if name != "" {
+			name = name + "/"
+		}
+		name = name + camel(strings.TrimSuffix(file.Name(), ".json"))
+
+		test.name = name
 		test.evm = evm
 		test.tx = tx
 		test.msg = msg
