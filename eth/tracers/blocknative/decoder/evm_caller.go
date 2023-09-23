@@ -7,6 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+var (
+	ErrUnexpectedDecodedSize = fmt.Errorf("unexpected decoded size")
+	ErrUnexpectedType        = fmt.Errorf("unexpected type")
+)
+
 //
 // General callers
 //
@@ -14,22 +19,22 @@ import (
 // callAndDecodeString calls a method and decodes the result as a string.
 func callAndDecodeString(evmCall evmCallFn, addr common.Address, msg []byte) (string, error) {
 	// Load bytes from the EVM.
-	stringBytes, err := evmCall(addr, msg)
+	ret, err := evmCall(addr, msg)
 	if err != nil {
 		return "", err
 	}
 
 	// Parse into a string.
-	stringInterface, err := abiArgs.singleString.Unpack(stringBytes)
+	stringIntf, err := abiArgs.singleString.Unpack(ret)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("decoding string: %w", err)
 	}
-	if len(stringInterface) < len(abiArgs.singleString) {
-		return "", fmt.Errorf("unexpected decoded size")
+	if len(stringIntf) < len(abiArgs.singleString) {
+		return "", fmt.Errorf("decoding string: %w", ErrUnexpectedDecodedSize)
 	}
-	str, ok := stringInterface[0].(string)
+	str, ok := stringIntf[0].(string)
 	if !ok {
-		return "", fmt.Errorf("unexpected type for decoded string")
+		return "", fmt.Errorf("decoding string: %w", ErrUnexpectedType)
 	}
 
 	return str, nil
@@ -38,25 +43,28 @@ func callAndDecodeString(evmCall evmCallFn, addr common.Address, msg []byte) (st
 // callAndDecodeUint8 calls a method and decodes the result as a uint8.
 func callAndDecodeUint8(evmCall evmCallFn, addr common.Address, msg []byte) (uint8, error) {
 	// Load bytes from the EVM.
-	uint8Bytes, err := evmCall(addr, msg)
+	ret, err := evmCall(addr, msg)
 	if err != nil {
 		return 0, err
 	}
 
 	// Parse into a uint8.
-	if len(uint8Bytes) < 1 {
-		return 0, fmt.Errorf("unexpected decoded size")
+	if len(ret) < 1 {
+		return 0, fmt.Errorf("decoding uint8: %w", ErrUnexpectedDecodedSize)
 	}
-	return uint8Bytes[len(uint8Bytes)-1], nil
+	return ret[len(ret)-1], nil
 }
 
-// callAndDecodeBigInt calls a method and decodes the result as a *big.Int.
-func callAndDecodeBigInt(evmCall evmCallFn, addr common.Address, msg []byte) (*big.Int, error) {
-	bigIntBytes, err := evmCall(addr, msg)
+// callAndDecodeUint256 calls a method and decodes the result as a *big.Int.
+func callAndDecodeUint256(evmCall evmCallFn, addr common.Address, msg []byte) (*big.Int, error) {
+	ret, err := evmCall(addr, msg)
 	if err != nil {
 		return nil, err
 	}
-	return new(big.Int).SetBytes(bigIntBytes), nil
+	if len(ret) > 32 {
+		return nil, fmt.Errorf("decoding uint256: %w", ErrUnexpectedDecodedSize)
+	}
+	return new(big.Int).SetBytes(ret), nil
 }
 
 //
@@ -100,7 +108,7 @@ func evmCallMethodURI(evmCall evmCallFn, addr common.Address, tokenID *big.Int) 
 func evmCallMethodBalanceOf(evmCall evmCallFn, addr common.Address, owner common.Address) (*big.Int, error) {
 	ownerBytes := common.LeftPadBytes(owner.Bytes(), 32)
 	input := append(methodIDBalanceOf, ownerBytes...)
-	return callAndDecodeBigInt(evmCall, addr, input)
+	return callAndDecodeUint256(evmCall, addr, input)
 }
 
 // evmCallMethodBalanceOf2 decodes the balance of an asset from the EVM.
@@ -109,5 +117,5 @@ func evmCallMethodBalanceOf2(evmCall evmCallFn, addr common.Address, owner commo
 	ownerBytes := common.LeftPadBytes(owner.Bytes(), 32)
 	input := append(methodIDBalanceOf2, ownerBytes...)
 	input = append(input, tokenIDBytes...)
-	return callAndDecodeBigInt(evmCall, addr, input)
+	return callAndDecodeUint256(evmCall, addr, input)
 }
