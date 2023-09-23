@@ -2,6 +2,7 @@ package tracers
 
 import (
 	"encoding/json"
+
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative"
 )
 
@@ -11,9 +12,12 @@ import (
 // in turn allows us to use the blocknative tracers from inside the geth/core
 // package without causing circular dependency issues.
 func init() {
+	DefaultDirectory.Register("blocknative", blocknativeTracerCtor, false)
+
+	// Also register the tracer under the old name for backwards compatibility.
 	DefaultDirectory.Register("txnOpCodeTracer", blocknativeTracerCtor, false)
 }
 
 func blocknativeTracerCtor(_ *Context, cfg json.RawMessage) (Tracer, error) {
-	return blocknative.NewTxnOpCodeTracer(cfg)
+	return blocknative.NewTracer(cfg)
 }

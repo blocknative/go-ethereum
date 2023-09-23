@@ -2,6 +2,7 @@ package tracetest
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -22,7 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/tests"
 )
 
-type txnOpCodeTracerTest struct {
+type blocknativeTracerTest struct {
 	Genesis      *core.Genesis      `json:"genesis"`
 	Context      *callContext       `json:"context"`
 	Input        string             `json:"input"`
@@ -41,21 +42,21 @@ type txnOpCodeTracerTest struct {
 	txContext    vm.TxContext
 }
 
-func TestTxnOpCodeTracer(t *testing.T) {
+func TestBlocknativeTracer(t *testing.T) {
 	log.Root().SetHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
-	testTxnOpCodeTracer("txnOpCode_tracer", t)
-	testTxnOpCodeTracer("txnOpCode_tracer_with_netbalchanges", t)
+	testBlocknativeTracer("blocknative", t)
+	testBlocknativeTracer("blocknative/with_decoding", t)
 }
 
-func BenchmarkTxnOpCodeTracerWithoutDecoding(b *testing.B) {
-	benchmarkTxnOpCodeTracer(b, false, "txnOpCode_tracer", "txnOpCode_tracer_with_netbalchanges")
+func BenchmarkBlocknativeTracerWithoutDecoding(b *testing.B) {
+	benchmarkBlocknativeTracer(b, false, "blocknative", "blocknative/with_decoding")
 }
-func BenchmarkTxnOpCodeTracerWithDecoding(b *testing.B) {
-	benchmarkTxnOpCodeTracer(b, true, "txnOpCode_tracer", "txnOpCode_tracer_with_netbalchanges")
+func BenchmarkBlocknativeTracerWithDecoding(b *testing.B) {
+	benchmarkBlocknativeTracer(b, true, "blocknative", "blocknative/with_decoding")
 }
 
-func benchmarkTxnOpCodeTracer(b *testing.B, decode bool, dirPaths ...string) {
-	testCases := []*txnOpCodeTracerTest{}
+func benchmarkBlocknativeTracer(b *testing.B, decode bool, dirPaths ...string) {
+	testCases := []*blocknativeTracerTest{}
 
 	for _, dirPath := range dirPaths {
 		files, err := os.ReadDir(filepath.Join("testdata", dirPath))
@@ -65,7 +66,7 @@ func benchmarkTxnOpCodeTracer(b *testing.B, decode bool, dirPaths ...string) {
 
 		for _, file := range files {
 			var (
-				test = new(txnOpCodeTracerTest)
+				test = new(blocknativeTracerTest)
 				tx   = new(types.Transaction)
 			)
 			if blob, err := os.ReadFile(filepath.Join("testdata", dirPath, file.Name())); err != nil {
@@ -115,7 +116,7 @@ func benchmarkTxnOpCodeTracer(b *testing.B, decode bool, dirPaths ...string) {
 
 		_, _, statedb := tests.MakePreState(rawdb.NewMemoryDatabase(), test.Genesis.Alloc, false, rawdb.HashScheme)
 		opts := blocknative.TracerOpts{Decode: decode}
-		tracer, err := blocknative.NewTxnOpCodeTracerWithOpts(opts)
+		tracer, err := blocknative.NewTracerWithOpts(opts)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -135,7 +136,7 @@ func benchmarkTxnOpCodeTracer(b *testing.B, decode bool, dirPaths ...string) {
 	}
 }
 
-func testTxnOpCodeTracer(dirPath string, t *testing.T) {
+func testBlocknativeTracer(dirPath string, t *testing.T) {
 	testsCases, err := loadTestTxs(dirPath)
 	if err != nil {
 		t.Fatal(err)
@@ -148,20 +149,20 @@ func testTxnOpCodeTracer(dirPath string, t *testing.T) {
 	}
 }
 
-func loadTestTxs(dirPath string) ([]*txnOpCodeTracerTest, error) {
+func loadTestTxs(dirPath string) ([]*blocknativeTracerTest, error) {
 	files, err := os.ReadDir(filepath.Join("testdata", dirPath))
 	if err != nil {
 		return nil, err
 	}
 
-	testCases := make([]*txnOpCodeTracerTest, 0, len(files))
+	testCases := make([]*blocknativeTracerTest, 0, len(files))
 	for _, file := range files {
 		if !strings.HasSuffix(file.Name(), ".json") {
 			continue
 		}
 
 		var (
-			test = new(txnOpCodeTracerTest)
+			test = new(blocknativeTracerTest)
 			tx   = new(types.Transaction)
 		)
 		if blob, err := os.ReadFile(filepath.Join("testdata", dirPath, file.Name())); err != nil {
@@ -199,7 +200,7 @@ func loadTestTxs(dirPath string) ([]*txnOpCodeTracerTest, error) {
 			}
 			_, _, statedb = tests.MakePreState(rawdb.NewMemoryDatabase(), test.Genesis.Alloc, false, rawdb.HashScheme)
 		)
-		tracer, err := blocknative.NewTxnOpCodeTracer(test.TracerConfig)
+		tracer, err := blocknative.NewTracer(test.TracerConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -220,7 +221,7 @@ func loadTestTxs(dirPath string) ([]*txnOpCodeTracerTest, error) {
 	return testCases, nil
 }
 
-func executeTestCase(test *txnOpCodeTracerTest, t testing.TB, checkResult bool) {
+func executeTestCase(test *blocknativeTracerTest, t testing.TB, checkResult bool) {
 	st := core.NewStateTransition(test.evm, test.msg, new(core.GasPool).AddGas(test.tx.Gas()))
 	if _, err := st.TransitionDb(); err != nil {
 		t.Fatalf("failed to execute transaction: %v", err)
@@ -237,15 +238,15 @@ func executeTestCase(test *txnOpCodeTracerTest, t testing.TB, checkResult bool) 
 
 	if checkResult && !tracesEqual(ret, test.Result) {
 		// Below are prints to show differences if we fail, can always just check against the specific test json files too!
-		//fmt.Println("Trace return: ")
-		//x, _ := json.Marshal(ret)
-		////x, _ := json.MarshalIndent(ret, "", "	")
-		//y, _ := json.Marshal(test.Result)
-		//fmt.Println(string(x))
-		//fmt.Println("test.Result")
-		//fmt.Println(string(y))
+		fmt.Println("Trace return: ")
+		x, _ := json.Marshal(ret)
+		// //x, _ := json.MarshalIndent(ret, "", "	")
+		y, _ := json.Marshal(test.Result)
+		fmt.Println(string(x))
+		fmt.Println("test.Result")
+		fmt.Println(string(y))
 		t.Fatal("traces mismatch")
-		//t.Fatalf("trace mismatch: \nhave %+v\nwant %+v", ret, test.Result)
+		// t.Fatalf("trace mismatch: \nhave %+v\nwant %+v", ret, test.Result)
 	}
 }
 

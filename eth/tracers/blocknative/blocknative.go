@@ -2,11 +2,15 @@ package blocknative
 
 import (
 	"encoding/json"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder"
 )
 
+// Tracer is the interface for the Blocknative tracer.
+// It implements the standard EVMLogger tracer interface, but also exposes the
+// resulting Trace object directly.
 type Tracer interface {
 	vm.EVMLogger
 	GetTrace() (*Trace, error)
