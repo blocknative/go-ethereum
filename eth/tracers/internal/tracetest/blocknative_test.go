@@ -264,6 +264,8 @@ func loadTestTxs(dirPath string) ([]*blocknativeTracerTest, error) {
 }
 
 func executeTestCase(test *blocknativeTracerTest, t testing.TB, checkResult bool) {
+	blocknative.EmptyCache()
+
 	st := core.NewStateTransition(test.evm, test.msg, new(core.GasPool).AddGas(test.tx.Gas()))
 	if _, err := st.TransitionDb(); err != nil {
 		t.Fatalf("failed to execute transaction: %v", err)
