@@ -52,8 +52,8 @@
     "from": "0xf527a5ee2155fad99a5bbb23c9e52b0a11b99dd4",
     "to": "0xc3761eb917cd790b30dad99f6cc5b4ff93c4f9ea",
     "value": "0x0",
-    "gas": "0x0",
-    "gasUsed": "0x0",
+    "gas": "0x5f58c50",
+    "gasUsed": "0xa188",
     "input": "0xa9059cbb000000000000000000000000fba9f22d040e53e5fac36698080cee3dd3792262000000000000000000000000000000000000000000000207b733832c88c007ca",
     "output": "0x0000000000000000000000000000000000000000000000000000000000000001",
     "decoded": {
@@ -76,6 +76,27 @@
     },
     "balanceChanges": [
       {
+        "address": "0x4675c7e5baafbffbca748158becba61ef3b0a263",
+        "balanceChanges": [
+          {
+            "delta": "1011744513820800",
+            "asset": {
+              "address": "0x0000000000000000000000000000000000000000",
+              "type": "eth",
+              "name": "Ether",
+              "symbol": "ETH",
+              "decimals": 18
+            },
+            "breakdown": [
+              {
+                "counterparty": "0xf527a5ee2155fad99a5bbb23c9e52b0a11b99dd4",
+                "amount": "1011744513820800"
+              }
+            ]
+          }
+        ]
+      },
+      {
         "address": "0xfba9f22d040e53e5fac36698080cee3dd3792262",
         "balanceChanges": [
           {
@@ -91,51 +112,6 @@
               {
                 "counterparty": "0xf527a5ee2155fad99a5bbb23c9e52b0a11b99dd4",
                 "amount": "9491190601281153366106"
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "address": "0xf527a5ee2155fad99a5bbb23c9e52b0a11b99dd4",
-        "balanceChanges": [
-          {
-            "delta": "-9587061213415306430410",
-            "asset": {
-              "address": "0xc3761eb917cd790b30dad99f6cc5b4ff93c4f9ea",
-              "type": "erc20",
-              "name": "Tax Token",
-              "symbol": "TAX",
-              "decimals": 2
-            },
-            "breakdown": [
-              {
-                "counterparty": "0xfba9f22d040e53e5fac36698080cee3dd3792262",
-                "amount": "-9491190601281153366106"
-              },
-              {
-                "counterparty": "0xc3761eb917cd790b30dad99f6cc5b4ff93c4f9ea",
-                "amount": "-95870612134153064304"
-              }
-            ]
-          },
-          {
-            "delta": "-1012435575212160",
-            "asset": {
-              "address": "0x0000000000000000000000000000000000000000",
-              "type": "eth",
-              "name": "Ether",
-              "symbol": "ETH",
-              "decimals": 18
-            },
-            "breakdown": [
-              {
-                "counterparty": "0x0000000000000000000000000000000000000000",
-                "amount": "-691061391360"
-              },
-              {
-                "counterparty": "0x4675c7e5baafbffbca748158becba61ef3b0a263",
-                "amount": "-1011744513820800"
               }
             ]
           }
@@ -163,10 +139,10 @@
         ]
       },
       {
-        "address": "0x4675c7e5baafbffbca748158becba61ef3b0a263",
+        "address": "0xf527a5ee2155fad99a5bbb23c9e52b0a11b99dd4",
         "balanceChanges": [
           {
-            "delta": "1011744513820800",
+            "delta": "-1012435575212160",
             "asset": {
               "address": "0x0000000000000000000000000000000000000000",
               "type": "eth",
@@ -176,8 +152,32 @@
             },
             "breakdown": [
               {
-                "counterparty": "0xf527a5ee2155fad99a5bbb23c9e52b0a11b99dd4",
-                "amount": "1011744513820800"
+                "counterparty": "0x0000000000000000000000000000000000000000",
+                "amount": "-691061391360"
+              },
+              {
+                "counterparty": "0x4675c7e5baafbffbca748158becba61ef3b0a263",
+                "amount": "-1011744513820800"
+              }
+            ]
+          },
+          {
+            "delta": "-9587061213415306430410",
+            "asset": {
+              "address": "0xc3761eb917cd790b30dad99f6cc5b4ff93c4f9ea",
+              "type": "erc20",
+              "name": "Tax Token",
+              "symbol": "TAX",
+              "decimals": 2
+            },
+            "breakdown": [
+              {
+                "counterparty": "0xfba9f22d040e53e5fac36698080cee3dd3792262",
+                "amount": "-9491190601281153366106"
+              },
+              {
+                "counterparty": "0xc3761eb917cd790b30dad99f6cc5b4ff93c4f9ea",
+                "amount": "-95870612134153064304"
               }
             ]
           }

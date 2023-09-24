@@ -29,7 +29,11 @@ func (b Uint64) MarshalText() ([]byte, error) {
 	return []byte("0x" + strconv.FormatUint(uint64(b), 16)), nil
 }
 
-func (b Uint64) UnmarshalJSON(input []byte) error {
-	u := hexutil.Uint64(b)
-	return u.UnmarshalJSON(input)
+func (b *Uint64) UnmarshalJSON(input []byte) error {
+	u := hexutil.Uint64(*b)
+	if err := u.UnmarshalJSON(input); err != nil {
+		return err
+	}
+	*b = Uint64(u)
+	return nil
 }
