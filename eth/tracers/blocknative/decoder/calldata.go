@@ -1,9 +1,14 @@
 package decoder
 
 import (
+	"encoding"
+	"fmt"
+	"math/big"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"math/big"
+	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder/abis"
 )
 
 func decodeCallData(sender common.Address, contract *Contract, input []byte) (*CallData, error) {
@@ -21,12 +26,13 @@ func decodeCallData(sender common.Address, contract *Contract, input []byte) (*C
 	var (
 		idx    = 4
 		method = MethodID(methodBytes)
-		args   = make([]string, 0, 4)
+		args   = make([]interface{}, 0, 4)
 
-		from    common.Address
-		to      common.Address
-		amount  = new(Amount)
-		tokenID *big.Int
+		methodName string
+		from       common.Address
+		to         common.Address
+		amount     = new(Amount)
+		tokenID    *big.Int
 
 		transfers []*Transfer
 	)
@@ -119,6 +125,21 @@ func decodeCallData(sender common.Address, contract *Contract, input []byte) (*C
 			return nil, err
 		}
 	default:
+		abiObj, ok := abis.GetABIForContract(contract.address)
+		if ok {
+			method, err := abiObj.MethodById(input)
+			if err != nil {
+				return nil, err
+			}
+			methodName = method.Name
+
+			args, err = decodeCallDataArgsFromABI(input[idx:], method)
+			if err != nil {
+				return nil, err
+			}
+			break
+		}
+
 		// We don't have a known method so we can't parse the args.
 		// Just add them as hex-encoded words.
 		for idx < len(input) {
@@ -127,9 +148,41 @@ func decodeCallData(sender common.Address, contract *Contract, input []byte) (*C
 	}
 
 	return &CallData{
-		MethodID:  method,
-		Signature: method.Signature(),
-		Args:      args,
-		Transfers: transfers,
+		MethodID:   method,
+		MethodName: methodName,
+		Signature:  method.Signature(),
+		Args:       args,
+		Transfers:  transfers,
 	}, nil
+}
+
+func decodeCallDataArgsFromABI(input []byte, method *abi.Method) ([]interface{}, error) {
+	fmt.Println("method.Inputs:")
+	for _, arg := range method.Inputs {
+		fmt.Printf("Name: %s, Type: %s\n", arg.Name, arg.Type.String())
+	}
+	args, err := method.Inputs.Unpack(input)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, arg := range args {
+		argStringer, ok := arg.(fmt.Stringer)
+		if ok {
+			args[i] = argStringer.String()
+			continue
+		}
+
+		argTextMarshaler, ok := arg.(encoding.TextMarshaler)
+		if ok {
+			argBytes, err := argTextMarshaler.MarshalText()
+			if err != nil {
+				return nil, err
+			}
+			args[i] = string(argBytes)
+			continue
+		}
+	}
+
+	return args, nil
 }

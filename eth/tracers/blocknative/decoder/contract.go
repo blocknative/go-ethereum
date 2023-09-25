@@ -4,12 +4,15 @@ import (
 	"bytes"
 
 	"golang.org/x/exp/slices"
+
+	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder/abis"
 )
 
 // decodeContract decodes the contract bytecode and determines all interfaces
 func decodeContract(c *Contract, bytecode ByteCode) {
 	c.interfaces = bytecode.DecodeInterfaces()
 	c.Type = contractTypeForInterfaces(c.interfaces)
+	c.abi, _ = abis.GetABIForContract(c.address)
 }
 
 // IsERC20 returns true iff the contract interfaces contains ERC-20.

@@ -3,6 +3,7 @@ package decoder
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder/abis"
 )
 
 type decodeCallDataTest struct {
@@ -31,6 +33,34 @@ func TestDecodeCalldata(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			executeTests(t, tt)
 		})
+	}
+}
+
+func TestDecodeCalldataFromDB(t *testing.T) {
+	err := abis.LoadAndCacheAllTests()
+	require.NoError(t, err)
+
+	contract := &Contract{
+		address: common.HexToAddress("0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f"),
+	}
+	contractABI, ok := abis.GetABIForContract(contract.address)
+	require.True(t, ok)
+	contract.abi = contractABI
+
+	for _, m := range contractABI.Methods {
+		fmt.Println(m.Name)
+		fmt.Println(m.ID)
+		fmt.Println(MethodID(m.ID))
+	}
+
+	testInput := "0x38ed173900000000000000000000000000000000000000000000065a4da25d3016c00000000000000000000000000000000000000000000000000000000000001817cbe900000000000000000000000000000000000000000000000000000000000000800000000000000000000000000c05a5fd317a07e9cec05bb0beb3c31d23ab470c00000000000000000000000000000000000000000000000000000000000000030000000000000000000000005f474906637bdcda05f29c74653f6962bb0f8eda000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec7"
+	got, err := decodeCallData(common.Address{}, contract, common.FromHex(testInput))
+	require.NoError(t, err)
+	require.Equal(t, "0x38ed1739", got.MethodID.String())
+	require.Equal(t, "swapExactTokensForTokens", got.MethodName)
+
+	for i, a := range got.Args {
+		fmt.Println("Decoded arg:", i, a)
 	}
 }
 
@@ -132,7 +162,7 @@ func getTestCases() []decodeCallDataTest {
 			&CallData{
 				MethodID:  methodIDTransferFrom,
 				Signature: methodSignatures[methodIDTransferFrom.String()],
-				Args:      []string{"0x5470c5a6Fce7447aFd2C9BE3A0F25e362C093661", "0x479ee0363a7Ac2ef34cba7ee82D2C2E0652D4669", "6341"},
+				Args:      []interface{}{"0x5470c5a6Fce7447aFd2C9BE3A0F25e362C093661", "0x479ee0363a7Ac2ef34cba7ee82D2C2E0652D4669", "6341"},
 				Transfers: []*Transfer{{
 					From:    common.HexToAddress("0x5470c5a6Fce7447aFd2C9BE3A0F25e362C093661"),
 					To:      common.HexToAddress("0x479ee0363a7Ac2ef34cba7ee82D2C2E0652D4669"),
@@ -151,7 +181,7 @@ func getTestCases() []decodeCallDataTest {
 			&CallData{
 				MethodID:  methodIDTransferFrom,
 				Signature: methodSignatures[methodIDTransferFrom.String()],
-				Args:      []string{"0x5470c5a6Fce7447aFd2C9BE3A0F25e362C093661", "0x479ee0363a7Ac2ef34cba7ee82D2C2E0652D4669", "6341"},
+				Args:      []interface{}{"0x5470c5a6Fce7447aFd2C9BE3A0F25e362C093661", "0x479ee0363a7Ac2ef34cba7ee82D2C2E0652D4669", "6341"},
 				Transfers: []*Transfer{{
 					From:    common.HexToAddress("0x5470c5a6Fce7447aFd2C9BE3A0F25e362C093661"),
 					To:      common.HexToAddress("0x479ee0363a7Ac2ef34cba7ee82D2C2E0652D4669"),
@@ -170,7 +200,7 @@ func getTestCases() []decodeCallDataTest {
 			&CallData{
 				MethodID:  methodIDTransferFrom,
 				Signature: methodSignatures[methodIDTransferFrom.String()],
-				Args:      []string{"0x5470c5a6Fce7447aFd2C9BE3A0F25e362C093661", "0x479ee0363a7Ac2ef34cba7ee82D2C2E0652D4669", "6341"},
+				Args:      []interface{}{"0x5470c5a6Fce7447aFd2C9BE3A0F25e362C093661", "0x479ee0363a7Ac2ef34cba7ee82D2C2E0652D4669", "6341"},
 				Transfers: []*Transfer{{
 					From:    common.HexToAddress("0x5470c5a6fce7447afd2c9be3a0f25e362c093661"),
 					To:      common.HexToAddress("0x479ee0363a7Ac2ef34cba7ee82D2C2E0652D4669"),
@@ -189,7 +219,7 @@ func getTestCases() []decodeCallDataTest {
 			&CallData{
 				MethodID:  methodIDSafeTransferFrom3,
 				Signature: methodSignatures[methodIDSafeTransferFrom3.String()],
-				Args:      []string{"0xcb89354a1c6e7ABd1972a68466Db238e48a3B0C8", "0x20964f741d2dfFD2cCec658CA086e21aF1D7dF8E", "29", "1"},
+				Args:      []interface{}{"0xcb89354a1c6e7ABd1972a68466Db238e48a3B0C8", "0x20964f741d2dfFD2cCec658CA086e21aF1D7dF8E", "29", "1"},
 				Transfers: []*Transfer{{
 					From:    common.HexToAddress("0xcb89354a1c6e7ABd1972a68466Db238e48a3B0C8"),
 					To:      common.HexToAddress("0x20964f741d2dffd2ccec658ca086e21af1d7df8e"),

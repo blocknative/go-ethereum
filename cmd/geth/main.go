@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/automaxprocs/maxprocs"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/cmd/utils"
@@ -32,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/console/prompt"
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/eth/downloader"
+	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder/abis"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/internal/debug"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
@@ -39,7 +42,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/node"
-	"go.uber.org/automaxprocs/maxprocs"
 
 	// Force-load the tracer engines to trigger registration
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
@@ -195,6 +197,8 @@ var (
 		utils.MetricsInfluxDBBucketFlag,
 		utils.MetricsInfluxDBOrganizationFlag,
 	}
+
+	blocknativeTracerFlags = abis.Flags
 )
 
 var app = flags.NewApp("the go-ethereum command line interface")
@@ -244,6 +248,7 @@ func init() {
 		debug.Flags,
 		metricsFlags,
 	)
+	app.Flags = append(app.Flags, blocknativeTracerFlags...)
 	flags.AutoEnvVars(app.Flags, "GETH")
 
 	app.Before = func(ctx *cli.Context) error {
@@ -438,6 +443,14 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend, isCon
 		ethBackend.TxPool().SetGasTip(gasprice)
 		if err := ethBackend.StartMining(); err != nil {
 			utils.Fatalf("Failed to start mining: %v", err)
+		}
+	}
+
+	// Load blocknative decoder data from the database.
+	bnDecoderDB := ctx.String(abis.FlagDB.Name)
+	if bnDecoderDB != "" {
+		if err := abis.LoadAndCacheAll(bnDecoderDB, backend.ChainConfig().ChainID); err != nil {
+			utils.Fatalf("Failed to load ABI database: %v", err)
 		}
 	}
 }

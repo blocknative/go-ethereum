@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -14,16 +15,19 @@ type CallFrame struct {
 }
 
 type Contract struct {
-	Type       ContractType `json:"type,omitempty"`
+	Type ContractType `json:"type,omitempty"`
+
+	abi        *abi.ABI
 	address    common.Address
 	interfaces []Interface
 }
 
 type CallData struct {
-	MethodID  MethodID    `json:"method"`
-	Signature string      `json:"signature,omitempty"`
-	Args      []string    `json:"args,omitempty"`
-	Transfers []*Transfer `json:"-"`
+	MethodID   MethodID      `json:"method"`
+	MethodName string        `json:"methodName,omitempty"`
+	Signature  string        `json:"signature,omitempty"`
+	Args       []interface{} `json:"args,omitempty"`
+	Transfers  []*Transfer   `json:"-"`
 }
 
 type Transfer struct {
