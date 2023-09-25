@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder"
 )
@@ -40,24 +41,24 @@ type Trace struct {
 
 // BlockContext contains information about the block we simulate transactions in.
 type BlockContext struct {
-	Number    uint64 `json:"number"`
-	StateRoot string `json:"stateRoot,omitempty"`
-	BaseFee   uint64 `json:"baseFee"`
-	Time      uint64 `json:"time"`
-	Coinbase  string `json:"coinbase"`
-	GasLimit  uint64 `json:"gasLimit"`
-	Random    string `json:"random,omitempty"`
+	Number    uint64         `json:"number"`
+	BaseFee   uint64         `json:"baseFee"`
+	Time      uint64         `json:"time"`
+	GasLimit  uint64         `json:"gasLimit"`
+	Coinbase  common.Address `json:"coinbase"`
+	StateRoot hexutil.Bytes  `json:"stateRoot,omitempty"`
+	Random    common.Hash    `json:"random,omitempty"`
 }
 
 type CallFrame struct {
 	Type        string             `json:"type"`
-	From        string             `json:"from"`
-	To          string             `json:"to,omitempty"`
-	Value       string             `json:"value,omitempty"`
-	Gas         string             `json:"gas"`
-	GasUsed     string             `json:"gasUsed"`
-	Input       string             `json:"input"`
-	Output      string             `json:"output,omitempty"`
+	From        common.Address     `json:"from"`
+	To          common.Address     `json:"to,omitempty"`
+	Value       Big                `json:"value,omitempty"`
+	Gas         Uint64             `json:"gas"`
+	GasUsed     Uint64             `json:"gasUsed"`
+	Input       hexutil.Bytes      `json:"input"`
+	Output      hexutil.Bytes      `json:"output,omitempty"`
 	Error       string             `json:"error,omitempty"`
 	ErrorReason string             `json:"errorReason,omitempty"`
 	Calls       []CallFrame        `json:"calls,omitempty"`
@@ -70,7 +71,7 @@ type CallLog struct {
 	Address common.Address `json:"address"`
 
 	// Data is the encoded memory provided with the log.
-	Data string `json:"data"`
+	Data hexutil.Bytes `json:"data"`
 
 	// Topics is a slice of up to 4 32byte words provided with the log.
 	Topics []common.Hash `json:"topics"`

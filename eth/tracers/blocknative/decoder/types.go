@@ -3,8 +3,9 @@ package decoder
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type CallFrame struct {
@@ -14,6 +15,7 @@ type CallFrame struct {
 
 type Contract struct {
 	Type       ContractType `json:"type,omitempty"`
+	address    common.Address
 	interfaces []Interface
 }
 
@@ -30,6 +32,9 @@ type Transfer struct {
 	To      common.Address `json:"to"`
 	Value   *Amount        `json:"value"`
 	TokenID *big.Int       `json:"tokenID,omitempty"`
+
+	balanceBeforeTo       *big.Int
+	balanceBeforeContract *big.Int
 }
 
 type Asset struct {

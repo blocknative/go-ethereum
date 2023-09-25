@@ -18,13 +18,15 @@ func newBalances() *balances {
 	}
 }
 
-// captureCall decodes potential balance change data out of calldata.
-func (bt *balances) captureCall(sender common.Address, receiver common.Address, value *Amount, decoded *CallFrame) {
+// captureCallFrameStart decodes potential balance change data out of calldata.
+func (bt *balances) captureCallFrameStart(sender common.Address, receiver common.Address, value *Amount, decoded *CallFrame) {
 	// Add the native transfer.
 	if value != nil && value.ToInt().Sign() > 0 {
 		bt.balanceChanges.addAssetTransfer(EthAsset, sender, receiver, value)
 	}
+}
 
+func (bt *balances) captureCallFrameEnd(decoded *CallFrame) {
 	if decoded == nil {
 		return
 	}
