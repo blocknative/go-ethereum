@@ -39,6 +39,7 @@ func (d *Decoder) DecodeCallFrameStart(sender common.Address, receiver common.Ad
 
 	callData, err := decodeCallData(sender, contract, input)
 	if err != nil {
+		log.Info("failed to decode call data", "err", err)
 		return nil, err
 	}
 
