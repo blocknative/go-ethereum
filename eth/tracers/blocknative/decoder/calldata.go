@@ -1,7 +1,6 @@
 package decoder
 
 import (
-	"encoding"
 	"fmt"
 	"math/big"
 
@@ -24,17 +23,17 @@ func decodeCallData(sender common.Address, contract *Contract, input []byte) (*C
 	copy(methodBytes, input[:4])
 
 	var (
-		idx    = 4
-		method = MethodID(methodBytes)
-		args   = make([]interface{}, 0, 4)
+		idx = 4
 
+		method     = MethodID(methodBytes)
 		methodName string
-		from       common.Address
-		to         common.Address
-		amount     = new(Amount)
-		tokenID    *big.Int
+		args       []MethodArg
+		transfers  []*Transfer
 
-		transfers []*Transfer
+		from    common.Address
+		to      common.Address
+		amount  = new(Amount)
+		tokenID *big.Int
 	)
 
 	// scanWord gets the next 32 bytes and advances the index
@@ -59,7 +58,7 @@ func decodeCallData(sender common.Address, contract *Contract, input []byte) (*C
 		to = common.BytesToAddress(scanWord())
 		amount.SetBytes(scanWord())
 
-		args = append(args, to.String(), amount.String())
+		args = newTransferArgs(nil, to, nil, amount)
 		transfers = append(transfers, &Transfer{
 			From:  from,
 			To:    to,
@@ -82,7 +81,7 @@ func decodeCallData(sender common.Address, contract *Contract, input []byte) (*C
 		to = common.BytesToAddress(scanWord())
 		amount.SetBytes(scanWord())
 
-		args = append(args, from.String(), to.String(), amount.String())
+		args = newTransferArgs(&from, to, nil, amount)
 
 		// If the contract is an ERC-721, but not an ERC-20, then move the
 		// scanned amount to the tokenID and set the amount to 1.
@@ -108,7 +107,7 @@ func decodeCallData(sender common.Address, contract *Contract, input []byte) (*C
 		tokenID = new(big.Int).SetBytes(scanWord())
 		amount.SetBytes(scanWord())
 
-		args = append(args, from.String(), to.String(), tokenID.String(), amount.String())
+		args = newTransferArgs(&from, to, tokenID, amount)
 
 		transfers = append(transfers, &Transfer{
 			From:    from,
@@ -143,7 +142,9 @@ func decodeCallData(sender common.Address, contract *Contract, input []byte) (*C
 		// We don't have a known method so we can't parse the args.
 		// Just add them as hex-encoded words.
 		for idx < len(input) {
-			args = append(args, hexutil.Encode(scanWord()))
+			args = append(args, MethodArg{
+				Value: hexutil.Encode(scanWord()),
+			})
 		}
 	}
 
@@ -151,38 +152,53 @@ func decodeCallData(sender common.Address, contract *Contract, input []byte) (*C
 		MethodID:   method,
 		MethodName: methodName,
 		Signature:  method.Signature(),
-		Args:       args,
+		Inputs:     args,
 		Transfers:  transfers,
 	}, nil
 }
 
-func decodeCallDataArgsFromABI(input []byte, method *abi.Method) ([]interface{}, error) {
-	fmt.Println("method.Inputs:")
-	for _, arg := range method.Inputs {
-		fmt.Printf("Name: %s, Type: %s\n", arg.Name, arg.Type.String())
-	}
+func decodeCallDataArgsFromABI(input []byte, method *abi.Method) ([]MethodArg, error) {
+	// fmt.Println("method.Inputs:")
+	// for _, arg := range method.Inputs {
+	// 	fmt.Printf("Name: %s, Type: %s\n", arg.Name, arg.Type.String())
+	// }
 	args, err := method.Inputs.Unpack(input)
 	if err != nil {
 		return nil, err
 	}
 
+	methodArgs := make([]MethodArg, 0, len(args))
+
 	for i, arg := range args {
-		argStringer, ok := arg.(fmt.Stringer)
-		if ok {
-			args[i] = argStringer.String()
-			continue
+		var value = arg
+
+		if argStringer, ok := arg.(fmt.Stringer); ok {
+			value = argStringer.String()
 		}
 
-		argTextMarshaler, ok := arg.(encoding.TextMarshaler)
-		if ok {
-			argBytes, err := argTextMarshaler.MarshalText()
-			if err != nil {
-				return nil, err
-			}
-			args[i] = string(argBytes)
-			continue
-		}
+		methodArgs = append(methodArgs, MethodArg{
+			Name:  method.Inputs[i].Name,
+			Type:  method.Inputs[i].Type.String(),
+			Value: value,
+		})
 	}
 
-	return args, nil
+	return methodArgs, nil
+}
+
+func newTransferArgs(from *common.Address, to common.Address, tokenID *big.Int, amount *Amount) []MethodArg {
+	args := make([]MethodArg, 0, 3)
+
+	if from != nil {
+		args = append(args, MethodArg{Name: "from", Type: "address", Value: from.String()})
+	}
+	args = append(args, MethodArg{Name: "to", Type: "address", Value: to.String()})
+	if tokenID != nil {
+		args = append(args, MethodArg{Name: "tokenID", Type: "uint256", Value: tokenID.String()})
+	}
+	args = append(args, MethodArg{Name: "amount", Type: "uint256", Value: amount.String()})
+
+	return args
+
+	// return []interface{}{from.String(), to.String(), amount.String()}
 }

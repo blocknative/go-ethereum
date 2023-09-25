@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 type CallFrame struct {
@@ -23,11 +24,19 @@ type Contract struct {
 }
 
 type CallData struct {
-	MethodID   MethodID      `json:"method"`
-	MethodName string        `json:"methodName,omitempty"`
-	Signature  string        `json:"signature,omitempty"`
-	Args       []interface{} `json:"args,omitempty"`
-	Transfers  []*Transfer   `json:"-"`
+	MethodID   MethodID    `json:"method"`
+	MethodName string      `json:"methodName,omitempty"`
+	Signature  string      `json:"signature,omitempty"`
+	Inputs     []MethodArg `json:"inputs,omitempty"`
+	Outputs    []MethodArg `json:"outputs,omitempty"`
+	Transfers  []*Transfer `json:"-"`
+}
+
+type MethodArg struct {
+	Name  string        `json:"name,omitempty"`
+	Type  string        `json:"type,omitempty"`
+	Value interface{}   `json:"value,omitempty"`
+	Bytes hexutil.Bytes `json:"-"`
 }
 
 type Transfer struct {

@@ -2,6 +2,7 @@ package decoder
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -87,9 +88,31 @@ func (d *Decoder) DecodeCallFrameStart(sender common.Address, receiver common.Ad
 	return cf, nil
 }
 
-func (d *Decoder) DecodeCallFrameEnd(cf *CallFrame) error {
+func (d *Decoder) DecodeCallFrameEnd(cf *CallFrame, output []byte) error {
 	if cf == nil || cf.Contract == nil || cf.CallData == nil {
 		return nil
+	}
+
+	if cf.Contract.abi != nil {
+		fmt.Println("Decoding output..")
+		methodID := cf.MethodID
+		method, err := cf.Contract.abi.MethodById(methodID)
+		if err != nil {
+			return err
+		}
+
+		outputs, err := method.Outputs.Unpack(output)
+		if err != nil {
+			return err
+		}
+
+		for i, arg := range outputs {
+			cf.CallData.Outputs = append(cf.CallData.Outputs, MethodArg{
+				Name:  method.Outputs[i].Name,
+				Type:  method.Outputs[i].Type.String(),
+				Value: arg,
+			})
+		}
 	}
 
 	// Check updated balances for taxable transfers and look for active taxes.

@@ -241,7 +241,7 @@ func (t *tracer) finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint6
 
 	// Finalize the decoding.
 	if t.opts.Decode && call.Decoded != nil {
-		if err := t.decoder.DecodeCallFrameEnd(call.Decoded); err != nil {
+		if err := t.decoder.DecodeCallFrameEnd(call.Decoded, output); err != nil {
 			return err
 		}
 	}
