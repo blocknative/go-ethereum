@@ -24,6 +24,7 @@ import (
 
 var defaultTxTraceOpts = blocknative.TracerOpts{
 	BalanceChanges: true,
+	Logs:           true,
 }
 
 var defaultBlockTraceOpts = blocknative.TracerOpts{
