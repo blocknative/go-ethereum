@@ -355,6 +355,9 @@ func (d *Decoder) DecodeEvents(logs []*types.Log) ([]*Event, error) {
 			}
 
 			e.Data = append(e.Data, formattedIds, formattedValues)
+
+		default:
+			continue
 		}
 
 		events = append(events, e)
