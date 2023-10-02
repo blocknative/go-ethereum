@@ -29,7 +29,7 @@ func (c *Contract) IsERC1155() bool {
 
 type ByteCode []byte
 
-func containsMethod(b ByteCode, id MethodID) bool {
+func containsMethod(b ByteCode, id FourByteID) bool {
 	if id[0] == 0 {
 		id = id[1:]
 	}
@@ -45,7 +45,7 @@ func containsMethod(b ByteCode, id MethodID) bool {
 }
 
 // containsAllMethods returns true iff all ids are found in the ByteCode.
-func containsAllMethods(b ByteCode, ids ...MethodID) bool {
+func containsAllMethods(b ByteCode, ids ...FourByteID) bool {
 	for _, id := range ids {
 		if !containsMethod(b, id) {
 			return false
