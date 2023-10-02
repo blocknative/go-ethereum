@@ -371,8 +371,6 @@ func (d *Decoder) DecodeEvents(logs []*types.Log) ([]*Event, error) {
 				}
 				e.Data = append(e.Data, hexutil.Bytes(callLog.Data[i:end]))
 			}
-
-			continue
 		}
 
 		events = append(events, e)
