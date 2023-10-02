@@ -2,23 +2,8 @@ package decoder
 
 import (
 	"encoding/json"
-	"github.com/ethereum/go-ethereum/common"
-	"math/big"
 	"strings"
 )
-
-type Asset struct {
-	Address common.Address `json:"address,omitempty"`
-	Type    AssetType      `json:"type"`
-	TokenID *big.Int       `json:"TokenID,omitempty"`
-	TokenMetadata
-}
-
-type TokenMetadata struct {
-	Name     string `json:"name"`
-	Symbol   string `json:"symbol"`
-	Decimals uint8  `json:"decimals,omitempty"`
-}
 
 const (
 	AssetTypeUnknown AssetType = iota
@@ -28,7 +13,7 @@ const (
 	AssetTypeERC1155
 )
 
-type AssetType int
+type AssetType uint8
 
 func (t AssetType) String() string {
 	switch t {
@@ -38,6 +23,8 @@ func (t AssetType) String() string {
 		return "erc20"
 	case AssetTypeERC721:
 		return "erc721"
+	case AssetTypeERC1155:
+		return "erc1155"
 	case AssetTypeUnknown:
 		return "unknown"
 	default:
@@ -61,6 +48,8 @@ func (t *AssetType) UnmarshalJSON(data []byte) error {
 		*t = AssetTypeERC20
 	case "erc721":
 		*t = AssetTypeERC721
+	case "erc1155":
+		*t = AssetTypeERC1155
 	default:
 		*t = AssetTypeUnknown
 	}
@@ -68,7 +57,9 @@ func (t *AssetType) UnmarshalJSON(data []byte) error {
 }
 
 // AssetTypeForInterfaces returns the asset type for the given interfaces.
-func AssetTypeForInterfaces(interfaces []InterfaceType) AssetType {
+// A contract can implement multiple interfaces, so we check them in the order
+// of precedence and take the first.
+func AssetTypeForInterfaces(interfaces []Interface) AssetType {
 	for _, i := range interfaces {
 		switch i {
 		case interfaceTypeERC1155:
