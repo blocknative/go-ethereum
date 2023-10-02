@@ -17,6 +17,8 @@ var (
 	abiArgs = struct {
 		singleString  abi.Arguments
 		batchTransfer abi.Arguments
+
+		eventERC1155TransferBatch abi.Arguments
 	}{}
 )
 
@@ -57,5 +59,10 @@ func initABIArgs() {
 		abi.Argument{Type: abiTypes._uint256Array, Name: "tokenIDs"},
 		abi.Argument{Type: abiTypes._uint256Array, Name: "values"},
 		abi.Argument{Type: abiTypes._bytes, Name: "data"},
+	}
+
+	abiArgs.eventERC1155TransferBatch = abi.Arguments{
+		abi.Argument{Type: abiTypes._uint256Array, Name: "ids"},
+		abi.Argument{Type: abiTypes._uint256Array, Name: "values"},
 	}
 }

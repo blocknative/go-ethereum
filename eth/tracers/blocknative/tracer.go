@@ -141,6 +141,11 @@ func (t *tracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
 
 	// Add gas payments to balance changes
 	if t.opts.Decode {
+		var err error
+		t.trace.Events, err = t.decoder.DecodeEvents(t.evm.StateDB.Logs())
+		if err != nil {
+			log.Error("failed to decode events", "err", err)
+		}
 		t.decoder.CaptureGas(t.evm.TxContext.Origin, t.evm.Context.Coinbase, gasUsed, t.evm.TxContext.GasPrice, t.evm.Context.BaseFee)
 	}
 

@@ -3,8 +3,10 @@ package decoder
 import (
 	"errors"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -202,6 +204,162 @@ func (d *Decoder) DecodeContract(addr common.Address) (*Contract, error) {
 	return contract, nil
 }
 
+// DecodeEvents decodes the logs emitted during the trace into Solidity events.
+func (d *Decoder) DecodeEvents(logs []*types.Log) ([]*Event, error) {
+	events := make([]*Event, 0, len(logs))
+	for _, callLog := range logs {
+		contract, ok := d.caches.contracts.Get(callLog.Address)
+		if !ok {
+			continue
+		}
+		if !(contract.IsERC20() || contract.IsERC721() || contract.IsERC1155()) {
+			continue
+		}
+
+		if len(callLog.Topics) == 0 {
+			continue
+		}
+
+		event := callLog.Topics[0]
+		e := &Event{
+			Name: eventIDToName[event],
+			ID:   event,
+		}
+
+		switch {
+		case event.Cmp(eventIDTransfer) == 0:
+			if len(callLog.Topics) < 3 {
+				continue
+			}
+
+			if contract.IsERC721() {
+				if len(callLog.Topics) < 4 {
+					continue
+				}
+				e.Topics = EventTransferTopics{
+					From:    hashToAddress(callLog.Topics[1]),
+					To:      hashToAddress(callLog.Topics[2]),
+					TokenID: callLog.Topics[3].Big(),
+				}
+			} else {
+				if len(callLog.Data) < 32 {
+					continue
+				}
+				e.Topics = EventTransferTopics{
+					From: hashToAddress(callLog.Topics[1]),
+					To:   hashToAddress(callLog.Topics[2]),
+				}
+				value := new(big.Int).SetBytes(callLog.Data[0:32])
+				e.Data = append(e.Data, NewAmount(value))
+			}
+
+		case event.Cmp(eventIDApproval) == 0:
+			if len(callLog.Topics) < 3 {
+				continue
+			}
+
+			if contract.IsERC721() {
+				if len(callLog.Topics) < 4 {
+					continue
+				}
+
+				e.Topics = EventApprovalTopics{
+					Owner:   hashToAddress(callLog.Topics[1]),
+					Spender: hashToAddress(callLog.Topics[2]),
+					TokenID: callLog.Topics[3].Big(),
+				}
+			} else {
+				if len(callLog.Data) < 32 {
+					continue
+				}
+
+				e.Topics = EventApprovalTopics{
+					Owner:   hashToAddress(callLog.Topics[1]),
+					Spender: hashToAddress(callLog.Topics[2]),
+				}
+				value := new(big.Int).SetBytes(callLog.Data[0:32])
+				e.Data = append(e.Data, NewAmount(value))
+			}
+
+		case event.Cmp(eventIDApprovalForAll) == 0:
+			if len(callLog.Topics) < 3 {
+				continue
+			}
+			e.Topics = EventApprovalForAll{
+				Owner:    hashToAddress(callLog.Topics[1]),
+				Operator: hashToAddress(callLog.Topics[2]),
+			}
+			approved := callLog.Topics[3].Cmp(common.Hash{}) == 0
+			e.Data = append(e.Data, strconv.FormatBool(approved))
+
+		case event.Cmp(eventIDERC1155TransferSingle) == 0:
+			if len(callLog.Topics) < 4 {
+				continue
+			}
+			e.Topics = EventERC1155Transfer{
+				Operator: hashToAddress(callLog.Topics[1]),
+				From:     hashToAddress(callLog.Topics[2]),
+				To:       hashToAddress(callLog.Topics[3]),
+			}
+
+			if len(callLog.Data) < 64 {
+				continue
+			}
+			id := new(big.Int).SetBytes(callLog.Data[0:32])
+			value := new(big.Int).SetBytes(callLog.Data[32:64])
+			e.Data = append(e.Data, id.String(), NewAmount(value))
+
+		case event.Cmp(eventIDERC1155TransferBatch) == 0:
+			if len(callLog.Topics) < 4 {
+				continue
+			}
+			e.Topics = EventERC1155Transfer{
+				Operator: hashToAddress(callLog.Topics[1]),
+				From:     hashToAddress(callLog.Topics[2]),
+				To:       hashToAddress(callLog.Topics[3]),
+			}
+
+			if len(callLog.Data) < 64 {
+				continue
+			}
+
+			data, err := abiArgs.eventERC1155TransferBatch.UnpackValues(callLog.Data)
+			if err != nil {
+				log.Trace("failed to unpack values", "err", err)
+				continue
+			}
+
+			if len(data) < 2 {
+				continue
+			}
+
+			ids, ok := data[0].([]*big.Int)
+			if !ok {
+				continue
+			}
+			formattedIds := make([]string, 0, len(ids))
+			for _, id := range ids {
+				formattedIds = append(formattedIds, id.String())
+			}
+
+			values, ok := data[1].([]*big.Int)
+			if !ok {
+				continue
+			}
+			formattedValues := make([]*Amount, 0, len(values))
+			for _, value := range values {
+				formattedValues = append(formattedValues, NewAmount(value))
+			}
+
+			e.Data = append(e.Data, formattedIds, formattedValues)
+		}
+
+		events = append(events, e)
+	}
+
+	return events, nil
+}
+
 // GetBalanceChanges returns the net balance changes for the currently decoded
 // call-frames.
 func (d *Decoder) GetBalanceChanges() NetBalanceChanges {
@@ -243,4 +401,8 @@ func (d *Decoder) decodeAsset(contract *Contract, assetID AssetID) (*AssetMetada
 type evm interface {
 	GetCode(common.Address) []byte
 	CallCode(common.Address, []byte) ([]byte, error)
+}
+
+func hashToAddress(hash common.Hash) common.Address {
+	return common.BytesToAddress(hash[12:])
 }
