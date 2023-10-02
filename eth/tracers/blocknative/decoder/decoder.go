@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -357,6 +358,20 @@ func (d *Decoder) DecodeEvents(logs []*types.Log) ([]*Event, error) {
 			e.Data = append(e.Data, formattedIds, formattedValues)
 
 		default:
+			topics := make(map[int]common.Hash)
+			for i, topic := range callLog.Topics {
+				topics[i] = topic
+			}
+			e.Topics = topics
+
+			for i := 0; i < len(callLog.Data); i += 32 {
+				end := i + 32
+				if end > len(callLog.Data) {
+					end = len(callLog.Data)
+				}
+				e.Data = append(e.Data, hexutil.Bytes(callLog.Data[i:end]))
+			}
+
 			continue
 		}
 
