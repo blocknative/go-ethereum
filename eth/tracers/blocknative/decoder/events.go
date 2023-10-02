@@ -27,10 +27,11 @@ var (
 )
 
 type Event struct {
-	Name   string        `json:"name,omitempty"`
-	ID     common.Hash   `json:"id"`
-	Topics interface{}   `json:"topics"`
-	Data   []interface{} `json:"data,omitempty"`
+	Address common.Address `json:"address"`
+	ID      common.Hash    `json:"id"`
+	Name    string         `json:"name,omitempty"`
+	Topics  interface{}    `json:"topics"`
+	Data    []interface{}  `json:"data,omitempty"`
 }
 
 type EventTransferTopics struct {
