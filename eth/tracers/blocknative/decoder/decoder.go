@@ -364,13 +364,7 @@ func (d *Decoder) DecodeEvents(logs []*types.Log) ([]*Event, error) {
 			}
 			e.Topics = topics
 
-			for i := 0; i < len(callLog.Data); i += 32 {
-				end := i + 32
-				if end > len(callLog.Data) {
-					end = len(callLog.Data)
-				}
-				e.Data = append(e.Data, hexutil.Bytes(callLog.Data[i:end]))
-			}
+			e.Data = append(e.Data, hexutil.Bytes(callLog.Data))
 		}
 
 		events = append(events, e)
