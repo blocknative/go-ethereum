@@ -26,11 +26,13 @@ import (
 
 var defaultTxTraceOpts = blocknative.TracerOpts{
 	BalanceChanges: true,
+	Logs:           true,
 }
 
 var defaultBlockTraceOpts = blocknative.TracerOpts{
 	BalanceChanges:      true,
 	DisableBlockContext: true,
+	Logs:                true,
 }
 
 // TraceNewPendingTransactions creates a subscription that is triggered each time a
