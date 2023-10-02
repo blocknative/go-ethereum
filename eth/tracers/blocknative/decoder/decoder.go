@@ -207,6 +207,7 @@ func (d *Decoder) DecodeContract(addr common.Address) (*Contract, error) {
 // DecodeEvents decodes the logs emitted during the trace into Solidity events.
 func (d *Decoder) DecodeEvents(logs []*types.Log) ([]*Event, error) {
 	events := make([]*Event, 0, len(logs))
+	log.Info("decoding events", "count", len(logs))
 	for _, callLog := range logs {
 		contract, ok := d.caches.contracts.Get(callLog.Address)
 		if !ok {
@@ -225,6 +226,8 @@ func (d *Decoder) DecodeEvents(logs []*types.Log) ([]*Event, error) {
 			Name: eventIDToName[event],
 			ID:   event,
 		}
+
+		log.Info("decoding event", "event", e)
 
 		switch {
 		case event.Cmp(eventIDTransfer) == 0:
