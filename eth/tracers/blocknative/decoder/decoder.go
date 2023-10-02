@@ -240,10 +240,11 @@ func (d *Decoder) DecodeEvents(logs []*types.Log) ([]*Event, error) {
 				if len(callLog.Topics) < 4 {
 					continue
 				}
+				tokenID := hexutil.Big(*callLog.Topics[3].Big())
 				e.Topics = EventTransferTopics{
 					From:    hashToAddress(callLog.Topics[1]),
 					To:      hashToAddress(callLog.Topics[2]),
-					TokenID: callLog.Topics[3].Big(),
+					TokenID: &tokenID,
 				}
 			} else {
 				if len(callLog.Data) < 32 {
@@ -267,10 +268,11 @@ func (d *Decoder) DecodeEvents(logs []*types.Log) ([]*Event, error) {
 					continue
 				}
 
+				tokenID := hexutil.Big(*callLog.Topics[3].Big())
 				e.Topics = EventApprovalTopics{
 					Owner:   hashToAddress(callLog.Topics[1]),
 					Spender: hashToAddress(callLog.Topics[2]),
-					TokenID: callLog.Topics[3].Big(),
+					TokenID: &tokenID,
 				}
 			} else {
 				if len(callLog.Data) < 32 {

@@ -1,9 +1,8 @@
 package decoder
 
 import (
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 var (
@@ -37,13 +36,13 @@ type Event struct {
 type EventTransferTopics struct {
 	From    common.Address `json:"from"`
 	To      common.Address `json:"to"`
-	TokenID *big.Int       `json:"tokenID,omitempty"`
+	TokenID *hexutil.Big   `json:"tokenID,omitempty"`
 }
 
 type EventApprovalTopics struct {
 	Owner   common.Address `json:"owner"`
 	Spender common.Address `json:"spender"`
-	TokenID *big.Int       `json:"tokenID,omitempty"`
+	TokenID *hexutil.Big   `json:"tokenID,omitempty"`
 }
 
 type EventApprovalForAll struct {
