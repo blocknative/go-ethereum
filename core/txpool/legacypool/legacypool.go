@@ -203,16 +203,16 @@ func (config *Config) sanitize() Config {
 // current state) and future transactions. Transactions move between those
 // two states over time as they are received and processed.
 type LegacyPool struct {
-	config      Config
-	chainconfig *params.ChainConfig
-	chain       BlockChain
-	gasTip      atomic.Pointer[big.Int]
-	txFeed      event.Feed
+	config       Config
+	chainconfig  *params.ChainConfig
+	chain        BlockChain
+	gasTip       atomic.Pointer[big.Int]
+	txFeed       event.Feed
 	dropTxFeed   event.Feed
 	rejectTxFeed event.Feed
-	scope       event.SubscriptionScope
-	signer      types.Signer
-	mu          sync.RWMutex
+	scope        event.SubscriptionScope
+	signer       types.Signer
+	mu           sync.RWMutex
 
 	currentHead   atomic.Pointer[types.Header] // Current head of the blockchain
 	currentState  *state.StateDB               // Current state in the blockchain head
@@ -410,9 +410,6 @@ func (pool *LegacyPool) loop() {
 
 // Close terminates the transaction pool.
 func (pool *LegacyPool) Close() error {
-	// Unsubscribe all subscriptions registered from txpool
-	pool.scope.Close()
-
 	// Terminate the pool reorger and return
 	close(pool.reorgShutdownCh)
 	pool.wg.Wait()
@@ -431,10 +428,14 @@ func (pool *LegacyPool) Reset(oldHead, newHead *types.Header) {
 	<-wait
 }
 
-// SubscribeTransactions registers a subscription of NewTxsEvent and
-// starts sending event to the given channel.
-func (pool *LegacyPool) SubscribeTransactions(ch chan<- core.NewTxsEvent) event.Subscription {
-	return pool.scope.Track(pool.txFeed.Subscribe(ch))
+// SubscribeTransactions registers a subscription for new transaction events,
+// supporting feeding only newly seen or also resurrected transactions.
+func (pool *LegacyPool) SubscribeTransactions(ch chan<- core.NewTxsEvent, reorgs bool) event.Subscription {
+	// The legacy pool has a very messed up internal shuffling, so it's kind of
+	// hard to separate newly discovered transaction from resurrected ones. This
+	// is because the new txs are added to the queue, resurrected ones too and
+	// reorgs run lazily, so separating the two would need a marker.
+	return pool.txFeed.Subscribe(ch)
 }
 
 // SubscribeDropTxsEvent registers a subscription of core.DropTxsEvent and
@@ -448,7 +449,6 @@ func (pool *LegacyPool) SubscribeDropTxsEvent(ch chan<- core.DropTxsEvent) event
 func (pool *LegacyPool) SubscribeRejectedTxEvent(ch chan<- core.RejectedTxEvent) event.Subscription {
 	return pool.scope.Track(pool.rejectTxFeed.Subscribe(ch))
 }
-
 
 // SetGasTip updates the minimum gas tip required by the transaction pool for a
 // new transaction, and drops all transactions below this threshold.
@@ -575,6 +575,8 @@ func (pool *LegacyPool) Pending(enforceTips bool) map[common.Address][]*txpool.L
 					Time:      txs[i].Time(),
 					GasFeeCap: txs[i].GasFeeCap(),
 					GasTipCap: txs[i].GasTipCap(),
+					Gas:       txs[i].Gas(),
+					BlobGas:   txs[i].BlobGas(),
 				}
 			}
 			pending[addr] = lazies
@@ -2027,16 +2029,15 @@ func numSlots(tx *types.Transaction) int {
 	return int((tx.Size() + txSlotSize - 1) / txSlotSize)
 }
 
-
 const (
 	dropUnderpriced = "underpriced-txs"
-	dropLowNonce = "low-nonce-txs"
-	dropUnpayable = "unpayable-txs"
+	dropLowNonce    = "low-nonce-txs"
+	dropUnpayable   = "unpayable-txs"
 
-	dropAccountCap = "account-cap-txs" // Accounts exceeding txpool.accountslots transactions
-	dropReplaced = "replaced-txs"
-	dropUnexecutable = "unexecutable-txs"
-	dropTruncating = "truncating-txs"
-	dropOld = "old-txs"
+	dropAccountCap      = "account-cap-txs" // Accounts exceeding txpool.accountslots transactions
+	dropReplaced        = "replaced-txs"
+	dropUnexecutable    = "unexecutable-txs"
+	dropTruncating      = "truncating-txs"
+	dropOld             = "old-txs"
 	dropGasPriceUpdated = "updated-gas-price"
 )
