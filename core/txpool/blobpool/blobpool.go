@@ -29,6 +29,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/holiman/billy"
+	"github.com/holiman/uint256"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
@@ -41,8 +44,6 @@ import (
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/holiman/billy"
-	"github.com/holiman/uint256"
 )
 
 const (
@@ -311,10 +312,12 @@ type BlobPool struct {
 	spent  map[common.Address]*uint256.Int  // Expenditure tracking for individual accounts
 	evict  *evictHeap                       // Heap of cheapest accounts for eviction when full
 
+	eventFeed    event.Feed // Event feed to send out new tx events on pool inclusion
 	dropTxFeed   event.Feed
 	rejectTxFeed event.Feed
-	discoverFeed event.Feed // Event feed to send out new tx events on pool discovery (reorg excluded)
-	insertFeed   event.Feed // Event feed to send out new tx events on pool inclusion (reorg included)
+	eventScope   event.SubscriptionScope // Event scope to track and mass unsubscribe on termination
+	discoverFeed event.Feed              // Event feed to send out new tx events on pool discovery (reorg excluded)
+	insertFeed   event.Feed              // Event feed to send out new tx events on pool inclusion (reorg included)
 
 	lock sync.RWMutex // Mutex protecting the pool during reorg handling
 }
@@ -1559,7 +1562,6 @@ func (p *BlobPool) Status(hash common.Hash) txpool.TxStatus {
 	}
 	return txpool.TxStatusUnknown
 }
-
 
 // SubscribeDropTxsEvent registers a subscription of core.DropTxsEvent and
 // starts sending event to the given channel.

@@ -199,15 +199,16 @@ func (config *Config) sanitize() Config {
 // current state) and future transactions. Transactions move between those
 // two states over time as they are received and processed.
 type LegacyPool struct {
-	config      Config
-	chainconfig *params.ChainConfig
-	chain       BlockChain
-	gasTip      atomic.Pointer[big.Int]
-	txFeed      event.Feed
+	config       Config
+	chainconfig  *params.ChainConfig
+	chain        BlockChain
+	gasTip       atomic.Pointer[big.Int]
+	txFeed       event.Feed
 	dropTxFeed   event.Feed
 	rejectTxFeed event.Feed
-	signer      types.Signer
-	mu          sync.RWMutex
+	scope        event.SubscriptionScope
+	signer       types.Signer
+	mu           sync.RWMutex
 
 	currentHead   atomic.Pointer[types.Header] // Current head of the blockchain
 	currentState  *state.StateDB               // Current state in the blockchain head
@@ -444,7 +445,6 @@ func (pool *LegacyPool) SubscribeDropTxsEvent(ch chan<- core.DropTxsEvent) event
 func (pool *LegacyPool) SubscribeRejectedTxEvent(ch chan<- core.RejectedTxEvent) event.Subscription {
 	return pool.rejectTxFeed.Subscribe(ch)
 }
-
 
 // SetGasTip updates the minimum gas tip required by the transaction pool for a
 // new transaction, and drops all transactions below this threshold.
@@ -2027,16 +2027,15 @@ func numSlots(tx *types.Transaction) int {
 	return int((tx.Size() + txSlotSize - 1) / txSlotSize)
 }
 
-
 const (
 	dropUnderpriced = "underpriced-txs"
-	dropLowNonce = "low-nonce-txs"
-	dropUnpayable = "unpayable-txs"
+	dropLowNonce    = "low-nonce-txs"
+	dropUnpayable   = "unpayable-txs"
 
-	dropAccountCap = "account-cap-txs" // Accounts exceeding txpool.accountslots transactions
-	dropReplaced = "replaced-txs"
-	dropUnexecutable = "unexecutable-txs"
-	dropTruncating = "truncating-txs"
-	dropOld = "old-txs"
+	dropAccountCap      = "account-cap-txs" // Accounts exceeding txpool.accountslots transactions
+	dropReplaced        = "replaced-txs"
+	dropUnexecutable    = "unexecutable-txs"
+	dropTruncating      = "truncating-txs"
+	dropOld             = "old-txs"
 	dropGasPriceUpdated = "updated-gas-price"
 )
