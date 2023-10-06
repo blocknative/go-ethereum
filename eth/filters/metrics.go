@@ -145,6 +145,16 @@ var (
 			Help:      "Number of dropped txs sent",
 		},
 	)
+
+	metricsTraceTxTimer = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Subsystem: streamSubsystem,
+			Name:      "trace_tx_duration",
+			Help:      "Trace tx duration in seconds",
+			Buckets:   []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+		},
+		[]string{},
+	)
 )
 
 func init() {
@@ -173,4 +183,6 @@ func init() {
 	register(metricsDroppedTxsEnd)
 	register(metricsDroppedTxsReceived)
 	register(metricsDroppedTxsSent)
+
+	register(metricsTraceTxTimer)
 }
