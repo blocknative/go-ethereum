@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
@@ -273,7 +275,11 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 	if _, err = core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit)); err != nil {
 		return nil, fmt.Errorf("tracing failed: %w", err)
 	}
-	return tracer.GetTrace()
+
+	timer := prometheus.NewTimer(metricsTraceTxTimer.With(nil))
+	trace, err := tracer.GetTrace()
+	timer.ObserveDuration()
+	return trace, err
 }
 
 // traceBlock traces all transactions in a block.
