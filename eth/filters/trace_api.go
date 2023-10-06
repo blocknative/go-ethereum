@@ -52,9 +52,12 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 
 		tracerOpts, err := getTracerOpts(tracerOptsJSON, defaultTxTraceOpts)
 		if err != nil {
-			log.Error("failed to parse tracer options", "err", err)
+			log.Error("pending_txs_stream: failed to parse tracer options", "err", err)
 			return
 		}
+
+		metricsPendingTxsNew.Inc()
+		defer metricsBlocksEnd.Inc()
 
 		for {
 			select {
@@ -87,23 +90,32 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 
 				statedb, err := api.sys.chain.State()
 				if err != nil {
-					log.Error("failed to get state", "err", err)
+					log.Error("pending_txs_stream: failed to get state", "err", err)
 					return
 				}
 
+				metricsPendingTxsReceived.Add(float64(len(txs)))
 				for _, tx := range txs {
 					msg, _ = core.TransactionToMessage(tx, signer, header.BaseFee)
 					if err != nil {
-						log.Error("failed to create tx message", "err", err, "tx", tx.Hash())
+						log.Error("pending_txs_stream: failed to create tx message", "err", err, "tx", tx.Hash())
+						continue
+					}
+
+					if msg.GasFeeCap.Cmp(header.BaseFee) < 0 {
+						log.Trace("pending_txs_stream: tx gas fee too low", "tx", tx.Hash(), "gasFeeCap", msg.GasFeeCap, "baseFee", header.BaseFee)
+						metricsPendingTxsGasTooLow.Inc()
 						continue
 					}
 
 					traceCtx.TxHash = tx.Hash()
 					trace, err := traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
 					if err != nil {
-						log.Error("failed to trace tx", "err", err, "tx", tx.Hash())
+						log.Error("pending_txs_stream: failed to trace tx", "err", err, "tx", tx.Hash())
+						metricsBlocksTraceFailed.Inc()
 						continue
 					}
+					metricsBlocksTraceSuccess.Inc()
 
 					gasPrice := hexutil.Big(*tx.GasPrice())
 					rpcTx := newRPCPendingTransaction(tx)
@@ -116,10 +128,15 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 				}
 
 				if len(tracedTxs) == 0 {
+					log.Error("pending_txs_stream: no traced txs")
 					continue
 				}
 
-				notifier.Notify(rpcSub.ID, tracedTxs)
+				if err := notifier.Notify(rpcSub.ID, tracedTxs); err != nil {
+					log.Error("pending_txs_stream: failed to notify", "err", err)
+					return
+				}
+				metricsPendingTxsSent.Add(float64(len(tracedTxs)))
 			case <-rpcSub.Err():
 				return
 			case <-notifier.Closed():
@@ -152,9 +169,12 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 
 		tracerOpts, err := getTracerOpts(tracerOptsJSON, defaultBlockTraceOpts)
 		if err != nil {
-			log.Error("failed to parse tracer options", "err", err)
+			log.Error("block_stream: failed to parse tracer options", "err", err)
 			return
 		}
+
+		metricsBlocksNew.Inc()
+		defer metricsBlocksEnd.Inc()
 
 		var hashes []common.Hash
 		for {
@@ -176,28 +196,34 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 				return
 			}
 
+			metricsBlocksReceived.Add(float64(len(hashes)))
 			for _, hash := range hashes {
 				block, err := api.sys.backend.BlockByHash(ctx, hash)
 				if err != nil {
-					log.Error("failed to get block", "err", err, "hash", hash)
+					log.Error("block_stream: failed to get block by hash", "err", err, "hash", hash)
 					continue
 				}
+				log.Info("block_stream: received block", "hash", hash, "number", block.Number())
 
 				marshalBlock, err := RPCMarshalBlock(block, true, true, api.sys.backend.ChainConfig())
 				if err != nil {
+					log.Error("block_stream: failed to marshal block", "err", err, "block", block.Number())
 					continue
 				}
 
 				trace, err := traceBlock(block, chainConfig, api.sys.chain, tracerOpts)
 				if err != nil {
-					log.Error("failed to trace block", "err", err, "block", block.Number())
+					metricsBlocksTraceFailed.Inc()
+					log.Error("block_stream: failed to trace block", "err", err, "block", block.Number())
 					continue
 				}
+				metricsBlocksTraceSuccess.Inc()
 				marshalBlock["trace"] = trace
 
 				marshalReceipts := make(map[common.Hash]map[string]interface{})
 				receipts, err := api.sys.backend.GetReceipts(ctx, hash)
 				if err != nil {
+					log.Error("block_stream: failed to get receipts", "err", err, "block", block.Number())
 					continue
 				}
 				for index, receipt := range receipts {
@@ -224,7 +250,11 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 				}
 				marshalBlock["receipts"] = marshalReceipts
 
-				notifier.Notify(rpcSub.ID, marshalBlock)
+				if err := notifier.Notify(rpcSub.ID, marshalBlock); err != nil {
+					log.Error("block_stream: failed to notify", "err", err)
+					return
+				}
+				metricsBlocksSent.Inc()
 			}
 		}
 	}()
