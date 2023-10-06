@@ -303,6 +303,7 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 		results   = make([]*blocknative.Trace, len(txs))
 	)
 
+	timer := prometheus.NewTimer(metricsTraceBlockTimer.With(nil))
 	for i, tx := range txs {
 		msg, err := core.TransactionToMessage(tx, signer, block.BaseFee())
 		if err != nil {
@@ -320,6 +321,7 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 		}
 		statedb.Finalise(is158)
 	}
+	timer.ObserveDuration()
 
 	return results, nil
 }
