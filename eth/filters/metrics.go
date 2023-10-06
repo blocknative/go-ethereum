@@ -155,6 +155,16 @@ var (
 		},
 		[]string{},
 	)
+
+	metricsTraceBlockTimer = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Subsystem: streamSubsystem,
+			Name:      "trace_blocks_duration",
+			Help:      "Trace blocks duration in seconds",
+			Buckets:   []float64{.01, .025, .05, .1, .25, .5, 1, 5, 10, 15},
+		},
+		[]string{},
+	)
 )
 
 func init() {
@@ -185,4 +195,5 @@ func init() {
 	register(metricsDroppedTxsSent)
 
 	register(metricsTraceTxTimer)
+	register(metricsTraceBlockTimer)
 }
