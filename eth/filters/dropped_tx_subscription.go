@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 	lru "github.com/hashicorp/golang-lru"
 	"sync"
@@ -123,9 +124,13 @@ func (api *FilterAPI) DroppedTransactions(ctx context.Context) (*rpc.Subscriptio
 		dropped := make(chan core.DropTxsEvent)
 		droppedSub := api.sys.backend.SubscribeDropTxsEvent(dropped)
 
+		metricsDroppedTxsNew.Inc()
+		defer metricsPendingTxsEnd.Inc()
+
 		for {
 			select {
 			case d := <-dropped:
+				metricsDroppedTxsReceived.Add(float64(len(d.Txs)))
 				for _, tx := range d.Txs {
 					notification := &dropNotification{
 						Tx: newRPCPendingTransaction(tx),
@@ -137,7 +142,11 @@ func (api *FilterAPI) DroppedTransactions(ctx context.Context) (*rpc.Subscriptio
 						peerid, _ := txPeerMap.Get(tx.Hash())
 						notification.Peer, _ = peerIDMap.Load(peerid)
 					}
-					notifier.Notify(rpcSub.ID, notification)
+					metricsDroppedTxsSent.Inc()
+					if err := notifier.Notify(rpcSub.ID, notification); err != nil {
+						log.Error("dropped_txs_stream: failed to notify", "err", err)
+						return
+					}
 				}
 			case <-rpcSub.Err():
 				droppedSub.Unsubscribe()
