@@ -254,6 +254,7 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 					log.Error("block_stream: failed to notify", "err", err)
 					return
 				}
+				log.Info("block_stream: sent block", "hash", hash, "number", block.Number(), "sub_id", rpcSub.ID)
 				metricsBlocksSent.Inc()
 			}
 		}
