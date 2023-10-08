@@ -459,6 +459,7 @@ func (es *EventSystem) handleTxsEvent(filters filterIndex, ev core.NewTxsEvent) 
 
 func (es *EventSystem) handleChainEvent(filters filterIndex, ev core.ChainEvent) {
 	for _, f := range filters[BlocksSubscription] {
+		fmt.Println("ev.Block.ReceivedAt:", ev.Block.ReceivedAt)
 		f.headers <- ev.Block.Header()
 	}
 	if es.lightMode && len(filters[LogsSubscription]) > 0 {
