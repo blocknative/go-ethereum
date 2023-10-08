@@ -350,6 +350,8 @@ func handleNewBlock(backend Backend, msg Decoder, peer *Peer) error {
 	ann.Block.ReceivedAt = msg.Time()
 	ann.Block.ReceivedFrom = peer
 
+	log.Info("received block from network", "number", ann.Block.NumberU64(), "received_at", msg.Time())
+
 	// Mark the peer as owning the block
 	peer.markBlock(ann.Block.Hash())
 
