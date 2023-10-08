@@ -260,13 +260,8 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 				log.Info("block_stream: sent block", "hash", hash, "number", block.Number(), "sub_id", rpcSub.ID)
 				metricsBlocksSent.Inc()
 
-				blockTime := time.Unix(int64(block.Time()), 0)
-				log.Info("block_stream: timings",
+				log.Info("block_stream: timing",
 					"number", block.Number(),
-					"block_time", block.Time(),
-					"received_at", block.ReceivedAt,
-					"receipt_latency", block.ReceivedAt.Sub(blockTime),
-					"notification_latency", startTime.Sub(block.ReceivedAt),
 					"processed_latency", time.Now().Sub(startTime))
 			}
 		}
