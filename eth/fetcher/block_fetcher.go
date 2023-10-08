@@ -26,11 +26,11 @@ import (
 	"github.com/ethereum/go-ethereum/common/prque"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/eth/protocols/eth"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/trie"
-	"github.com/ethereum/go-ethereum/eth/filters"
 )
 
 const (
@@ -605,6 +605,8 @@ func (f *BlockFetcher) loop() {
 
 							block := types.NewBlockWithHeader(header)
 							block.ReceivedAt = task.time
+							receiptLatency := time.Unix(int64(block.Time()), 0).Sub(task.time)
+							log.Info("received block from network", "number", block.NumberU64(), "received_at", task.time, "latency", receiptLatency)
 
 							complete = append(complete, block)
 							f.completing[hash] = announce
@@ -689,6 +691,9 @@ func (f *BlockFetcher) loop() {
 						if f.getBlock(hash) == nil {
 							block := types.NewBlockWithHeader(announce.header).WithBody(task.transactions[i], task.uncles[i])
 							block.ReceivedAt = task.time
+							receiptLatency := time.Unix(int64(block.Time()), 0).Sub(task.time)
+							log.Info("received block from network", "number", block.NumberU64(), "received_at", task.time, "latency", receiptLatency)
+
 							blocks = append(blocks, block)
 						} else {
 							f.forgetHash(hash)
