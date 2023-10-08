@@ -150,11 +150,11 @@ var (
 		},
 	)
 
-	metricsTraceTxTimer = prometheus.NewHistogramVec(
+	metricsTracePendingTxTimer = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Subsystem: streamSubsystem,
-			Name:      "trace_tx_duration",
-			Help:      "Trace tx duration in seconds",
+			Name:      "trace_pending_tx_duration",
+			Help:      "Trace pending tx duration in seconds",
 			Buckets:   []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
 		},
 		[]string{"host"},
@@ -204,6 +204,6 @@ func init() {
 	register(metricsDroppedTxsReceived)
 	register(metricsDroppedTxsSent)
 
-	register(metricsTraceTxTimer)
+	register(metricsTracePendingTxTimer)
 	register(metricsTraceBlockTimer)
 }

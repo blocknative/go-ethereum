@@ -109,7 +109,7 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					}
 
 					traceCtx.TxHash = tx.Hash()
-					timer := newTimer(metricsTraceTxTimer)
+					timer := newTimer(metricsTracePendingTxTimer)
 					trace, err := traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
 					if err != nil {
 						log.Error("pending_txs_stream: failed to trace tx", "err", err, "tx", tx.Hash())
