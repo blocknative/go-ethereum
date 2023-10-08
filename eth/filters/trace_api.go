@@ -336,6 +336,7 @@ func traceBlock(ctx context.Context, chainConfig *params.ChainConfig, chain *cor
 	defer cancel()
 
 	timer := newTimer(metricsTraceBlockTimer)
+	startTime := time.Now()
 	for i, tx := range txs {
 		msg, err := core.TransactionToMessage(tx, signer, block.BaseFee())
 		if err != nil {
@@ -353,6 +354,7 @@ func traceBlock(ctx context.Context, chainConfig *params.ChainConfig, chain *cor
 		}
 		statedb.Finalise(is158)
 	}
+	log.Info("traced block", "number", block.Number(), "duration", time.Since(startTime))
 	timer.ObserveDuration()
 
 	return results, nil
