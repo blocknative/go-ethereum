@@ -125,7 +125,7 @@ func (api *FilterAPI) DroppedTransactions(ctx context.Context) (*rpc.Subscriptio
 		droppedSub := api.sys.backend.SubscribeDropTxsEvent(dropped)
 
 		metricsDroppedTxsNew.Inc()
-		defer metricsPendingTxsEnd.Inc()
+		defer metricsDroppedTxsEnd.Inc()
 
 		for {
 			select {

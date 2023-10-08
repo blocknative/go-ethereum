@@ -57,7 +57,7 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 		}
 
 		metricsPendingTxsNew.Inc()
-		defer metricsBlocksEnd.Inc()
+		defer metricsPendingTxsEnd.Inc()
 
 		for {
 			select {
@@ -109,13 +109,15 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					}
 
 					traceCtx.TxHash = tx.Hash()
+					timer := prometheus.NewTimer(metricsTraceTxTimer.With(nil))
 					trace, err := traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
 					if err != nil {
 						log.Error("pending_txs_stream: failed to trace tx", "err", err, "tx", tx.Hash())
-						metricsBlocksTraceFailed.Inc()
+						metricsPendingTxsTraceFailed.Inc()
 						continue
 					}
-					metricsBlocksTraceSuccess.Inc()
+					timer.ObserveDuration()
+					metricsPendingTxsTraceSuccess.Inc()
 
 					gasPrice := hexutil.Big(*tx.GasPrice())
 					rpcTx := newRPCPendingTransaction(tx)
@@ -283,12 +285,7 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 		return nil, fmt.Errorf("tracing failed: %w", err)
 	}
 
-	trace, err := tracer.GetTrace()
-	if err != nil {
-		return nil, err
-	}
-
-	return trace, err
+	return tracer.GetTrace()
 }
 
 // traceBlock traces all transactions in a block.
