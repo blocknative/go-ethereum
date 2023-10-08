@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -23,14 +24,19 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-var defaultTxTraceOpts = blocknative.TracerOpts{
-	BalanceChanges: true,
-}
+var (
+	traceTimeoutPendingTx = 5 * time.Second
+	traceTimeoutBlock     = 24 * time.Second
 
-var defaultBlockTraceOpts = blocknative.TracerOpts{
-	BalanceChanges:      true,
-	DisableBlockContext: true,
-}
+	defaultTxTraceOpts = blocknative.TracerOpts{
+		BalanceChanges: true,
+	}
+
+	defaultBlockTraceOpts = blocknative.TracerOpts{
+		BalanceChanges:      true,
+		DisableBlockContext: true,
+	}
+)
 
 // TraceNewPendingTransactions creates a subscription that is triggered each time a
 // transaction enters the transaction pool. The tx is traced and sent to the client.
@@ -107,8 +113,10 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					}
 
 					traceCtx.TxHash = tx.Hash()
+					timeoutCtx, cancel := context.WithTimeout(ctx, traceTimeoutPendingTx)
 					timer := newTimer(metricsTracePendingTxTimer)
-					trace, err := traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
+					trace, err := traceTx(timeoutCtx, msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
+					cancel()
 					if err != nil {
 						log.Error("pending_txs_stream: failed to trace tx", "err", err, "tx", tx.Hash())
 						metricsPendingTxsTraceFailed.Inc()
@@ -211,7 +219,7 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 					continue
 				}
 
-				trace, err := traceBlock(block, chainConfig, api.sys.chain, tracerOpts)
+				trace, err := traceBlock(ctx, chainConfig, api.sys.chain, tracerOpts, block)
 				if err != nil {
 					metricsBlocksTraceFailed.Inc()
 					log.Error("block_stream: failed to trace block", "err", err, "block", block.Number())
@@ -264,7 +272,7 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 }
 
 // traceTx traces a transaction with the given contexts.
-func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*blocknative.Trace, error) {
+func traceTx(ctx context.Context, message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*blocknative.Trace, error) {
 	tracer, err := blocknative.NewTxnOpCodeTracerWithOpts(tracerOpts)
 	if err != nil {
 		return nil, err
@@ -274,15 +282,37 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 	vmenv := vm.NewEVM(vmctx, txContext, statedb, chainConfig, vm.Config{Tracer: tracer})
 	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
 
-	if _, err = core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit)); err != nil {
-		return nil, fmt.Errorf("tracing failed: %w", err)
-	}
+	// To allow timing out the trace we'll start it in a background goroutine
+	// while we wait for either a timeout context to expire or for the tracer
+	// to write the err return value to a chanel. It will write nil if the trace
+	// was successful.
+	errCh := make(chan error)
 
-	return tracer.GetTrace()
+	go func() {
+		if _, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit)); err != nil {
+			errCh <- fmt.Errorf("tracing failed: %w", err)
+			return
+		}
+		errCh <- nil
+	}()
+
+	select {
+	// If we timeout then stop the tracer and return the timeout error.
+	case <-ctx.Done():
+		tracer.Stop(ctx.Err())
+		return nil, ctx.Err()
+
+	// Otherwise if the tracer returned, return either the error or the trace.
+	case err := <-errCh:
+		if err != nil {
+			return nil, err
+		}
+		return tracer.GetTrace()
+	}
 }
 
 // traceBlock traces all transactions in a block.
-func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core.BlockChain, tracerOpts blocknative.TracerOpts) ([]*blocknative.Trace, error) {
+func traceBlock(ctx context.Context, chainConfig *params.ChainConfig, chain *core.BlockChain, tracerOpts blocknative.TracerOpts, block *types.Block) ([]*blocknative.Trace, error) {
 	parent := chain.GetBlockByHash(block.ParentHash())
 	if parent == nil {
 		return nil, errors.New("parent block not found")
@@ -302,6 +332,9 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 		results   = make([]*blocknative.Trace, len(txs))
 	)
 
+	timeoutCtx, cancel := context.WithTimeout(ctx, traceTimeoutBlock)
+	defer cancel()
+
 	timer := newTimer(metricsTraceBlockTimer)
 	for i, tx := range txs {
 		msg, err := core.TransactionToMessage(tx, signer, block.BaseFee())
@@ -314,7 +347,7 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 			TxIndex:     i,
 			TxHash:      tx.Hash(),
 		}
-		results[i], err = traceTx(msg, txCtx, blockCtx, chainConfig, statedb, tracerOpts)
+		results[i], err = traceTx(timeoutCtx, msg, txCtx, blockCtx, chainConfig, statedb, tracerOpts)
 		if err != nil {
 			return nil, err
 		}
