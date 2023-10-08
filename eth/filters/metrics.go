@@ -155,7 +155,7 @@ var (
 			Subsystem: streamSubsystem,
 			Name:      "trace_pending_tx_duration",
 			Help:      "Trace pending tx duration in seconds",
-			Buckets:   []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5},
+			Buckets:   []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
 		},
 		[]string{"host"},
 	)
