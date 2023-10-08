@@ -206,9 +206,6 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 					log.Error("block_stream: failed to get block by hash", "err", err, "hash", hash)
 					continue
 				}
-				blockTime := time.Unix(int64(block.Time()), 0)
-				receiptLatency := block.ReceivedAt.Sub(blockTime)
-				notificationLatency := startTime.Sub(block.ReceivedAt)
 				log.Info("block_stream: received block", "hash", hash, "number", block.Number())
 
 				marshalBlock, err := RPCMarshalBlock(block, true, true, api.sys.backend.ChainConfig())
@@ -263,8 +260,14 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 				log.Info("block_stream: sent block", "hash", hash, "number", block.Number(), "sub_id", rpcSub.ID)
 				metricsBlocksSent.Inc()
 
-				processedLatency := time.Now().Sub(startTime)
-				log.Info("block_stream: timings", "number", block.Number(), "receipt_latency", receiptLatency, "notification_latency", notificationLatency, "processed_latency", processedLatency)
+				blockTime := time.Unix(int64(block.Time()), 0)
+				log.Info("block_stream: timings",
+					"number", block.Number(),
+					"block_time", block.Time(),
+					"received_at", block.ReceivedAt,
+					"receipt_latency", block.ReceivedAt.Sub(blockTime),
+					"notification_latency", startTime.Sub(block.ReceivedAt),
+					"processed_latency", time.Now().Sub(startTime))
 			}
 		}
 	}()
