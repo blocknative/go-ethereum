@@ -157,7 +157,7 @@ var (
 			Help:      "Trace pending tx duration in seconds",
 			Buckets:   []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
 		},
-		[]string{"host"},
+		[]string{},
 	)
 
 	metricsTraceBlockTimer = prometheus.NewHistogramVec(
@@ -167,7 +167,7 @@ var (
 			Help:      "Trace blocks duration in seconds",
 			Buckets:   []float64{.01, .025, .05, .1, .25, .5, 1, 5, 10, 15},
 		},
-		[]string{"host"},
+		[]string{},
 	)
 )
 
