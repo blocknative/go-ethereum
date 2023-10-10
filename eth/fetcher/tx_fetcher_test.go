@@ -186,7 +186,7 @@ func TestTransactionFetcherWaiting(t *testing.T) {
 // waitlist, and none of them are scheduled for retrieval until the wait expires.
 //
 // This test is an extended version of TestTransactionFetcherWaiting. It's mostly
-// to cover the metadata checks without bloating up the basic behavioral tests
+// to cover the metadata checkes without bloating up the basic behavioral tests
 // with all the useless extra fields.
 func TestTransactionFetcherWaitingWithMeta(t *testing.T) {
 	testTransactionFetcherParallel(t, txFetcherTest{
@@ -1726,7 +1726,7 @@ func testTransactionFetcher(t *testing.T, tt txFetcherTest) {
 						if (meta == nil && (ann.kind != nil || ann.size != nil)) ||
 							(meta != nil && (ann.kind == nil || ann.size == nil)) ||
 							(meta != nil && (meta.kind != *ann.kind || meta.size != *ann.size)) {
-							t.Errorf("step %d, peer %s, hash %x: waitslot metadata mismatch: want %v, have %v/%v", i, peer, ann.hash, meta, *ann.kind, *ann.size)
+							t.Errorf("step %d, peer %s, hash %x: waitslot metadata mismatch: want %v, have %v/%v", i, peer, ann.hash, meta, ann.kind, ann.size)
 						}
 					}
 				}
@@ -1795,7 +1795,7 @@ func testTransactionFetcher(t *testing.T, tt txFetcherTest) {
 						if (meta == nil && (ann.kind != nil || ann.size != nil)) ||
 							(meta != nil && (ann.kind == nil || ann.size == nil)) ||
 							(meta != nil && (meta.kind != *ann.kind || meta.size != *ann.size)) {
-							t.Errorf("step %d, peer %s, hash %x: announce metadata mismatch: want %v, have %v/%v", i, peer, ann.hash, meta, *ann.kind, *ann.size)
+							t.Errorf("step %d, peer %s, hash %x: announce metadata mismatch: want %v, have %v/%v", i, peer, ann.hash, meta, ann.kind, ann.size)
 						}
 					}
 				}
