@@ -109,7 +109,7 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					}
 
 					traceCtx.TxHash = tx.Hash()
-					timer := newTimer(metricsTracePendingTxTimer)
+					timer := prometheus.NewTimer(metricsTracePendingTxTimer.With(nil))
 					trace, err := traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
 					if err != nil {
 						log.Error("pending_txs_stream: failed to trace tx", "err", err, "tx", tx.Hash())
@@ -309,7 +309,7 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 		results   = make([]*blocknative.Trace, len(txs))
 	)
 
-	timer := newTimer(metricsTraceBlockTimer)
+	timer := prometheus.NewTimer(metricsTraceBlockTimer.With(nil))
 	for i, tx := range txs {
 		msg, err := core.TransactionToMessage(tx, signer, block.BaseFee())
 		if err != nil {
@@ -342,8 +342,4 @@ func getTracerOpts(optsJSON *[]byte, defaults blocknative.TracerOpts) (blocknati
 		}
 	}
 	return opts, nil
-}
-
-func newTimer(histogram *prometheus.HistogramVec) *prometheus.Timer {
-	return prometheus.NewTimer(histogram.WithLabelValues(metricsHostName))
 }
