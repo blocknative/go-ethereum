@@ -130,7 +130,6 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 				}
 
 				if len(tracedTxs) == 0 {
-					log.Error("pending_txs_stream: no traced txs")
 					continue
 				}
 
