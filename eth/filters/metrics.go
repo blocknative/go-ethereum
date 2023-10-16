@@ -172,6 +172,7 @@ func init() {
 		if err := bnPrometheus.Metrics.Register(c); err != nil {
 			log.Error("failed to register metrics", "err", err)
 		}
+		log.Info("stream metric registered")
 	}
 
 	register(metricsPendingTxsNew)
