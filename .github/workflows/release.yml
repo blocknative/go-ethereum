@@ -9,10 +9,14 @@ jobs:
     name: Release Go Binary arm64
     runs-on: [self-hosted, arm64]
     steps:
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.21
       - uses: actions/checkout@v2
       - name: Build geth
         run: |
-          cd cmd/geth && /opt/go/1.21.3/bin/go build
+          cd cmd/geth && go build
           tar -czvf geth-$(basename ${GITHUB_REF})-linux-arm64.tar.gz geth
           echo $(md5sum geth | awk '{print $1}') > geth-$(basename ${GITHUB_REF})-linux-arm64.tar.gz.md5
       - name: Upload geth to release page
