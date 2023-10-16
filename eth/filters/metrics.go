@@ -1,8 +1,6 @@
 package filters
 
 import (
-	"os"
-
 	"github.com/prometheus/client_golang/prometheus"
 
 	bnPrometheus "github.com/ethereum/go-ethereum/bn/prometheus"
@@ -12,8 +10,6 @@ import (
 const streamSubsystem string = "stream"
 
 var (
-	metricsHostName string
-
 	metricsPendingTxsNew = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Subsystem: streamSubsystem,
@@ -172,12 +168,6 @@ var (
 )
 
 func init() {
-	var err error
-	metricsHostName, err = os.Hostname()
-	if err != nil {
-		log.Error("failed to get hostname for metrics", "err", err)
-	}
-
 	register := func(c prometheus.Collector) {
 		if err := bnPrometheus.Metrics.Register(c); err != nil {
 			log.Error("failed to register metrics", "err", err)
