@@ -124,13 +124,13 @@ func (api *FilterAPI) DroppedTransactions(ctx context.Context) (*rpc.Subscriptio
 		dropped := make(chan core.DropTxsEvent)
 		droppedSub := api.sys.backend.SubscribeDropTxsEvent(dropped)
 
-		metricsDroppedTxsNew.Inc()
-		defer metricsDroppedTxsEnd.Inc()
+		metricsDroppedTxsNew.Inc(1)
+		defer metricsDroppedTxsEnd.Inc(1)
 
 		for {
 			select {
 			case d := <-dropped:
-				metricsDroppedTxsReceived.Add(float64(len(d.Txs)))
+				metricsDroppedTxsReceived.Inc(int64(len(d.Txs)))
 				for _, tx := range d.Txs {
 					notification := &dropNotification{
 						Tx: newRPCPendingTransaction(tx),
@@ -142,7 +142,7 @@ func (api *FilterAPI) DroppedTransactions(ctx context.Context) (*rpc.Subscriptio
 						peerid, _ := txPeerMap.Get(tx.Hash())
 						notification.Peer, _ = peerIDMap.Load(peerid)
 					}
-					metricsDroppedTxsSent.Inc()
+					metricsDroppedTxsSent.Inc(1)
 					if err := notifier.Notify(rpcSub.ID, notification); err != nil {
 						log.Error("dropped_txs_stream: failed to notify", "err", err)
 						return

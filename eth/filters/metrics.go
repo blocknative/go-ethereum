@@ -1,209 +1,30 @@
 package filters
 
 import (
-	"os"
-
-	"github.com/prometheus/client_golang/prometheus"
-
-	bnPrometheus "github.com/ethereum/go-ethereum/bn/prometheus"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/metrics"
 )
-
-const streamSubsystem string = "stream"
 
 var (
-	metricsHostName string
+	metricsPendingTxsNew          = metrics.NewRegisteredCounter("stream/pending_txs/new", nil)
+	metricsPendingTxsEnd          = metrics.NewRegisteredCounter("stream/pending_txs/end", nil)
+	metricsPendingTxsReceived     = metrics.NewRegisteredCounter("stream/pending_txs/received", nil)
+	metricsPendingTxsGasTooLow    = metrics.NewRegisteredCounter("stream/pending_txs/gas_too_low", nil)
+	metricsPendingTxsTraceSuccess = metrics.NewRegisteredCounter("stream/pending_txs/trace_success", nil)
+	metricsPendingTxsTraceFailed  = metrics.NewRegisteredCounter("stream/pending_txs/trace_failed", nil)
+	metricsPendingTxsSent         = metrics.NewRegisteredCounter("stream/pending_txs/sent", nil)
 
-	metricsPendingTxsNew = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Subsystem: streamSubsystem,
-			Name:      "pending_txs_new",
-			Help:      "Number of pending tx streams created",
-		},
-	)
+	metricsBlocksNew          = metrics.NewRegisteredCounter("stream/blocks/new", nil)
+	metricsBlocksEnd          = metrics.NewRegisteredCounter("stream/blocks/end", nil)
+	metricsBlocksReceived     = metrics.NewRegisteredCounter("stream/blocks/received", nil)
+	metricsBlocksTraceSuccess = metrics.NewRegisteredCounter("stream/blocks/trace_success", nil)
+	metricsBlocksTraceFailed  = metrics.NewRegisteredCounter("stream/blocks/trace_failed", nil)
+	metricsBlocksSent         = metrics.NewRegisteredCounter("stream/blocks/sent", nil)
 
-	metricsPendingTxsEnd = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Subsystem: streamSubsystem,
-			Name:      "pending_txs_end",
-			Help:      "Number of pending tx streams ended",
-		},
-	)
+	metricsDroppedTxsNew      = metrics.NewRegisteredCounter("stream/dropped_txs/new", nil)
+	metricsDroppedTxsEnd      = metrics.NewRegisteredCounter("stream/dropped_txs/end", nil)
+	metricsDroppedTxsReceived = metrics.NewRegisteredCounter("stream/dropped_txs/received", nil)
+	metricsDroppedTxsSent     = metrics.NewRegisteredCounter("stream/dropped_txs/sent", nil)
 
-	metricsPendingTxsReceived = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Subsystem: streamSubsystem,
-			Name:      "pending_txs_received",
-			Help:      "Number of pending txs received",
-		},
-	)
-
-	metricsPendingTxsGasTooLow = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Subsystem: streamSubsystem,
-			Name:      "pending_txs_gas_too_low",
-			Help:      "Number txs ignore because of gas",
-		},
-	)
-
-	metricsPendingTxsTraceSuccess = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Subsystem: streamSubsystem,
-			Name:      "pending_txs_trace_success",
-			Help:      "Number txs successfully traced",
-		},
-	)
-
-	metricsPendingTxsTraceFailed = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Subsystem: streamSubsystem,
-			Name:      "pending_txs_trace_failed",
-			Help:      "Number txs failed to trace",
-		},
-	)
-
-	metricsPendingTxsSent = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Subsystem: streamSubsystem,
-			Name:      "pending_txs_sent",
-			Help:      "Number of pending txs sent",
-		},
-	)
-
-	metricsBlocksNew = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Subsystem: streamSubsystem,
-			Name:      "blocks_new",
-			Help:      "Number of block streams created",
-		},
-	)
-
-	metricsBlocksEnd = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Subsystem: streamSubsystem,
-			Name:      "blocks_end",
-			Help:      "Number of block streams ended",
-		},
-	)
-
-	metricsBlocksReceived = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Subsystem: streamSubsystem,
-			Name:      "blocks_received",
-			Help:      "Number of blocks received",
-		},
-	)
-
-	metricsBlocksTraceSuccess = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Subsystem: streamSubsystem,
-			Name:      "blocks_trace_success",
-			Help:      "Number of blocks successfully traced",
-		},
-	)
-
-	metricsBlocksTraceFailed = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Subsystem: streamSubsystem,
-			Name:      "blocks_trace_failed",
-			Help:      "Number of blocks failed to trace",
-		},
-	)
-
-	metricsBlocksSent = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Subsystem: streamSubsystem,
-			Name:      "blocks_sent",
-			Help:      "Number of blocks sent",
-		},
-	)
-
-	metricsDroppedTxsNew = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Subsystem: streamSubsystem,
-			Name:      "dropped_txs_new",
-			Help:      "Number of dropped tx streams created",
-		},
-	)
-
-	metricsDroppedTxsEnd = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Subsystem: streamSubsystem,
-			Name:      "dropped_txs_end",
-			Help:      "Number of dropped tx streams ended",
-		},
-	)
-
-	metricsDroppedTxsReceived = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Subsystem: streamSubsystem,
-			Name:      "dropped_txs_received",
-			Help:      "Number of dropped txs received",
-		},
-	)
-
-	metricsDroppedTxsSent = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Subsystem: streamSubsystem,
-			Name:      "dropped_txs_sent",
-			Help:      "Number of dropped txs sent",
-		},
-	)
-
-	metricsTracePendingTxTimer = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Subsystem: streamSubsystem,
-			Name:      "trace_pending_tx_duration",
-			Help:      "Trace pending tx duration in seconds",
-			Buckets:   []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
-		},
-		[]string{},
-	)
-
-	metricsTraceBlockTimer = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Subsystem: streamSubsystem,
-			Name:      "trace_blocks_duration",
-			Help:      "Trace blocks duration in seconds",
-			Buckets:   []float64{.01, .025, .05, .1, .25, .5, 1, 5, 10, 15},
-		},
-		[]string{},
-	)
+	metricsTracePendingTxTimer = metrics.NewRegisteredHistogram("stream/pending_txs/trace_duration", nil, metrics.NewExpDecaySample(1028, 0.015))
+	metricsTraceBlockTimer     = metrics.NewRegisteredHistogram("stream/blocks/trace_duration", nil, metrics.NewExpDecaySample(1028, 0.015))
 )
-
-func init() {
-	var err error
-	metricsHostName, err = os.Hostname()
-	if err != nil {
-		log.Error("failed to get hostname for metrics", "err", err)
-	}
-
-	register := func(c prometheus.Collector) {
-		if err := bnPrometheus.Metrics.Register(c); err != nil {
-			log.Error("failed to register metrics", "err", err)
-		}
-	}
-
-	register(metricsPendingTxsNew)
-	register(metricsPendingTxsEnd)
-	register(metricsPendingTxsReceived)
-	register(metricsPendingTxsGasTooLow)
-	register(metricsPendingTxsTraceSuccess)
-	register(metricsPendingTxsTraceFailed)
-	register(metricsPendingTxsSent)
-
-	register(metricsBlocksNew)
-	register(metricsBlocksEnd)
-	register(metricsBlocksReceived)
-	register(metricsBlocksTraceSuccess)
-	register(metricsBlocksTraceFailed)
-	register(metricsBlocksSent)
-
-	register(metricsDroppedTxsNew)
-	register(metricsDroppedTxsEnd)
-	register(metricsDroppedTxsReceived)
-	register(metricsDroppedTxsSent)
-
-	register(metricsTracePendingTxTimer)
-	register(metricsTraceBlockTimer)
-}

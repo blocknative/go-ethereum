@@ -56,8 +56,8 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 			return
 		}
 
-		metricsPendingTxsNew.Inc()
-		defer metricsPendingTxsEnd.Inc()
+		metricsPendingTxsNew.Inc(1)
+		defer metricsPendingTxsEnd.Inc(1)
 
 		for {
 			select {
@@ -94,7 +94,7 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					return
 				}
 
-				metricsPendingTxsReceived.Add(float64(len(txs)))
+				metricsPendingTxsReceived.Inc(int64(len(txs)))
 				for _, tx := range txs {
 					msg, _ = core.TransactionToMessage(tx, signer, header.BaseFee)
 					if err != nil {
@@ -104,20 +104,20 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 
 					if msg.GasFeeCap.Cmp(header.BaseFee) < 0 {
 						log.Trace("pending_txs_stream: tx gas fee too low", "tx", tx.Hash(), "gasFeeCap", msg.GasFeeCap, "baseFee", header.BaseFee)
-						metricsPendingTxsGasTooLow.Inc()
+						metricsPendingTxsGasTooLow.Inc(1)
 						continue
 					}
 
 					traceCtx.TxHash = tx.Hash()
-					timer := prometheus.NewTimer(metricsTracePendingTxTimer.With(nil))
+					startTime := time.Now()
 					trace, err := traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
 					if err != nil {
 						log.Error("pending_txs_stream: failed to trace tx", "err", err, "tx", tx.Hash())
-						metricsPendingTxsTraceFailed.Inc()
+						metricsPendingTxsTraceFailed.Inc(1)
 						continue
 					}
-					timer.ObserveDuration()
-					metricsPendingTxsTraceSuccess.Inc()
+					metricsTracePendingTxTimer.Update(time.Since(startTime).Milliseconds())
+					metricsPendingTxsTraceSuccess.Inc(1)
 
 					gasPrice := hexutil.Big(*tx.GasPrice())
 					rpcTx := newRPCPendingTransaction(tx)
@@ -137,7 +137,7 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					log.Error("pending_txs_stream: failed to notify", "err", err)
 					return
 				}
-				metricsPendingTxsSent.Add(float64(len(tracedTxs)))
+				metricsPendingTxsSent.Inc(int64(len(tracedTxs)))
 			case <-rpcSub.Err():
 				return
 			case <-notifier.Closed():
@@ -174,8 +174,8 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 			return
 		}
 
-		metricsBlocksNew.Inc()
-		defer metricsBlocksEnd.Inc()
+		metricsBlocksNew.Inc(1)
+		defer metricsBlocksEnd.Inc(1)
 
 		var hashes []common.Hash
 		for {
@@ -197,7 +197,7 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 				return
 			}
 
-			metricsBlocksReceived.Add(float64(len(hashes)))
+			metricsBlocksReceived.Inc(int64(len(hashes)))
 			for _, hash := range hashes {
 				block, err := api.sys.backend.BlockByHash(ctx, hash)
 				if err != nil {
@@ -214,11 +214,11 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 
 				trace, err := traceBlock(block, chainConfig, api.sys.chain, tracerOpts)
 				if err != nil {
-					metricsBlocksTraceFailed.Inc()
+					metricsBlocksTraceFailed.Inc(1)
 					log.Error("block_stream: failed to trace block", "err", err, "block", block.Number())
 					continue
 				}
-				metricsBlocksTraceSuccess.Inc()
+				metricsBlocksTraceSuccess.Inc(1)
 				marshalBlock["trace"] = trace
 
 				marshalReceipts := make(map[common.Hash]map[string]interface{})
@@ -256,7 +256,7 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 					return
 				}
 				log.Info("block_stream: sent block", "hash", hash, "number", block.Number(), "sub_id", rpcSub.ID)
-				metricsBlocksSent.Inc()
+				metricsBlocksSent.Inc(1)
 			}
 		}
 	}()
@@ -308,7 +308,7 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 		results   = make([]*blocknative.Trace, len(txs))
 	)
 
-	timer := prometheus.NewTimer(metricsTraceBlockTimer.With(nil))
+	startTime := time.Now()
 	for i, tx := range txs {
 		msg, err := core.TransactionToMessage(tx, signer, block.BaseFee())
 		if err != nil {
@@ -326,7 +326,7 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 		}
 		statedb.Finalise(is158)
 	}
-	timer.ObserveDuration()
+	metricsTraceBlockTimer.Update(time.Since(startTime).Milliseconds())
 
 	return results, nil
 }
