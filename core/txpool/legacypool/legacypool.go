@@ -210,7 +210,6 @@ type LegacyPool struct {
 	txFeed      event.Feed
 	dropTxFeed   event.Feed
 	rejectTxFeed event.Feed
-	scope       event.SubscriptionScope
 	signer      types.Signer
 	mu          sync.RWMutex
 
@@ -410,9 +409,6 @@ func (pool *LegacyPool) loop() {
 
 // Close terminates the transaction pool.
 func (pool *LegacyPool) Close() error {
-	// Unsubscribe all subscriptions registered from txpool
-	pool.scope.Close()
-
 	// Terminate the pool reorger and return
 	close(pool.reorgShutdownCh)
 	pool.wg.Wait()
@@ -431,22 +427,26 @@ func (pool *LegacyPool) Reset(oldHead, newHead *types.Header) {
 	<-wait
 }
 
-// SubscribeTransactions registers a subscription of NewTxsEvent and
-// starts sending event to the given channel.
-func (pool *LegacyPool) SubscribeTransactions(ch chan<- core.NewTxsEvent) event.Subscription {
-	return pool.scope.Track(pool.txFeed.Subscribe(ch))
+// SubscribeTransactions registers a subscription for new transaction events,
+// supporting feeding only newly seen or also resurrected transactions.
+func (pool *LegacyPool) SubscribeTransactions(ch chan<- core.NewTxsEvent, reorgs bool) event.Subscription {
+	// The legacy pool has a very messed up internal shuffling, so it's kind of
+	// hard to separate newly discovered transaction from resurrected ones. This
+	// is because the new txs are added to the queue, resurrected ones too and
+	// reorgs run lazily, so separating the two would need a marker.
+	return pool.txFeed.Subscribe(ch)
 }
 
 // SubscribeDropTxsEvent registers a subscription of core.DropTxsEvent and
 // starts sending event to the given channel.
 func (pool *LegacyPool) SubscribeDropTxsEvent(ch chan<- core.DropTxsEvent) event.Subscription {
-	return pool.scope.Track(pool.dropTxFeed.Subscribe(ch))
+	return pool.dropTxFeed.Subscribe(ch)
 }
 
 // SubscribeRejectedTxEvent registers a subscription of core.RejectedTxEvent and
 // starts sending event to the given channel.
 func (pool *LegacyPool) SubscribeRejectedTxEvent(ch chan<- core.RejectedTxEvent) event.Subscription {
-	return pool.scope.Track(pool.rejectTxFeed.Subscribe(ch))
+	return pool.rejectTxFeed.Subscribe(ch)
 }
 
 
@@ -575,6 +575,8 @@ func (pool *LegacyPool) Pending(enforceTips bool) map[common.Address][]*txpool.L
 					Time:      txs[i].Time(),
 					GasFeeCap: txs[i].GasFeeCap(),
 					GasTipCap: txs[i].GasTipCap(),
+					Gas:       txs[i].Gas(),
+					BlobGas:   txs[i].BlobGas(),
 				}
 			}
 			pending[addr] = lazies
