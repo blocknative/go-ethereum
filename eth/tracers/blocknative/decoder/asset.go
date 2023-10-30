@@ -2,9 +2,10 @@ package decoder
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
-	"math/big"
 )
 
 var (
