@@ -70,8 +70,11 @@ func decodeERC721Metadata(evmCall evmCallFn, addr common.Address, tokenID *big.I
 	if metadata.Symbol, err = evmCallMethodSymbol(evmCall, addr); err != nil {
 		log.Trace("failed to decode ERC721 symbol", "err", err)
 	}
-	if metadata.URI, err = evmCallMethodTokenURI(evmCall, addr, tokenID); err != nil {
-		log.Trace("failed to decode ERC721 tokenURI", "err", err)
+
+	if tokenID != nil {
+		if metadata.URI, err = decodeMetadataTokenURI(evmCall, addr, tokenID); err != nil {
+			log.Trace("failed to decode ERC721 tokenURI", "err", err)
+		}
 	}
 
 	return metadata
@@ -82,8 +85,10 @@ func decodeERC1155Metadata(evmCall evmCallFn, addr common.Address, tokenID *big.
 	var err error
 	metadata := AssetMetadata{Type: AssetTypeERC1155}
 
-	if metadata.URI, err = evmCallMethodURI(evmCall, addr, tokenID); err != nil {
-		log.Trace("failed to decode ERC1155 URI", "err", err)
+	if tokenID != nil {
+		if metadata.URI, err = decodeMetadataURI(evmCall, addr, tokenID); err != nil {
+			log.Trace("failed to decode ERC1155 URI", "err", err)
+		}
 	}
 
 	return metadata
