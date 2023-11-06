@@ -62,6 +62,14 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 		metricsPendingTxsNew.Inc()
 		defer metricsPendingTxsEnd.Inc()
 
+		// Recover from any panics. Should be the last deferred call so it runs
+		// first.
+		defer func() {
+			if r := recover(); r != nil {
+				log.Error("pending_txs_stream panic:", r)
+			}
+		}()
+
 		for {
 			select {
 			case txs := <-txs:
@@ -184,6 +192,14 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 
 		metricsBlocksNew.Inc(1)
 		defer metricsBlocksEnd.Inc(1)
+
+		// Recover from any panics. Should be the last deferred call so it runs
+		// first.
+		defer func() {
+			if r := recover(); r != nil {
+				log.Error("block_stream panic:", r)
+			}
+		}()
 
 		var hashes []common.Hash
 		for {
