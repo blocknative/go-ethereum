@@ -328,6 +328,14 @@ func (p *TxPool) SubscribeTransactions(ch chan<- core.NewTxsEvent, reorgs bool) 
 	return p.subs.Track(event.JoinSubscriptions(subs...))
 }
 
+func (p *TxPool) SubscribeFutureTransactions(ch chan<- core.NewFutureTxsEvent) event.Subscription {
+	subs := make([]event.Subscription, len(p.subpools))
+	for i, subpool := range p.subpools {
+		subs[i] = subpool.SubscribeFutureTransactions(ch)
+	}
+	return p.subs.Track(event.JoinSubscriptions(subs...))
+}
+
 // SubscribeDropTxsEvent registers a subscription of core.DropTxsEvent and
 // starts sending event to the given channel.
 func (p *TxPool) SubscribeDropTxsEvent(ch chan<- core.DropTxsEvent) event.Subscription {

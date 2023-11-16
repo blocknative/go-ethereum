@@ -208,6 +208,7 @@ type LegacyPool struct {
 	chain        BlockChain
 	gasTip       atomic.Pointer[big.Int]
 	txFeed       event.Feed
+	futureTxFeed event.Feed
 	dropTxFeed   event.Feed
 	rejectTxFeed event.Feed
 	scope        event.SubscriptionScope
@@ -436,6 +437,12 @@ func (pool *LegacyPool) SubscribeTransactions(ch chan<- core.NewTxsEvent, reorgs
 	// is because the new txs are added to the queue, resurrected ones too and
 	// reorgs run lazily, so separating the two would need a marker.
 	return pool.txFeed.Subscribe(ch)
+}
+
+// SubscribeFutureTransactions registers a subscription for new transaction queue
+// events.
+func (pool *LegacyPool) SubscribeFutureTransactions(ch chan<- core.NewFutureTxsEvent) event.Subscription {
+	return pool.futureTxFeed.Subscribe(ch)
 }
 
 // SubscribeDropTxsEvent registers a subscription of core.DropTxsEvent and
@@ -809,6 +816,7 @@ func (pool *LegacyPool) add(tx *types.Transaction, local bool) (replaced bool, e
 		pool.priced.Put(tx, isLocal)
 		pool.journalTx(from, tx)
 		pool.queueTxEvent(tx)
+		pool.futureTxFeed.Send(core.NewFutureTxsEvent{Txs: []*types.Transaction{tx}})
 		log.Trace("Pooled new executable transaction", "hash", hash, "from", from, "to", tx.To())
 
 		// Successful promotion, bump the heartbeat
@@ -820,6 +828,7 @@ func (pool *LegacyPool) add(tx *types.Transaction, local bool) (replaced bool, e
 	if err != nil {
 		return false, err
 	}
+	pool.futureTxFeed.Send(core.NewFutureTxsEvent{Txs: []*types.Transaction{tx}})
 	// Mark local addresses and journal local transactions
 	if local && !pool.locals.contains(from) {
 		log.Info("Setting new local account", "address", from)

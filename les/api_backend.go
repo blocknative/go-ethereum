@@ -235,6 +235,10 @@ func (b *LesApiBackend) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.S
 	return b.eth.txPool.SubscribeNewTxsEvent(ch)
 }
 
+func (b *LesApiBackend) SubscribeNewFutureTxsEvent(ch chan<- core.NewFutureTxsEvent) event.Subscription {
+	return nil
+}
+
 func (b *LesApiBackend) SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription {
 	return b.eth.blockchain.SubscribeChainEvent(ch)
 }

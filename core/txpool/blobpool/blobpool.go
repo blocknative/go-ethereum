@@ -1504,6 +1504,11 @@ func (p *BlobPool) SubscribeTransactions(ch chan<- core.NewTxsEvent, reorgs bool
 	}
 }
 
+func (p *BlobPool) SubscribeFutureTransactions(ch chan<- core.NewFutureTxsEvent) event.Subscription {
+	f := &event.Feed{}
+	return f.Subscribe(ch)
+}
+
 // Nonce returns the next nonce of an account, with all transactions executable
 // by the pool already applied on top.
 func (p *BlobPool) Nonce(addr common.Address) uint64 {
