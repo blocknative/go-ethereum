@@ -24,6 +24,8 @@ import (
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.
 type NewTxsEvent struct{ Txs []*types.Transaction }
 
+type NewFutureTxsEvent NewTxsEvent
+
 // DropTxsEvent is posted when a batch of transactions are removed from the transaction pool
 type DropTxsEvent struct{
 	Txs []*types.Transaction
