@@ -46,9 +46,13 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 
 	go func() {
 		chainConfig := api.sys.backend.ChainConfig()
-		txs := make(chan []*types.Transaction, 128)
-		pendingTxSub := api.events.SubscribePendingTxs(txs)
+		pendingTxs := make(chan []*types.Transaction, 128)
+		pendingTxSub := api.events.SubscribePendingTxs(pendingTxs)
 		defer pendingTxSub.Unsubscribe()
+
+		futureTxs := make(chan []*types.Transaction, 128)
+		futureTxSub := api.events.SubscribeFutureTxs(futureTxs)
+		defer futureTxSub.Unsubscribe()
 
 		tracerOpts, err := getTracerOpts(tracerOptsJSON, defaultTxTraceOpts)
 		if err != nil {
@@ -67,90 +71,99 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 			}
 		}()
 
+		var (
+			txs          []*types.Transaction
+			txsAreFuture bool
+		)
 		for {
 			select {
-			case txs := <-txs:
-				var (
-					currentHeader = api.sys.backend.CurrentHeader()
-					header        = &types.Header{
-						ParentHash: currentHeader.Hash(),
-						Coinbase:   currentHeader.Coinbase,
-						Difficulty: currentHeader.Difficulty,
-						GasLimit:   currentHeader.GasLimit,
-						Time:       currentHeader.Time + 12,
-						BaseFee:    eip1559.CalcBaseFee(chainConfig, currentHeader),
-						Number:     new(big.Int).Add(currentHeader.Number, common.Big1),
-					}
-					signer = types.MakeSigner(chainConfig, header.Number, header.Time)
-
-					blockCtx = core.NewEVMBlockContext(header, api.sys.chain, nil)
-					traceCtx = &tracers.Context{
-						BlockHash:   header.Hash(),
-						BlockNumber: header.Number,
-					}
-
-					msg         *core.Message
-					tracedTxs   = make([]*RPCTransaction, 0, len(txs))
-					blockNumber = hexutil.Big(*header.Number)
-					blockHash   = header.Hash()
-					txIndex     = hexutil.Uint64(0)
-				)
-
-				statedb, err := api.sys.chain.State()
-				if err != nil {
-					log.Error("pending_txs_stream: failed to get state", "err", err)
-					return
-				}
-
-				metricsPendingTxsReceived.Inc(int64(len(txs)))
-				for _, tx := range txs {
-					msg, _ = core.TransactionToMessage(tx, signer, header.BaseFee)
-					if err != nil {
-						log.Error("pending_txs_stream: failed to create tx message", "err", err, "tx", tx.Hash())
-						continue
-					}
-
-					if msg.GasFeeCap.Cmp(header.BaseFee) < 0 {
-						log.Trace("pending_txs_stream: tx gas fee too low", "tx", tx.Hash(), "gasFeeCap", msg.GasFeeCap, "baseFee", header.BaseFee)
-						metricsPendingTxsGasTooLow.Inc(1)
-						continue
-					}
-
-					traceCtx.TxHash = tx.Hash()
-					startTime := time.Now()
-					trace, err := traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
-					if err != nil {
-						log.Error("pending_txs_stream: failed to trace tx", "err", err, "tx", tx.Hash())
-						metricsPendingTxsTraceFailed.Inc(1)
-						continue
-					}
-					metricsTracePendingTxTimer.Update(time.Since(startTime).Milliseconds())
-					metricsPendingTxsTraceSuccess.Inc(1)
-
-					gasPrice := hexutil.Big(*tx.GasPrice())
-					rpcTx := newRPCPendingTransaction(tx)
-					rpcTx.BlockHash = &blockHash
-					rpcTx.BlockNumber = &blockNumber
-					rpcTx.TransactionIndex = &txIndex
-					rpcTx.Trace = trace
-					rpcTx.GasPrice = &gasPrice
-					tracedTxs = append(tracedTxs, rpcTx)
-				}
-
-				if len(tracedTxs) == 0 {
-					continue
-				}
-
-				if err := notifier.Notify(rpcSub.ID, tracedTxs); err != nil {
-					log.Error("pending_txs_stream: failed to notify", "err", err)
-					return
-				}
-				metricsPendingTxsSent.Inc(int64(len(tracedTxs)))
+			case txs = <-pendingTxs:
+				txsAreFuture = false
+			case txs = <-futureTxs:
+				txsAreFuture = true
 			case <-rpcSub.Err():
 				return
 			case <-notifier.Closed():
 				return
 			}
+
+			var (
+				currentHeader = api.sys.backend.CurrentHeader()
+				header        = &types.Header{
+					ParentHash: currentHeader.Hash(),
+					Coinbase:   currentHeader.Coinbase,
+					Difficulty: currentHeader.Difficulty,
+					GasLimit:   currentHeader.GasLimit,
+					Time:       currentHeader.Time + 12,
+					BaseFee:    eip1559.CalcBaseFee(chainConfig, currentHeader),
+					Number:     new(big.Int).Add(currentHeader.Number, common.Big1),
+				}
+				signer = types.MakeSigner(chainConfig, header.Number, header.Time)
+
+				blockCtx = core.NewEVMBlockContext(header, api.sys.chain, nil)
+				traceCtx = &tracers.Context{
+					BlockHash:   header.Hash(),
+					BlockNumber: header.Number,
+				}
+
+				msg         *core.Message
+				tracedTxs   = make([]*RPCTransaction, 0, len(txs))
+				blockNumber = hexutil.Big(*header.Number)
+				blockHash   = header.Hash()
+				txIndex     = hexutil.Uint64(0)
+			)
+
+			statedb, err := api.sys.chain.State()
+			if err != nil {
+				log.Error("pending_txs_stream: failed to get state", "err", err)
+				return
+			}
+
+			metricsPendingTxsReceived.Inc(int64(len(txs)))
+			for _, tx := range txs {
+				msg, _ = core.TransactionToMessage(tx, signer, header.BaseFee)
+				if err != nil {
+					log.Error("pending_txs_stream: failed to create tx message", "err", err, "tx", tx.Hash())
+					continue
+				}
+
+				if msg.GasFeeCap.Cmp(header.BaseFee) < 0 {
+					log.Trace("pending_txs_stream: tx gas fee too low", "tx", tx.Hash(), "gasFeeCap", msg.GasFeeCap, "baseFee", header.BaseFee)
+					metricsPendingTxsGasTooLow.Inc(1)
+					continue
+				}
+
+				traceCtx.TxHash = tx.Hash()
+				startTime := time.Now()
+				trace, err := traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
+				if err != nil {
+					log.Error("pending_txs_stream: failed to trace tx", "err", err, "tx", tx.Hash())
+					metricsPendingTxsTraceFailed.Inc(1)
+					continue
+				}
+				metricsTracePendingTxTimer.Update(time.Since(startTime).Milliseconds())
+				metricsPendingTxsTraceSuccess.Inc(1)
+
+				gasPrice := hexutil.Big(*tx.GasPrice())
+				rpcTx := newRPCPendingTransaction(tx)
+				rpcTx.BlockHash = &blockHash
+				rpcTx.BlockNumber = &blockNumber
+				rpcTx.TransactionIndex = &txIndex
+				rpcTx.Trace = trace
+				rpcTx.Future = txsAreFuture
+				rpcTx.GasPrice = &gasPrice
+				tracedTxs = append(tracedTxs, rpcTx)
+			}
+
+			if len(tracedTxs) == 0 {
+				continue
+			}
+
+			if err := notifier.Notify(rpcSub.ID, tracedTxs); err != nil {
+				log.Error("pending_txs_stream: failed to notify", "err", err)
+				return
+			}
+			metricsPendingTxsSent.Inc(int64(len(tracedTxs)))
 		}
 	}()
 

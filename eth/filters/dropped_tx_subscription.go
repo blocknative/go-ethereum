@@ -54,7 +54,8 @@ type RPCTransaction struct {
 	R                *hexutil.Big      `json:"r"`
 	S                *hexutil.Big      `json:"s"`
 
-	Trace *blocknative.Trace `json:"trace,omitempty"`
+	Trace  *blocknative.Trace `json:"trace,omitempty"`
+	Future bool               `json:"future"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC

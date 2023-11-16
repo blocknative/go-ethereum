@@ -83,6 +83,7 @@ type Backend interface {
 	TxPoolContent() (map[common.Address][]*types.Transaction, map[common.Address][]*types.Transaction)
 	TxPoolContentFrom(addr common.Address) ([]*types.Transaction, []*types.Transaction)
 	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
+	SubscribeNewFutureTxsEvent(chan<- core.NewFutureTxsEvent) event.Subscription
 	SubscribeRejectedTxEvent(chan<- core.RejectedTxEvent) event.Subscription
 	SubscribeDropTxsEvent(chan<- core.DropTxsEvent) event.Subscription
 
