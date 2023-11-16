@@ -208,6 +208,7 @@ type LegacyPool struct {
 	chain        BlockChain
 	gasTip       atomic.Pointer[big.Int]
 	txFeed       event.Feed
+	futureTxFeed event.Feed
 	dropTxFeed   event.Feed
 	rejectTxFeed event.Feed
 	scope        event.SubscriptionScope
@@ -436,6 +437,12 @@ func (pool *LegacyPool) SubscribeTransactions(ch chan<- core.NewTxsEvent, reorgs
 	// is because the new txs are added to the queue, resurrected ones too and
 	// reorgs run lazily, so separating the two would need a marker.
 	return pool.txFeed.Subscribe(ch)
+}
+
+// SubscribeFutureTransactions registers a subscription for new transaction queue
+// events.
+func (pool *LegacyPool) SubscribeFutureTransactions(ch chan<- core.NewFutureTxsEvent) event.Subscription {
+	return pool.futureTxFeed.Subscribe(ch)
 }
 
 // SubscribeDropTxsEvent registers a subscription of core.DropTxsEvent and
@@ -895,6 +902,7 @@ func (pool *LegacyPool) enqueueTx(hash common.Hash, tx *types.Transaction, local
 	if addAll {
 		pool.all.Add(tx, local)
 		pool.priced.Put(tx, local)
+		pool.futureTxFeed.Send(core.NewFutureTxsEvent{Txs: []*types.Transaction{tx}})
 	}
 	// If we never record the heartbeat, do it right now.
 	if _, exist := pool.beats[from]; !exist {
