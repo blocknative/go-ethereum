@@ -31,18 +31,27 @@ func New(caches *Caches, evm evm) *Decoder {
 // DecodeCallFrame decodes the given call frame into its method and arguments.
 // If the call frame is determined to represent one or more Asset transfers we
 // add those too.
-func (d *Decoder) DecodeCallFrameStart(sender common.Address, receiver common.Address, value *big.Int, input []byte) (*CallFrame, error) {
+func (d *Decoder) DecodeCallFrame(sender common.Address, receiver common.Address, value *big.Int, input []byte) (*CallFrame, error) {
+	// Always account for any eth transferred.
+	d.balances.captureNativeTransfer(sender, receiver, value)
+
+	// Decode the contract. As long as we can decode a contract we'll return
+	// a CallFrame object.
 	contract, err := d.DecodeContract(receiver)
 	if err != nil {
 		return nil, err
 	}
+	cf := &CallFrame{Contract: contract}
 
+	// Try to decode the call data. If we fail we'll still return the CallFrame
+	// we have.
 	callData, err := decodeCallData(sender, contract, input)
 	if err != nil {
-		return nil, err
+		return cf, err
 	}
+	cf.CallData = callData
 
-	// Add decoded Assets to any transfers.
+	// Decode and capture any calldata transfers.
 	for _, transfer := range callData.Transfers {
 		// Always add the assetID.
 		assetID := AssetID{Address: receiver, TokenID: transfer.TokenID}
@@ -56,32 +65,9 @@ func (d *Decoder) DecodeCallFrameStart(sender common.Address, receiver common.Ad
 		}
 		transfer.Asset.AssetMetadata = assetMetadata
 
-		// If the transfer is taxable, get balances for the sender, receiver, and contract.
-		switch contract.Type {
-		case ContractTypeERC20:
-			if transfer.balanceBeforeTo, err = evmCallMethodBalanceOf(d.evm.CallCode, receiver, transfer.To); err != nil {
-				log.Trace("failed to get balance before", "err", err)
-				continue
-			}
-			if transfer.balanceBeforeContract, err = evmCallMethodBalanceOf(d.evm.CallCode, receiver, receiver); err != nil {
-				log.Trace("failed to get balance before", "err", err)
-				continue
-			}
-		case ContractTypeERC1155:
-			if transfer.balanceBeforeTo, err = evmCallMethodBalanceOf2(d.evm.CallCode, receiver, transfer.To, transfer.TokenID); err != nil {
-				log.Trace("failed to get balance before", "err", err)
-				return nil, err
-			}
-			if transfer.balanceBeforeContract, err = evmCallMethodBalanceOf2(d.evm.CallCode, receiver, receiver, transfer.TokenID); err != nil {
-				log.Trace("failed to get balance before", "err", err)
-				return nil, err
-			}
-		}
+		// Account for the balance changes.
+		d.balances.balanceChanges.addAssetTransfer(transfer.Asset, transfer.From, transfer.To, transfer.Value)
 	}
-
-	cf := &CallFrame{Contract: contract, CallData: callData}
-
-	d.balances.captureCallFrameStart(sender, receiver, NewAmount(value), cf)
 
 	return cf, nil
 }
