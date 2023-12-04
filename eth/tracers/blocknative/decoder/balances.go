@@ -83,6 +83,12 @@ func (changeMap balanceChangeByOwnerByAsset) addAssetTransfer(asset *Asset, from
 
 // accountAssetChange adds a single side change of an asset transfer to the balanceChangeByOwnerByAsset map.
 func (changeMap balanceChangeByOwnerByAsset) accountAssetChange(owner common.Address, counterparty common.Address, asset *Asset, delta *Amount) {
+	// We can get Transfer events that actually sent 0. We show these in the
+	// decoding and logs but don't add them to the balance changes.
+	if delta.ToInt().Sign() == 0 {
+		return
+	}
+
 	// If this is the first time we've seen this owner then create a new
 	// balanceByAsset map.
 	if _, ok := changeMap[owner]; !ok {
