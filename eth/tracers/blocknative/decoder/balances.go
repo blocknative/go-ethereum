@@ -18,22 +18,17 @@ func newBalances() *balances {
 	}
 }
 
-// captureCall decodes potential balance change data out of calldata.
-func (bt *balances) captureCall(sender common.Address, receiver common.Address, value *Amount, decoded *CallFrame) {
-	// Add the native transfer.
-	if value != nil && value.ToInt().Sign() > 0 {
-		bt.balanceChanges.addAssetTransfer(EthAsset, sender, receiver, value)
+// captureNativeTransfer handles native eth value transfers between call-frames
+// and for the top-level call.
+func (bt *balances) captureNativeTransfer(from, to common.Address, value *big.Int) {
+	if value != nil && value.Sign() > 0 {
+		bt.balanceChanges.addAssetTransfer(EthAsset, from, to, NewAmount(value))
 	}
+}
 
-	if decoded == nil {
-		return
-	}
-
-	// Add any decoded transfers.
-	for _, transfer := range decoded.Transfers {
-		// Add the decoded transfer now.
-		bt.balanceChanges.addAssetTransfer(transfer.Asset, transfer.From, transfer.To, transfer.Value)
-	}
+// captureDecodedTransfer decodes potential balance change data out of calldata.
+func (bt *balances) captureDecodedTransfer(transfer *Transfer) {
+	bt.balanceChanges.addAssetTransfer(transfer.Asset, transfer.From, transfer.To, transfer.Value)
 }
 
 // captureGas adds the gas payments to the balance changes.

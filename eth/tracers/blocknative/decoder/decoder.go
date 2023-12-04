@@ -2,9 +2,10 @@ package decoder
 
 import (
 	"errors"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
-	"math/big"
 )
 
 var (
@@ -31,17 +32,26 @@ func New(caches *Caches, evm evm) *Decoder {
 // If the call frame is determined to represent one or more Asset transfers we
 // add those too.
 func (d *Decoder) DecodeCallFrame(sender common.Address, receiver common.Address, value *big.Int, input []byte) (*CallFrame, error) {
+	// Always account for any eth transferred.
+	d.balances.captureNativeTransfer(sender, receiver, value)
+
+	// Decode the contract. As long as we can decode a contract we'll return
+	// a CallFrame object.
 	contract, err := d.DecodeContract(receiver)
 	if err != nil {
 		return nil, err
 	}
+	cf := &CallFrame{Contract: contract}
 
+	// Try to decode the call data. If we fail we'll still return the CallFrame
+	// we have.
 	callData, err := decodeCallData(sender, contract, input)
 	if err != nil {
-		return nil, err
+		return cf, err
 	}
+	cf.CallData = callData
 
-	// Add decoded Assets to any transfers.
+	// Decode and capture any calldata transfers.
 	for _, transfer := range callData.Transfers {
 		// Always add the assetID.
 		assetID := AssetID{Address: receiver, TokenID: transfer.TokenID}
@@ -54,11 +64,10 @@ func (d *Decoder) DecodeCallFrame(sender common.Address, receiver common.Address
 			continue
 		}
 		transfer.Asset.AssetMetadata = assetMetadata
+
+		// Account for the balance changes.
+		d.balances.balanceChanges.addAssetTransfer(transfer.Asset, transfer.From, transfer.To, transfer.Value)
 	}
-
-	cf := &CallFrame{Contract: contract, CallData: callData}
-
-	d.balances.captureCall(sender, receiver, NewAmount(value), cf)
 
 	return cf, nil
 }

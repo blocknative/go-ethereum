@@ -2855,6 +2855,30 @@
         "address": "0x6e715ab4f598eacf0016b9b35ef33e4141844ccc",
         "balanceChanges": [
           {
+            "delta": "-2",
+            "asset": {
+              "address": "0x0000000000000000000000000000000000000000",
+              "decimals": 18,
+              "name": "Ether",
+              "symbol": "ETH",
+              "type": "eth"
+            },
+            "breakdown": [
+              {
+                "amount": "-80000000000000000000",
+                "counterparty": "0xad3ecf23c0c8983b07163708be6d763b5f056193"
+              },
+              {
+                "amount": "39999999999999999999",
+                "counterparty": "0xad3ecf23c0c8983b07163708be6d763b5f056193"
+              },
+              {
+                "amount": "39999999999999999999",
+                "counterparty": "0xad3ecf23c0c8983b07163708be6d763b5f056193"
+              }
+            ]
+          },
+          {
             "delta": "0",
             "asset": {
               "address": "0x304a554a310c7e546dfe434669c62820b7d83490"
@@ -3019,6 +3043,35 @@
               {
                 "counterparty": "0x4fd27b205895e698fa350f7ea57cec8a21927fcd",
                 "amount": "1213898080632835664204172"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "address": "0xad3ecf23c0c8983b07163708be6d763b5f056193",
+        "balanceChanges": [
+          {
+            "delta": "2",
+            "asset": {
+              "address": "0x0000000000000000000000000000000000000000",
+              "type": "eth",
+              "name": "Ether",
+              "symbol": "ETH",
+              "decimals": 18
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x6e715ab4f598eacf0016b9b35ef33e4141844ccc",
+                "amount": "80000000000000000000"
+              },
+              {
+                "counterparty": "0x6e715ab4f598eacf0016b9b35ef33e4141844ccc",
+                "amount": "-39999999999999999999"
+              },
+              {
+                "counterparty": "0x6e715ab4f598eacf0016b9b35ef33e4141844ccc",
+                "amount": "-39999999999999999999"
               }
             ]
           }
