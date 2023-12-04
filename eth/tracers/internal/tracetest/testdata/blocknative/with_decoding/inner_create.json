@@ -796,6 +796,27 @@
     },
     "balanceChanges": [
       {
+        "address": "0xd3cda913deb6f67967b99d67acdfa1712c293601",
+        "balanceChanges": [
+          {
+            "delta": "50573232556637",
+            "asset": {
+              "address": "0x0000000000000000000000000000000000000000",
+              "type": "eth",
+              "name": "Ether",
+              "symbol": "ETH",
+              "decimals": 18
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x741467b251fca923d6229c4b439078b55dca233b",
+                "amount": "50573232556637"
+              }
+            ]
+          }
+        ]
+      },
+      {
         "address": "0x2a65aca4d5fc5b5c859090a6c34d164135398226",
         "balanceChanges": [
           {
@@ -820,7 +841,7 @@
         "address": "0x6c8f2a135f6ed072de4503bd7c4999a1a17f824b",
         "balanceChanges": [
           {
-            "delta": "3000000000000000000",
+            "delta": "0",
             "asset": {
               "address": "0x0000000000000000000000000000000000000000",
               "type": "eth",
@@ -832,6 +853,10 @@
               {
                 "counterparty": "0x7dd677b54fc954824a7bc49bd26cbdfa12c75adf",
                 "amount": "3000000000000000000"
+              },
+              {
+                "counterparty": "0x651913977e8140c323997fce5e03c19e0015eebf",
+                "amount": "-3000000000000000000"
               }
             ]
           }
@@ -841,7 +866,7 @@
         "address": "0x7dd677b54fc954824a7bc49bd26cbdfa12c75adf",
         "balanceChanges": [
           {
-            "delta": "-3000000000000000000",
+            "delta": "-62939549976892897",
             "asset": {
               "address": "0x0000000000000000000000000000000000000000",
               "type": "eth",
@@ -853,16 +878,20 @@
               {
                 "counterparty": "0x6c8f2a135f6ed072de4503bd7c4999a1a17f824b",
                 "amount": "-3000000000000000000"
+              },
+              {
+                "counterparty": "0x741467b251fca923d6229c4b439078b55dca233b",
+                "amount": "2937060450023107103"
               }
             ]
           }
         ]
       },
       {
-        "address": "0xb834e3edfc1a927bdcecb67a9d0eccbd752a5bb3",
+        "address": "0x651913977e8140c323997fce5e03c19e0015eebf",
         "balanceChanges": [
           {
-            "delta": "-65594100000000000",
+            "delta": "3000000000000000000",
             "asset": {
               "address": "0x0000000000000000000000000000000000000000",
               "type": "eth",
@@ -872,12 +901,66 @@
             },
             "breakdown": [
               {
+                "counterparty": "0x6c8f2a135f6ed072de4503bd7c4999a1a17f824b",
+                "amount": "3000000000000000000"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "address": "0xb834e3edfc1a927bdcecb67a9d0eccbd752a5bb3",
+        "balanceChanges": [
+          {
+            "delta": "7409523255663740",
+            "asset": {
+              "address": "0x0000000000000000000000000000000000000000",
+              "type": "eth",
+              "name": "Ether",
+              "symbol": "ETH",
+              "decimals": 18
+            },
+            "breakdown": [
+              {
+                "counterparty": "0x741467b251fca923d6229c4b439078b55dca233b",
+                "amount": "73003623255663740"
+              },
+              {
                 "counterparty": "0x0000000000000000000000000000000000000000",
                 "amount": "-21923752181760"
               },
               {
                 "counterparty": "0x2a65aca4d5fc5b5c859090a6c34d164135398226",
                 "amount": "-65572176247818240"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "address": "0x741467b251fca923d6229c4b439078b55dca233b",
+        "balanceChanges": [
+          {
+            "delta": "-3010114646511327480",
+            "asset": {
+              "address": "0x0000000000000000000000000000000000000000",
+              "type": "eth",
+              "name": "Ether",
+              "symbol": "ETH",
+              "decimals": 18
+            },
+            "breakdown": [
+              {
+                "counterparty": "0xb834e3edfc1a927bdcecb67a9d0eccbd752a5bb3",
+                "amount": "-73003623255663740"
+              },
+              {
+                "counterparty": "0xd3cda913deb6f67967b99d67acdfa1712c293601",
+                "amount": "-50573232556637"
+              },
+              {
+                "counterparty": "0x7dd677b54fc954824a7bc49bd26cbdfa12c75adf",
+                "amount": "-2937060450023107103"
               }
             ]
           }
