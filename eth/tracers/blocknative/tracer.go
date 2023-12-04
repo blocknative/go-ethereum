@@ -128,6 +128,11 @@ func (t *tracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
 		log.Error("failed to finalize call frame", "err", err)
 	}
 
+	// Add gas payments to balance changes iff the tx succeeded.
+	if err == nil && t.opts.Decode {
+		t.decoder.CaptureGas(t.evm.TxContext.Origin, t.evm.Context.Coinbase, gasUsed, t.evm.TxContext.GasPrice, t.evm.Context.BaseFee)
+	}
+
 	// If the user wants the logs, grab them from the state
 	if t.opts.Logs {
 		for _, stateLog := range t.evm.StateDB.Logs() {
@@ -137,11 +142,6 @@ func (t *tracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
 				Topics:  stateLog.Topics,
 			})
 		}
-	}
-
-	// Add gas payments to balance changes
-	if t.opts.Decode {
-		t.decoder.CaptureGas(t.evm.TxContext.Origin, t.evm.Context.Coinbase, gasUsed, t.evm.TxContext.GasPrice, t.evm.Context.BaseFee)
 	}
 
 	// Add total time duration for this trace request
