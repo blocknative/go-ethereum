@@ -109,12 +109,16 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 				blockNumber = hexutil.Big(*header.Number)
 				blockHash   = header.Hash()
 				txIndex     = hexutil.Uint64(0)
+
+				err     error
+				statedb *state.StateDB
 			)
 
-			statedb, err := api.sys.chain.State()
+			// If we fail to get the statedb we continue. We'll guard usage of
+			// it against nils later.
+			statedb, err = api.sys.chain.State()
 			if err != nil {
 				log.Error("pending_txs_stream: failed to get state", "err", err)
-				return
 			}
 
 			metricsPendingTxsReceived.Inc(int64(len(txs)))
@@ -128,6 +132,11 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 				rpcTx.Future = txsAreFuture
 				rpcTx.GasPrice = &gasPrice
 				tracedTxs = append(tracedTxs, rpcTx)
+
+				// If we failed to get a statedb earlier then skip tracing.g
+				if statedb == nil {
+					continue
+				}
 
 				msg, _ = core.TransactionToMessage(tx, signer, header.BaseFee)
 				if err != nil {
