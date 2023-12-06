@@ -121,6 +121,16 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 
 			metricsPendingTxsReceived.Inc(int64(len(txs)))
 			for _, tx := range txs {
+				// First add the tx to the list to return
+				gasPrice := hexutil.Big(*tx.GasPrice())
+				rpcTx := newRPCPendingTransaction(tx)
+				rpcTx.BlockHash = &blockHash
+				rpcTx.BlockNumber = &blockNumber
+				rpcTx.TransactionIndex = &txIndex
+				rpcTx.Future = txsAreFuture
+				rpcTx.GasPrice = &gasPrice
+				tracedTxs = append(tracedTxs, rpcTx)
+
 				msg, _ = core.TransactionToMessage(tx, signer, header.BaseFee)
 				if err != nil {
 					log.Error("pending_txs_stream: failed to create tx message", "err", err, "tx", tx.Hash())
@@ -144,15 +154,8 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 				metricsTracePendingTxTimer.Update(time.Since(startTime).Milliseconds())
 				metricsPendingTxsTraceSuccess.Inc(1)
 
-				gasPrice := hexutil.Big(*tx.GasPrice())
-				rpcTx := newRPCPendingTransaction(tx)
-				rpcTx.BlockHash = &blockHash
-				rpcTx.BlockNumber = &blockNumber
-				rpcTx.TransactionIndex = &txIndex
-				rpcTx.Trace = trace
-				rpcTx.Future = txsAreFuture
-				rpcTx.GasPrice = &gasPrice
-				tracedTxs = append(tracedTxs, rpcTx)
+				// Add the trace if we were able to generate it
+				tracedTxs[len(tracedTxs)-1].Trace = trace
 			}
 
 			if len(tracedTxs) == 0 {
