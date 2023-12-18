@@ -48,6 +48,10 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 		pendingTxSub := api.events.SubscribePendingTxs(pendingTxs)
 		defer pendingTxSub.Unsubscribe()
 
+		futureTxs := make(chan []*types.Transaction, 128)
+		futureTxSub := api.events.SubscribeFutureTxs(futureTxs)
+		defer futureTxSub.Unsubscribe()
+
 		tracerOpts, err := getTracerOpts(tracerOptsJSON, defaultTxTraceOpts)
 		if err != nil {
 			log.Error("pending_txs_stream: failed to parse tracer options", "err", err)
@@ -73,6 +77,8 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 			select {
 			case txs = <-pendingTxs:
 				txsAreFuture = false
+			case txs = <-futureTxs:
+				txsAreFuture = true
 			case <-rpcSub.Err():
 				return
 			case <-notifier.Closed():
