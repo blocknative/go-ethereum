@@ -104,13 +104,10 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					BlockNumber: header.Number,
 				}
 
-				msg         *core.Message
-				tracedTxs   = make([]*RPCTransaction, 0, len(txs))
 				blockNumber = hexutil.Big(*header.Number)
 				blockHash   = header.Hash()
 				txIndex     = hexutil.Uint64(0)
 
-				err     error
 				statedb *state.StateDB
 			)
 
@@ -123,7 +120,7 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 
 			metricsPendingTxsReceived.Inc(int64(len(txs)))
 			for _, tx := range txs {
-				// First add the tx to the list to return
+				// First build the base RPC tx.
 				gasPrice := hexutil.Big(*tx.GasPrice())
 				rpcTx := newRPCPendingTransaction(tx)
 				rpcTx.BlockHash = &blockHash
@@ -131,49 +128,38 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 				rpcTx.TransactionIndex = &txIndex
 				rpcTx.Future = txsAreFuture
 				rpcTx.GasPrice = &gasPrice
-				tracedTxs = append(tracedTxs, rpcTx)
 
-				// If we failed to get a statedb earlier then skip tracing.g
-				if statedb == nil {
-					continue
+				// If we have a statedb then attempt to trace the tx and add the result to the RPC
+				// tx, but don't fail if we can't.
+				if statedb != nil {
+					startTime := time.Now()
+					trace, err := tracePendingTx(tx, signer, header.BaseFee, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
+
+					switch err {
+
+					// If no error then add to our RPC tx.
+					case nil:
+						rpcTx.Trace = trace
+						metricsTracePendingTxTimer.Update(time.Since(startTime).Milliseconds())
+						metricsPendingTxsTraceSuccess.Inc(1)
+
+					// Silence some common, expected errors.
+					case core.ErrFeeCapTooLow, core.ErrNonceTooLow, core.ErrNonceTooHigh:
+
+					// Otherwise log the error and continue.
+					default:
+						log.Error("pending_txs_stream: failed to trace tx", "err", err, "tx", tx.Hash())
+						metricsPendingTxsTraceFailed.Inc(1)
+					}
 				}
 
-				msg, _ = core.TransactionToMessage(tx, signer, header.BaseFee)
-				if err != nil {
-					log.Error("pending_txs_stream: failed to create tx message", "err", err, "tx", tx.Hash())
-					continue
+				// Emit the tx.
+				if err := notifier.Notify(rpcSub.ID, rpcTx); err != nil {
+					log.Error("pending_txs_stream: failed to notify", "err", err, "tx", tx.Hash())
+					return
 				}
-
-				if msg.GasFeeCap.Cmp(header.BaseFee) < 0 {
-					log.Trace("pending_txs_stream: tx gas fee too low", "tx", tx.Hash(), "gasFeeCap", msg.GasFeeCap, "baseFee", header.BaseFee)
-					metricsPendingTxsGasTooLow.Inc(1)
-					continue
-				}
-
-				traceCtx.TxHash = tx.Hash()
-				startTime := time.Now()
-				trace, err := traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
-				if err != nil {
-					log.Error("pending_txs_stream: failed to trace tx", "err", err, "tx", tx.Hash())
-					metricsPendingTxsTraceFailed.Inc(1)
-					continue
-				}
-				metricsTracePendingTxTimer.Update(time.Since(startTime).Milliseconds())
-				metricsPendingTxsTraceSuccess.Inc(1)
-
-				// Add the trace if we were able to generate it
-				tracedTxs[len(tracedTxs)-1].Trace = trace
+				metricsPendingTxsSent.Inc(1)
 			}
-
-			if len(tracedTxs) == 0 {
-				continue
-			}
-
-			if err := notifier.Notify(rpcSub.ID, tracedTxs); err != nil {
-				log.Error("pending_txs_stream: failed to notify", "err", err)
-				return
-			}
-			metricsPendingTxsSent.Inc(int64(len(tracedTxs)))
 		}
 	}()
 
@@ -375,4 +361,23 @@ func getTracerOpts(optsJSON *[]byte, defaults blocknative.TracerOpts) (blocknati
 		}
 	}
 	return opts, nil
+}
+
+func tracePendingTx(tx *types.Transaction, signer types.Signer, baseFee *big.Int, traceCtx *tracers.Context, blockCtx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*blocknative.Trace, error) {
+	msg, err := core.TransactionToMessage(tx, signer, baseFee)
+	if err != nil {
+		return nil, err
+	}
+
+	if msg.GasFeeCap.Cmp(baseFee) < 0 {
+		return nil, core.ErrFeeCapTooLow
+	}
+
+	traceCtx.TxHash = tx.Hash()
+	trace, err := traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	return trace, nil
 }
