@@ -72,95 +72,6 @@ func (d *Decoder) DecodeCallFrame(sender common.Address, receiver common.Address
 	return cf, nil
 }
 
-func (d *Decoder) DecodeCallFrameEnd(cf *CallFrame) error {
-	if cf == nil || cf.Contract == nil || cf.CallData == nil {
-		return nil
-	}
-
-	// Check updated balances for taxable transfers and look for active taxes.
-	// If we find them, add them as new transfers.
-	transfers := cf.CallData.Transfers
-	for _, transfer := range transfers {
-		// First check if we set a balanceBeforeTo. If we didn't then we can't
-		// utilize this inference.
-		if transfer.balanceBeforeTo == nil {
-			continue
-		}
-
-		// Get the balance after the transfer. At this point balanceOf worked
-		// once so we don't expect it to fail. If it does then we report it as
-		// an error so we can inspect later, and then we continue to the next
-		// transfer.
-		var (
-			err            error
-			balanceAfterTo *big.Int
-		)
-		switch cf.Contract.Type {
-		case ContractTypeERC20:
-			if balanceAfterTo, err = evmCallMethodBalanceOf(d.evm.CallCode, cf.Contract.address, transfer.To); err != nil {
-				log.Error("failed to get balance after for receiver", "err", err)
-				continue
-			}
-		case ContractTypeERC1155:
-			if balanceAfterTo, err = evmCallMethodBalanceOf2(d.evm.CallCode, cf.Contract.address, transfer.To, transfer.TokenID); err != nil {
-				log.Error("failed to get balance after for receiver", "err", err)
-				continue
-			}
-		default:
-			continue
-		}
-
-		// If the increase in balance of the transfer recipient is less than we
-		// decoded it to be, then we know that the transfer was taxed.
-		//
-		// We don't know where the tax went but it will often go to the contract
-		// itself so we check the contract balance to see if that's the case.
-		decodedValue := transfer.Value.ToInt()
-		deltaTo := balanceAfterTo.Sub(balanceAfterTo, transfer.balanceBeforeTo)
-		if deltaTo.Cmp(decodedValue) < 0 {
-			// First, update the transfer value to the actual delta.
-			transfer.Value = NewAmount(deltaTo)
-
-			// Now let's see if the contract was the tax recipient.
-			balanceAfterContract, err := evmCallMethodBalanceOf(d.evm.CallCode, cf.Contract.address, cf.Contract.address)
-			if err != nil {
-				log.Error("failed to get balance after for contract", "err", err)
-				continue
-			}
-			deltaContract := balanceAfterContract.Sub(balanceAfterContract, transfer.balanceBeforeContract)
-			if deltaContract.Sign() == 1 {
-				// The contract balance increased so we know at least some of
-				// the tax went there. Add a tax transfer.
-				cf.Transfers = append(cf.Transfers, &Transfer{
-					Asset: transfer.Asset,
-					From:  transfer.From,
-
-					To:    cf.Contract.address,
-					Value: NewAmount(deltaContract),
-				})
-			}
-
-			// Check to see if there was a tax amount not accounted for by
-			// subtracting the known deltas from the decoded value.
-			unaccountedTax := new(big.Int).Add(deltaTo, deltaContract)
-			unaccountedTax.Sub(decodedValue, unaccountedTax)
-			if unaccountedTax.Sign() == 1 {
-				cf.Transfers = append(cf.Transfers, &Transfer{
-					Asset: transfer.Asset,
-					From:  transfer.From,
-
-					To:    common.Address{},
-					Value: NewAmount(unaccountedTax),
-				})
-			}
-		}
-	}
-
-	d.balances.captureCallFrameEnd(cf)
-
-	return nil
-}
-
 // DecodeContract decodes the contract at the given address.
 func (d *Decoder) DecodeContract(addr common.Address) (*Contract, error) {
 	// Check the cache for an existing entry.
@@ -182,8 +93,10 @@ func (d *Decoder) DecodeContract(addr common.Address) (*Contract, error) {
 	}
 
 	// We have an unknown contract; decode itm, add it to the cache, and return it.
-	contract = &Contract{address: addr}
-	decodeContract(contract, bytecode)
+	contract, err := decodeContract(bytecode)
+	if err != nil {
+		return nil, err
+	}
 	d.caches.contracts.Add(addr, contract)
 	return contract, nil
 }
@@ -217,11 +130,14 @@ func (d *Decoder) decodeAsset(contract *Contract, assetID AssetID) (*AssetMetada
 	}
 
 	// Cache miss; decode and add to the cache.
+
 	asset, err := DecodeAsset(d.evm.CallCode, contract, assetID)
 	if err != nil {
 		return nil, err
 	}
+
 	d.caches.assets.Add(assetID, asset)
+
 	return asset, nil
 }
 

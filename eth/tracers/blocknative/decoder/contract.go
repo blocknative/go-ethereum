@@ -2,14 +2,18 @@ package decoder
 
 import (
 	"bytes"
-
 	"golang.org/x/exp/slices"
 )
 
 // decodeContract decodes the contract bytecode and determines all interfaces
-func decodeContract(c *Contract, bytecode ByteCode) {
-	c.interfaces = bytecode.DecodeInterfaces()
-	c.Type = contractTypeForInterfaces(c.interfaces)
+func decodeContract(bytecode ByteCode) (*Contract, error) {
+
+	interfaces := bytecode.DecodeInterfaces()
+
+	return &Contract{
+		interfaces: interfaces,
+		Type:       contractTypeForInterfaces(interfaces),
+	}, nil
 }
 
 // IsERC20 returns true iff the contract interfaces contains ERC-20.

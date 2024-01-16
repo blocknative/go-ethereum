@@ -19,7 +19,6 @@ package catalyst
 import (
 	"crypto/rand"
 	"errors"
-	"github.com/ethereum/go-ethereum/core"
 	"math/big"
 	"sync"
 	"time"
@@ -198,32 +197,6 @@ func (c *SimulatedBeacon) sealBlock(withdrawals []*types.Withdrawal, timestamp u
 	}
 	c.lastBlockTime = payload.Timestamp
 	return nil
-}
-
-// loopOnDemand runs the block production loop for "on-demand" configuration (period = 0)
-func (c *SimulatedBeacon) loopOnDemand() {
-	var (
-		newTxs = make(chan core.NewTxsEvent)
-		sub    = c.eth.TxPool().SubscribeTransactions(newTxs, true)
-	)
-	defer sub.Unsubscribe()
-
-	for {
-		select {
-		case <-c.shutdownCh:
-			return
-		case w := <-c.withdrawals.pending:
-			withdrawals := append(c.withdrawals.gatherPending(9), w)
-			if err := c.sealBlock(withdrawals); err != nil {
-				log.Warn("Error performing sealing work", "err", err)
-			}
-		case <-newTxs:
-			withdrawals := c.withdrawals.gatherPending(10)
-			if err := c.sealBlock(withdrawals); err != nil {
-				log.Warn("Error performing sealing work", "err", err)
-			}
-		}
-	}
 }
 
 // loop runs the block production loop for non-zero period configuration

@@ -315,6 +315,26 @@
       },
       {
         "type": "CALL",
+        "from": "0x92f1dbea03ce08225e31e95cc926ddbe0198e6f2",
+        "to": "0x0000000000000000000000000000000000000004",
+        "value": "0x0",
+        "gas": "0xf",
+        "gasUsed": "0xf",
+        "input": "0x",
+        "output": "0x"
+      },
+      {
+        "type": "CALL",
+        "from": "0x92f1dbea03ce08225e31e95cc926ddbe0198e6f2",
+        "to": "0x0000000000000000000000000000000000000004",
+        "value": "0x0",
+        "gas": "0xf",
+        "gasUsed": "0xf",
+        "input": "0x",
+        "output": "0x"
+      },
+      {
+        "type": "CALL",
         "from": "0x6ca7f214ab2ddbb9a8e1a1e2c8550e3164e9dba5",
         "to": "0x92f1dbea03ce08225e31e95cc926ddbe0198e6f2",
         "value": "0x0",
@@ -467,6 +487,26 @@
       },
       {
         "type": "CALL",
+        "from": "0xf4cbd7e037b80c2e67b80512d482685f15b1fb28",
+        "to": "0x0000000000000000000000000000000000000004",
+        "value": "0x0",
+        "gas": "0xf",
+        "gasUsed": "0xf",
+        "input": "0x",
+        "output": "0x"
+      },
+      {
+        "type": "CALL",
+        "from": "0xf4cbd7e037b80c2e67b80512d482685f15b1fb28",
+        "to": "0x0000000000000000000000000000000000000004",
+        "value": "0x0",
+        "gas": "0xf",
+        "gasUsed": "0xf",
+        "input": "0x",
+        "output": "0x"
+      },
+      {
+        "type": "CALL",
         "from": "0x6ca7f214ab2ddbb9a8e1a1e2c8550e3164e9dba5",
         "to": "0xf4cbd7e037b80c2e67b80512d482685f15b1fb28",
         "value": "0x0",
@@ -516,12 +556,11 @@
     },
     "blockContext": {
       "number": 2340153,
+      "stateRoot": "0xfd6b6b8e67375609b44379ad18b293b1d6369d8e93e17f8240600a3f990caeae",
       "baseFee": 16711680,
       "time": 1475034716,
-      "gasLimit": 1500062,
       "coinbase": "0x61c808d82a3ac53231750dadc13c777b59310bd9",
-      "stateRoot": "0xfd6b6b8e67375609b44379ad18b293b1d6369d8e93e17f8240600a3f990caeae",
-      "random": "0x0000000000000000000000000000000000000000000000000000000000000000"
+      "gasLimit": 1500062
     },
     "balanceChanges": [
       {

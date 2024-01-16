@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/tests"
 )
 
@@ -43,7 +42,6 @@ type blocknativeTracerTest struct {
 }
 
 func TestBlocknativeTracer(t *testing.T) {
-	log.Root().SetHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
 	testBlocknativeTracer("blocknative", t)
 	testBlocknativeTracer("blocknative/with_decoding", t)
 }
