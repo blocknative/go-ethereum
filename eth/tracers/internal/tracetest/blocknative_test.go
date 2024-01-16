@@ -20,7 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder"
-	"github.com/ethereum/go-ethereum/log"
+	// "github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/tests"
 )
 
@@ -172,16 +172,16 @@ func benchmarkBlocknativeTracer(b *testing.B, decode bool, dirPaths ...string) {
 }
 
 func setLogging(t testing.TB) {
-	logHandler := log.StreamHandler(os.Stdout, log.TerminalFormat(true))
-	level := log.LvlDebug
-	if *testFlagLogLevl != "" {
-		var err error
-		level, err = log.LvlFromString(*testFlagLogLevl)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	log.Root().SetHandler(log.LvlFilterHandler(level, logHandler))
+	// logHandler := log.StreamHandler(os.Stdout, log.TerminalFormat(true))
+	// level := log.LvlDebug
+	// if *testFlagLogLevl != "" {
+	// 	var err error
+	// 	level, err = log.LvlFromString(*testFlagLogLevl)
+	// 	if err != nil {
+	// 		t.Fatal(err)
+	// 	}
+	// }
+	// log.Root().SetHandler(log.LvlFilterHandler(level, logHandler))
 }
 
 func loadTestTxs(dirPath string) ([]*blocknativeTracerTest, error) {
