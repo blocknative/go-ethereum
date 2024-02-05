@@ -68,18 +68,7 @@ func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 	if head.BaseFee != nil {
 		result["baseFeePerGas"] = (*hexutil.Big)(head.BaseFee)
 	}
-	if head.WithdrawalsHash != nil {
-		result["withdrawalsRoot"] = head.WithdrawalsHash
-	}
-	if head.BlobGasUsed != nil {
-		result["blobGasUsed"] = hexutil.Uint64(*head.BlobGasUsed)
-	}
-	if head.ExcessBlobGas != nil {
-		result["excessBlobGas"] = hexutil.Uint64(*head.ExcessBlobGas)
-	}
-	if head.ParentBeaconRoot != nil {
-		result["parentBeaconBlockRoot"] = head.ParentBeaconRoot
-	}
+
 	return result
 }
 
