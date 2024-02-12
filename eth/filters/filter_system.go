@@ -90,11 +90,10 @@ type FilterSystem struct {
 }
 
 // NewFilterSystem creates a filter system.
-func NewFilterSystem(backend Backend, chain *core.BlockChain, config Config) *FilterSystem {
+func NewFilterSystem(backend Backend, config Config) *FilterSystem {
 	config = config.withDefaults()
 	return &FilterSystem{
 		backend:   backend,
-		chain:     chain,
 		logsCache: lru.NewCache[common.Hash, *logCacheElem](config.LogCacheSize),
 		cfg:       &config,
 	}
