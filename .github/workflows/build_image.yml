@@ -3,6 +3,7 @@ name: Build Geth Docker Image
 on:
   release:
     types: [created]
+  workflow_dispatch:
 
 jobs:
   build-and-push-stage:
