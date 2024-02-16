@@ -1,0 +1,77 @@
+name: Build Geth Docker Image
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+
+jobs:
+  build-and-push-stage:
+    runs-on: ubuntu-latest
+    environment: stage
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Set IMAGE_TAG
+        id: set_image_tag
+        run: |
+          echo "::set-output name=IMAGE_TAG::$(printf $GITHUB_REF_NAME | tr / -)"
+
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          IMAGE_TAG: ${{ steps.set_image_tag.outputs.IMAGE_TAG }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: geth
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }} \
+          --build-arg COMMIT=${{ github.sha }} \
+          --build-arg VERSION=${IMAGE_TAG} \
+          --build-arg BUILDNUM=1 .
+          docker image push --all-tags $ECR_REGISTRY/$ECR_REPOSITORY
+
+  build-and-push-prod:
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Set IMAGE_TAG
+        id: set_image_tag
+        run: |
+          echo "::set-output name=IMAGE_TAG::$(printf $GITHUB_REF_NAME | tr / -)"
+
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          IMAGE_TAG: ${{ steps.set_image_tag.outputs.IMAGE_TAG }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: geth
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }} \
+          --build-arg COMMIT=${{ github.sha }} \
+          --build-arg VERSION=${IMAGE_TAG} \
+          --build-arg BUILDNUM=1 .
+          docker image push --all-tags $ECR_REGISTRY/$ECR_REPOSITORY

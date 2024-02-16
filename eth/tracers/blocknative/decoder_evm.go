@@ -24,7 +24,7 @@ var callCodeCallerAddr = vm.AccountRef(common.HexToAddress("0xFFFFFFFFFFFFFFFFFF
 
 func (d decoderEVM) CallCode(addr common.Address, method []byte) ([]byte, error) {
 	code := d.StateDB.GetCode(addr)
-	contract := vm.NewContract(callCodeCallerAddr, vm.AccountRef(addr), new(uint256.Int), math.MaxUint64)
+	contract := vm.NewContract(callCodeCallerAddr, vm.AccountRef(addr), uint256.NewInt(0), math.MaxUint64)
 	contract.SetCallCode(&addr, d.StateDB.GetCodeHash(addr), code)
 
 	// Stash the tracer and disable tracing for the call, then replace it.

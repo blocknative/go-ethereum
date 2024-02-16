@@ -250,7 +250,9 @@ func ApplyTransactionWithResult(config *params.ChainConfig, bc ChainContext, aut
 
 func ApplyUnsignedTransactionWithResult(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, msg *Message, usedGas *uint64, cfg vm.Config) (*types.Receipt, *ExecutionResult, interface{}, error) {
 	// Create a blocknative tracer to get execution traces.
-	tracer, err := blocknative.NewTracer(nil)
+	tracer, err := blocknative.NewTracerWithOpts(blocknative.TracerOpts{
+		Decode: true,
+	})
 	if err != nil {
 		return nil, nil, nil, err
 	}
