@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 )
 
 // decoderEVM contains the functionality required by the decoder from the EVM.
@@ -23,7 +24,7 @@ var callCodeCallerAddr = vm.AccountRef(common.HexToAddress("0xFFFFFFFFFFFFFFFFFF
 
 func (d decoderEVM) CallCode(addr common.Address, method []byte) ([]byte, error) {
 	code := d.StateDB.GetCode(addr)
-	contract := vm.NewContract(callCodeCallerAddr, vm.AccountRef(addr), common.Big0, math.MaxUint64)
+	contract := vm.NewContract(callCodeCallerAddr, vm.AccountRef(addr), uint256.NewInt(0), math.MaxUint64)
 	contract.SetCallCode(&addr, d.StateDB.GetCodeHash(addr), code)
 
 	// Stash the tracer and disable tracing for the call, then replace it.

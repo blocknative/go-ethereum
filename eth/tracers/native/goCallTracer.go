@@ -7,14 +7,15 @@ import (
 	"sync/atomic"
 	"time"
 
+	"strconv"
+	"strings"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	sdb "github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/log"
-	"strconv"
-	"strings"
 
 	"github.com/holiman/uint256"
 )
@@ -131,7 +132,7 @@ func (tracer *CallTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 	if op == vm.CREATE || op == vm.CREATE2 {
 		inOff := scope.Stack.Back(1).Uint64()
 		inLen := scope.Stack.Back(2).Uint64()
-		hvalue := hexutil.Big(*scope.Contract.Value())
+		hvalue := hexutil.Big(*scope.Contract.Value().ToBig())
 		tracer.descend(&call{
 			Type:      op.String(),
 			From:      scope.Contract.Caller(),
@@ -144,7 +145,7 @@ func (tracer *CallTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64
 		return
 	}
 	if op == vm.SELFDESTRUCT {
-		hvalue := hexutil.Big(*tracer.statedb.GetBalance(scope.Contract.Caller()))
+		hvalue := hexutil.Big(*tracer.statedb.GetBalance(scope.Contract.Caller()).ToBig())
 		tracer.descend(&call{
 			Type:      op.String(),
 			From:      scope.Contract.Caller(),

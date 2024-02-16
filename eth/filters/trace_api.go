@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -72,7 +73,6 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					}
 					signer = types.MakeSigner(chainConfig, header.Number, header.Time)
 
-					blockCtx = core.NewEVMBlockContext(header, api.sys.chain, nil)
 					traceCtx = &tracers.Context{
 						BlockHash:   header.Hash(),
 						BlockNumber: header.Number,
@@ -84,6 +84,13 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					blockHash   = header.Hash()
 					txIndex     = hexutil.Uint64(0)
 				)
+
+				if currentHeader.BlobGasUsed != nil && currentHeader.ExcessBlobGas != nil {
+					ex := eip4844.CalcExcessBlobGas(*currentHeader.ExcessBlobGas, *currentHeader.BlobGasUsed)
+					header.ExcessBlobGas = &ex
+				}
+
+				blockCtx := core.NewEVMBlockContext(header, api.sys.chain, nil)
 
 				statedb, err := api.sys.chain.State()
 				if err != nil {
@@ -245,7 +252,7 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 		return nil, err
 	}
 	txContext := core.NewEVMTxContext(message)
-	vmenv := vm.NewEVM(vmctx, txContext, statedb, chainConfig, vm.Config{Tracer: tracer})
+	vmenv := vm.NewEVM(vmctx, txContext, statedb, chainConfig, vm.Config{Tracer: tracer, NoBaseFee: true})
 	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
 
 	if _, err = core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit)); err != nil {

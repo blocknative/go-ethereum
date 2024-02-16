@@ -52,7 +52,7 @@ func TestStoreCapture(t *testing.T) {
 	var (
 		env      = NewEVM(BlockContext{}, TxContext{}, &dummyStatedb{}, params.TestChainConfig, Config{})
 		logger   = NewStructLogger(nil)
-		contract = NewContract(&dummyContractRef{}, &dummyContractRef{}, new(big.Int), 0)
+		contract = NewContract(&dummyContractRef{}, &dummyContractRef{}, uint256.NewInt(0), 0)
 		scope    = &ScopeContext{
 			Memory:   NewMemory(),
 			Stack:    newstack(),
