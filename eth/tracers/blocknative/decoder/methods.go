@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -82,7 +83,7 @@ var methodSignatures = map[string]string{
 type MethodID []byte
 
 func (m MethodID) Is(other MethodID) bool {
-	return bytes.Compare(m, other) == 0
+	return bytes.Equal(m, other)
 }
 
 func (m MethodID) String() string {
@@ -113,7 +114,6 @@ func (m *MethodID) UnmarshalJSON(b []byte) error {
 	}
 
 	if len(b) > methodIDEncodedLen {
-		fmt.Println("sdfasdfasdf:", len(b), string(b), b)
 		return ErrMethodIDTooLong
 	}
 

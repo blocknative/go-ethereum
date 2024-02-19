@@ -88,6 +88,10 @@ func evmCallMethodDecimals(evmCall evmCallFn, addr common.Address) (uint8, error
 
 // evmCallMethodTokenURI decodes the tokenURI of an asset from the EVM.
 func evmCallMethodTokenURI(evmCall evmCallFn, addr common.Address, tokenID *big.Int) (string, error) {
+	if tokenID == nil {
+		return "", fmt.Errorf("tokenID is nil")
+	}
+
 	tokenIDBytes := tokenID.Bytes()
 	if len(tokenIDBytes) > 32 {
 		return "", fmt.Errorf("tokenID is too large")
@@ -99,6 +103,10 @@ func evmCallMethodTokenURI(evmCall evmCallFn, addr common.Address, tokenID *big.
 
 // evmCallMethodURI decodes the URI of an asset from the EVM.
 func evmCallMethodURI(evmCall evmCallFn, addr common.Address, tokenID *big.Int) (string, error) {
+	if tokenID == nil {
+		return "", fmt.Errorf("tokenID is nil")
+	}
+
 	tokenIDBytes := common.LeftPadBytes(tokenID.Bytes(), 32)
 	input := append(methodIDURI, tokenIDBytes...)
 	return callAndDecodeString(evmCall, addr, input)
