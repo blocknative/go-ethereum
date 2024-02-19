@@ -657,7 +657,7 @@ func (s *BlockChainAPI) GetBalance(ctx context.Context, address common.Address, 
 	return (*hexutil.Big)(b), state.Error()
 }
 
-// Result structs for GetProof
+// AccountResult structs for GetProof
 type AccountResult struct {
 	Address      common.Address  `json:"address"`
 	AccountProof []string        `json:"accountProof"`
@@ -2162,6 +2162,7 @@ func toHexSlice(b [][]byte) []string {
 	return r
 }
 
+
 // PrivateTxBundleAPI offers an API for accepting bundled transactions
 type PrivateTxBundleAPI struct {
 	b Backend
@@ -2440,7 +2441,7 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 	bundleHash := sha3.NewLegacyKeccak256()
 	signer := types.MakeSigner(s.b.ChainConfig(), blockNumber, header.Time)
 	var totalGasUsed uint64
-	gasFees := new(uint256.Int)
+	gasFees := new(big.Int)
 	for i, tx := range txs {
 		coinbaseBalanceBeforeTx := state.GetBalance(coinbase)
 		state.SetTxContext(tx.Hash(), i)
@@ -2470,7 +2471,7 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 		if err != nil {
 			return nil, fmt.Errorf("err: %w; txhash %s", err, tx.Hash())
 		}
-		gasFeesTx := new(uint256.Int).Mul(uint256.NewInt(uint64(receipt.GasUsed)), uint256.MustFromBig(gasPrice))
+		gasFeesTx := new(big.Int).Mul(big.NewInt(int64(receipt.GasUsed)), gasPrice)
 		gasFees.Add(gasFees, gasFeesTx)
 		bundleHash.Write(tx.Hash().Bytes())
 		if result.Err != nil {
@@ -2484,22 +2485,22 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 			hex.Encode(dst, result.Return())
 			jsonResult["value"] = "0x" + string(dst)
 		}
-		coinbaseDiffTx := new(uint256.Int).Sub(state.GetBalance(coinbase), coinbaseBalanceBeforeTx)
+		coinbaseDiffTx := new(big.Int).Sub(state.GetBalance(coinbase), coinbaseBalanceBeforeTx)
 		jsonResult["coinbaseDiff"] = coinbaseDiffTx.String()
 		jsonResult["gasFees"] = gasFeesTx.String()
-		jsonResult["ethSentToCoinbase"] = new(uint256.Int).Sub(coinbaseDiffTx, gasFeesTx).String()
-		jsonResult["gasPrice"] = new(uint256.Int).Div(coinbaseDiffTx, uint256.NewInt(uint64(receipt.GasUsed))).String()
+		jsonResult["ethSentToCoinbase"] = new(big.Int).Sub(coinbaseDiffTx, gasFeesTx).String()
+		jsonResult["gasPrice"] = new(big.Int).Div(coinbaseDiffTx, big.NewInt(int64(receipt.GasUsed))).String()
 		jsonResult["gasUsed"] = receipt.GasUsed
 		results = append(results, jsonResult)
 	}
 
 	ret := map[string]interface{}{}
 	ret["results"] = results
-	coinbaseDiff := new(uint256.Int).Sub(state.GetBalance(coinbase), coinbaseBalanceBefore)
+	coinbaseDiff := new(big.Int).Sub(state.GetBalance(coinbase), coinbaseBalanceBefore)
 	ret["coinbaseDiff"] = coinbaseDiff.String()
 	ret["gasFees"] = gasFees.String()
-	ret["ethSentToCoinbase"] = new(uint256.Int).Sub(coinbaseDiff, gasFees).String()
-	ret["bundleGasPrice"] = new(uint256.Int).Div(coinbaseDiff, uint256.NewInt(uint64(totalGasUsed))).String()
+	ret["ethSentToCoinbase"] = new(big.Int).Sub(coinbaseDiff, gasFees).String()
+	ret["bundleGasPrice"] = new(big.Int).Div(coinbaseDiff, big.NewInt(int64(totalGasUsed))).String()
 	ret["totalGasUsed"] = totalGasUsed
 	ret["stateBlockNumber"] = parent.Number.Int64()
 
