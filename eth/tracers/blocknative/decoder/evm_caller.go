@@ -121,6 +121,10 @@ func evmCallMethodBalanceOf(evmCall evmCallFn, addr common.Address, owner common
 
 // evmCallMethodBalanceOf2 decodes the balance of an asset from the EVM.
 func evmCallMethodBalanceOf2(evmCall evmCallFn, addr common.Address, owner common.Address, tokenID *big.Int) (*big.Int, error) {
+	if tokenID == nil {
+		return nil, fmt.Errorf("tokenID is nil")
+	}
+
 	tokenIDBytes := common.LeftPadBytes(tokenID.Bytes(), 32)
 	ownerBytes := common.LeftPadBytes(owner.Bytes(), 32)
 	input := append(methodIDBalanceOf2, ownerBytes...)
