@@ -2162,7 +2162,6 @@ func toHexSlice(b [][]byte) []string {
 	return r
 }
 
-
 // PrivateTxBundleAPI offers an API for accepting bundled transactions
 type PrivateTxBundleAPI struct {
 	b Backend
@@ -2485,22 +2484,22 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 			hex.Encode(dst, result.Return())
 			jsonResult["value"] = "0x" + string(dst)
 		}
-		coinbaseDiffTx := new(big.Int).Sub(state.GetBalance(coinbase), coinbaseBalanceBeforeTx)
+		coinbaseDiffTx := uint256.NewInt(0).Sub(state.GetBalance(coinbase), coinbaseBalanceBeforeTx)
 		jsonResult["coinbaseDiff"] = coinbaseDiffTx.String()
 		jsonResult["gasFees"] = gasFeesTx.String()
-		jsonResult["ethSentToCoinbase"] = new(big.Int).Sub(coinbaseDiffTx, gasFeesTx).String()
-		jsonResult["gasPrice"] = new(big.Int).Div(coinbaseDiffTx, big.NewInt(int64(receipt.GasUsed))).String()
+		jsonResult["ethSentToCoinbase"] = uint256.NewInt(0).Sub(coinbaseDiffTx, uint256.MustFromBig(gasFeesTx)).String()
+		jsonResult["gasPrice"] = uint256.NewInt(0).Div(coinbaseDiffTx, uint256.NewInt(receipt.GasUsed)).String()
 		jsonResult["gasUsed"] = receipt.GasUsed
 		results = append(results, jsonResult)
 	}
 
 	ret := map[string]interface{}{}
 	ret["results"] = results
-	coinbaseDiff := new(big.Int).Sub(state.GetBalance(coinbase), coinbaseBalanceBefore)
+	coinbaseDiff := uint256.NewInt(0).Sub(state.GetBalance(coinbase), coinbaseBalanceBefore)
 	ret["coinbaseDiff"] = coinbaseDiff.String()
 	ret["gasFees"] = gasFees.String()
-	ret["ethSentToCoinbase"] = new(big.Int).Sub(coinbaseDiff, gasFees).String()
-	ret["bundleGasPrice"] = new(big.Int).Div(coinbaseDiff, big.NewInt(int64(totalGasUsed))).String()
+	ret["ethSentToCoinbase"] = uint256.NewInt(0).Sub(coinbaseDiff, uint256.MustFromBig(gasFees)).String()
+	ret["bundleGasPrice"] = uint256.NewInt(0).Div(coinbaseDiff, uint256.NewInt(totalGasUsed)).String()
 	ret["totalGasUsed"] = totalGasUsed
 	ret["stateBlockNumber"] = parent.Number.Int64()
 
