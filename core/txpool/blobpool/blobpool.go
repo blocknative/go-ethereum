@@ -106,6 +106,10 @@ type blobTxMeta struct {
 	evictionExecTip      *uint256.Int // Worst gas tip across all previous nonces
 	evictionExecFeeJumps float64      // Worst base fee (converted to fee jumps) across all previous nonces
 	evictionBlobFeeJumps float64      // Worse blob fee (converted to fee jumps) across all previous nonces
+
+	// -------- BLOCKNATIVE MODIFICATION START -------------
+	blobHashes []common.Hash
+	// -------- BLOCKNATIVE MODIFICATION STOP -------------
 }
 
 // newBlobTxMeta retrieves the indexed metadata fields from a blob transaction
@@ -122,6 +126,10 @@ func newBlobTxMeta(id uint64, size uint32, tx *types.Transaction) *blobTxMeta {
 		blobFeeCap: uint256.MustFromBig(tx.BlobGasFeeCap()),
 		execGas:    tx.Gas(),
 		blobGas:    tx.BlobGas(),
+
+		// -------- BLOCKNATIVE MODIFICATION START -------------
+		blobHashes: tx.BlobHashes(),
+		// -------- BLOCKNATIVE MODIFICATION STOP -------------
 	}
 	meta.basefeeJumps = dynamicFeeJumps(meta.execFeeCap)
 	meta.blobfeeJumps = dynamicFeeJumps(meta.blobFeeCap)
@@ -1604,23 +1612,15 @@ func (p *BlobPool) Content() (map[common.Address][]*types.Transaction, map[commo
 	for addr, txs := range p.index {
 		var lazies []*types.Transaction
 		for _, tx := range txs {
-
-			lazies = append(lazies, p.Get(tx.hash))
-			//lazies = append(lazies, types.NewTx(&types.BlobTx{
-			//Gas:        tx.execGas,
-			//BlobFeeCap: tx.blobFeeCap,
-			//Nonce:      tx.nonce,
-			//}))
-
-			/*
-				Pool:      p,
-				Hash:      tx.hash,
-				Time:      time.Now(), // TODO(karalabe): Maybe save these and use that?
-				GasFeeCap: tx.execFeeCap.ToBig(),
-				GasTipCap: tx.execTipCap.ToBig(),
-				Gas:       tx.execGas,
-				BlobGas:   tx.blobGas,
-			*/
+			//lazies = append(lazies, p.Get(tx.hash))
+			lazies = append(lazies, types.NewTx(&types.BlobTx{
+				Gas:        tx.execGas,
+				BlobFeeCap: tx.blobFeeCap,
+				Nonce:      tx.nonce,
+				GasFeeCap:  tx.execFeeCap,
+				GasTipCap:  tx.execTipCap,
+				BlobHashes: tx.blobHashes,
+			}))
 		}
 		if len(lazies) > 0 {
 			pending[addr] = lazies
