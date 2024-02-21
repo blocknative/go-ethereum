@@ -1594,7 +1594,42 @@ func (p *BlobPool) Stats() (int, int) {
 // For the blob pool, this method will return nothing for now.
 // TODO(karalabe): Abstract out the returned metadata.
 func (p *BlobPool) Content() (map[common.Address][]*types.Transaction, map[common.Address][]*types.Transaction) {
-	return make(map[common.Address][]*types.Transaction), make(map[common.Address][]*types.Transaction)
+
+	// -------- BLOCKNATIVE MODIFICATION START -------------
+
+	pending := make(map[common.Address][]*types.Transaction)
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+
+	for addr, txs := range p.index {
+		var lazies []*types.Transaction
+		for _, tx := range txs {
+
+			lazies = append(lazies, p.Get(tx.hash))
+			//lazies = append(lazies, types.NewTx(&types.BlobTx{
+			//Gas:        tx.execGas,
+			//BlobFeeCap: tx.blobFeeCap,
+			//Nonce:      tx.nonce,
+			//}))
+
+			/*
+				Pool:      p,
+				Hash:      tx.hash,
+				Time:      time.Now(), // TODO(karalabe): Maybe save these and use that?
+				GasFeeCap: tx.execFeeCap.ToBig(),
+				GasTipCap: tx.execTipCap.ToBig(),
+				Gas:       tx.execGas,
+				BlobGas:   tx.blobGas,
+			*/
+		}
+		if len(lazies) > 0 {
+			pending[addr] = lazies
+		}
+
+	}
+
+	return pending, make(map[common.Address][]*types.Transaction)
+	// -------- BLOCKNATIVE MODIFICATION STOP --------------
 }
 
 // ContentFrom retrieves the data content of the transaction pool, returning the
@@ -1621,7 +1656,6 @@ func (p *BlobPool) Status(hash common.Hash) txpool.TxStatus {
 	}
 	return txpool.TxStatusUnknown
 }
-
 
 // SubscribeDropTxsEvent registers a subscription of core.DropTxsEvent and
 // starts sending event to the given channel.
