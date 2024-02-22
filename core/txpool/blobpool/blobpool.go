@@ -1612,7 +1612,6 @@ func (p *BlobPool) Content() (map[common.Address][]*types.Transaction, map[commo
 	for addr, txs := range p.index {
 		var lazies []*types.Transaction
 		for _, tx := range txs {
-			//lazies = append(lazies, p.Get(tx.hash))
 			lazies = append(lazies, types.NewTx(&types.BlobTx{
 				Gas:        tx.execGas,
 				BlobFeeCap: tx.blobFeeCap,
