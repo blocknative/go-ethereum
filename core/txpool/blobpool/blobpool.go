@@ -1216,19 +1216,26 @@ func (p *BlobPool) Get(hash common.Hash) *types.Transaction {
 // consensus validity and pool restrictions).
 func (p *BlobPool) Add(txs []*types.Transaction, local bool, sync bool) []error {
 	var (
-		adds = make([]*types.Transaction, 0, len(txs))
-		errs = make([]error, len(txs))
+		adds     = make([]*types.Transaction, 0, len(txs))
+		fullAdds = make([]*types.Transaction, 0, len(txs))
+		errs     = make([]error, len(txs))
 	)
 	for i, tx := range txs {
 		errs[i] = p.add(tx)
 		if errs[i] == nil {
 			adds = append(adds, tx.WithoutBlobTxSidecar())
+			fullAdds = append(adds, tx)
 		}
 	}
+
+	if len(fullAdds) > 0 {
+		p.insertFeed.Send(core.NewTxsEvent{Txs: fullAdds})
+	}
+
 	if len(adds) > 0 {
 		p.discoverFeed.Send(core.NewTxsEvent{Txs: adds})
-		p.insertFeed.Send(core.NewTxsEvent{Txs: adds})
 	}
+
 	return errs
 }
 
