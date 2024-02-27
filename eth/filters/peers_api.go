@@ -483,8 +483,14 @@ func (api *FilterAPI) NewPendingTransactionsWithPeers(ctx context.Context) (*rpc
 
 					bTx := api.sys.backend.GetPoolTransaction(h)
 					val := newRPCPendingTransaction(bTx)
-					if tx.Type() == 3 && val.BlobSidecar == nil {
-						val.BlobSidecar = tx.BlobTxSidecar()
+					if val == nil {
+						val = newRPCPendingTransaction(tx)
+					}
+
+					if tx != nil && val != nil {
+						if tx.Type() == 3 && val.BlobSidecar == nil {
+							val.BlobSidecar = tx.BlobTxSidecar()
+						}
 					}
 					notifier.Notify(rpcSub.ID, withPeer{Value: val, Peer: peer, Time: time.Now().UnixNano(), P2PTime: p2pts})
 				}
