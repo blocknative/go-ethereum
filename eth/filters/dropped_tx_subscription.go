@@ -57,7 +57,7 @@ type RPCTransaction struct {
 	S                   *hexutil.Big      `json:"s"`
 	YParity             *hexutil.Uint64   `json:"yParity,omitempty"`
 
-	BlobSidecar *types.BlobTxSidecar `json:"sidecar"`
+	BlobSidecar *types.BlobTxSidecar `json:"sidecar,omitempty"`
 	Trace       *blocknative.Trace   `json:"trace,omitempty"`
 }
 
