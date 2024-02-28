@@ -2480,7 +2480,7 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 			hex.Encode(dst, result.Return())
 			jsonResult["value"] = "0x" + string(dst)
 		}
-		coinbaseDiffTx := new(big.Int).Sub(state.GetBalance(coinbase), coinbaseBalanceBeforeTx)
+		coinbaseDiffTx := new(big.Int).Sub(state.GetBalance(coinbase).ToBig(), coinbaseBalanceBeforeTx.ToBig())
 		jsonResult["coinbaseDiff"] = coinbaseDiffTx.String()
 		jsonResult["gasFees"] = gasFeesTx.String()
 		jsonResult["ethSentToCoinbase"] = new(big.Int).Sub(coinbaseDiffTx, gasFeesTx).String()
@@ -2491,7 +2491,7 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 
 	ret := map[string]interface{}{}
 	ret["results"] = results
-	coinbaseDiff := new(big.Int).Sub(state.GetBalance(coinbase), coinbaseBalanceBefore)
+	coinbaseDiff := new(big.Int).Sub(state.GetBalance(coinbase).ToBig(), coinbaseBalanceBefore.ToBig())
 	ret["coinbaseDiff"] = coinbaseDiff.String()
 	ret["gasFees"] = gasFees.String()
 	ret["ethSentToCoinbase"] = new(big.Int).Sub(coinbaseDiff, gasFees).String()
