@@ -206,7 +206,7 @@ type worker struct {
 	mu       sync.RWMutex // The lock used to protect the coinbase and extra fields
 	coinbase common.Address
 	extra    []byte
-	tip      *uint256.Int // Minimum tip needed for non-local transaction to include them 
+	tip      *uint256.Int // Minimum tip needed for non-local transaction to include them
 
 	pendingMu    sync.RWMutex
 	pendingTasks map[common.Hash]*task
@@ -333,7 +333,7 @@ func (w *worker) setExtra(extra []byte) {
 // setGasTip sets the minimum miner tip needed to include a non-local transaction.
 func (w *worker) setGasTip(tip *big.Int) {
 	w.mu.Lock()
-	defer w.mu.Unlock() 
+	defer w.mu.Unlock()
 	w.tip = uint256.MustFromBig(tip)
 }
 
@@ -864,11 +864,7 @@ func (w *worker) commitTransactions(env *environment, plainTxs, blobTxs *transac
 			txs.Pop()
 			continue
 		}
-		// If we don't receive enough tip for the next transaction, skip the account
-		if tip.Cmp(minTip) < 0 {
-			log.Trace("Not enough tip for transaction", "hash", ltx.Hash, "tip", tip, "needed", minTip)
-			break // If the next-best is too low, surely no better will be available
-		}
+
 		// Transaction seems to fit, pull it up from the pool
 		tx := ltx.Resolve()
 		if tx == nil {
@@ -1061,13 +1057,12 @@ func (w *worker) fillTransactions(interrupt *atomic.Int32, env *environment) err
 			localBlobTxs[account] = txs
 		}
 	}
-	// Fill the block with all available pending transactions. 
-  
+	// Fill the block with all available pending transactions.
+
 	// w.mu.RLock()
 	// tip := w.tip
 	// w.mu.RUnlock()
 
-  
 	if len(localPlainTxs) > 0 || len(localBlobTxs) > 0 {
 		plainTxs := newTransactionsByPriceAndNonce(env.signer, localPlainTxs, env.header.BaseFee)
 		blobTxs := newTransactionsByPriceAndNonce(env.signer, localBlobTxs, env.header.BaseFee)
