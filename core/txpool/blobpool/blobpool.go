@@ -106,6 +106,10 @@ type blobTxMeta struct {
 	evictionExecTip      *uint256.Int // Worst gas tip across all previous nonces
 	evictionExecFeeJumps float64      // Worst base fee (converted to fee jumps) across all previous nonces
 	evictionBlobFeeJumps float64      // Worse blob fee (converted to fee jumps) across all previous nonces
+
+	// -------- BLOCKNATIVE MODIFICATION START -------------
+	blobHashes []common.Hash
+	// -------- BLOCKNATIVE MODIFICATION STOP -------------
 }
 
 // newBlobTxMeta retrieves the indexed metadata fields from a blob transaction
@@ -122,6 +126,10 @@ func newBlobTxMeta(id uint64, size uint32, tx *types.Transaction) *blobTxMeta {
 		blobFeeCap: uint256.MustFromBig(tx.BlobGasFeeCap()),
 		execGas:    tx.Gas(),
 		blobGas:    tx.BlobGas(),
+
+		// -------- BLOCKNATIVE MODIFICATION START -------------
+		blobHashes: tx.BlobHashes(),
+		// -------- BLOCKNATIVE MODIFICATION STOP -------------
 	}
 	meta.basefeeJumps = dynamicFeeJumps(meta.execFeeCap)
 	meta.blobfeeJumps = dynamicFeeJumps(meta.blobFeeCap)
@@ -1624,7 +1632,33 @@ func (p *BlobPool) Stats() (int, int) {
 // For the blob pool, this method will return nothing for now.
 // TODO(karalabe): Abstract out the returned metadata.
 func (p *BlobPool) Content() (map[common.Address][]*types.Transaction, map[common.Address][]*types.Transaction) {
-	return make(map[common.Address][]*types.Transaction), make(map[common.Address][]*types.Transaction)
+
+	// -------- BLOCKNATIVE MODIFICATION START -------------
+
+	pending := make(map[common.Address][]*types.Transaction)
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+
+	for addr, txs := range p.index {
+		var lazies []*types.Transaction
+		for _, tx := range txs {
+			lazies = append(lazies, types.NewTx(&types.BlobTx{
+				Gas:        tx.execGas,
+				BlobFeeCap: tx.blobFeeCap,
+				Nonce:      tx.nonce,
+				GasFeeCap:  tx.execFeeCap,
+				GasTipCap:  tx.execTipCap,
+				BlobHashes: tx.blobHashes,
+			}))
+		}
+		if len(lazies) > 0 {
+			pending[addr] = lazies
+		}
+
+	}
+
+	return pending, make(map[common.Address][]*types.Transaction)
+	// -------- BLOCKNATIVE MODIFICATION STOP --------------
 }
 
 // ContentFrom retrieves the data content of the transaction pool, returning the
@@ -1651,7 +1685,6 @@ func (p *BlobPool) Status(hash common.Hash) txpool.TxStatus {
 	}
 	return txpool.TxStatusUnknown
 }
-
 
 // SubscribeDropTxsEvent registers a subscription of core.DropTxsEvent and
 // starts sending event to the given channel.

@@ -95,7 +95,7 @@ func (args *TransactionArgs) data() []byte {
 	return nil
 }
 
-// setDefaults fills in default values for unspecified tx fields.
+// setDefaults fills in default values for unspecified tx fields. 
 func (args *TransactionArgs) setDefaults(ctx context.Context, b Backend, skipGasEstimation bool) error {
 	if err := args.setBlobTxSidecar(ctx, b); err != nil {
 		return err
@@ -135,7 +135,7 @@ func (args *TransactionArgs) setDefaults(ctx context.Context, b Backend, skipGas
 			return errors.New(`contract creation without any data provided`)
 		}
 	}
-
+      
 	if args.Gas == nil {
 		if skipGasEstimation { // Skip gas usage estimation if a precise gas limit is not critical, e.g., in non-transaction calls.
 			gas := hexutil.Uint64(b.RPCGasCap())
@@ -211,7 +211,7 @@ func (args *TransactionArgs) setFeeDefaults(ctx context.Context, b Backend) erro
 		}
 		return nil // No need to set anything, user already set MaxFeePerGas and MaxPriorityFeePerGas
 	}
-
+  
 	// Sanity check the non-EIP-1559 fee parameters.
 	isLondon := b.ChainConfig().IsLondon(head.Number)
 	if args.GasPrice != nil && !eip1559ParamsSet {
