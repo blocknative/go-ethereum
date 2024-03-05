@@ -290,7 +290,7 @@ type PersonalAccountAPI struct {
 	b         Backend
 }
 
-// NewPersonalAccountAPI create a new PersonalAccountAPI.
+// NewPersonalAccountAPI creates a new PersonalAccountAPI.
 func NewPersonalAccountAPI(b Backend, nonceLock *AddrLocker) *PersonalAccountAPI {
 	return &PersonalAccountAPI{
 		am:        b.AccountManager(),
@@ -455,7 +455,7 @@ func (s *PersonalAccountAPI) signTransaction(ctx context.Context, args *Transact
 		return nil, err
 	}
 	// Set some sanity defaults and terminate on failure
-	if err := args.setDefaults(ctx, s.b); err != nil {
+	if err := args.setDefaults(ctx, s.b, false); err != nil {
 		return nil, err
 	}
 	// Assemble the transaction and sign with the wallet
@@ -532,7 +532,7 @@ func (s *PersonalAccountAPI) SignTransaction(ctx context.Context, args Transacti
 //
 // The key used to calculate the signature is decrypted with the given password.
 //
-// https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_sign
+// https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-personal#personal-sign
 func (s *PersonalAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr common.Address, passwd string) (hexutil.Bytes, error) {
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: addr}
@@ -560,7 +560,7 @@ func (s *PersonalAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr 
 // Note, the signature must conform to the secp256k1 curve R, S and V values, where
 // the V value must be 27 or 28 for legacy reasons.
 //
-// https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_ecRecover
+// https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-personal#personal-ecrecover
 func (s *PersonalAccountAPI) EcRecover(ctx context.Context, data, sig hexutil.Bytes) (common.Address, error) {
 	if len(sig) != crypto.SignatureLength {
 		return common.Address{}, fmt.Errorf("signature must be %d bytes long", crypto.SignatureLength)
@@ -1095,13 +1095,13 @@ func doCall(ctx context.Context, b Backend, args TransactionArgs, state *state.S
 	defer cancel()
 
 	// Get a new instance of the EVM.
-	msg, err := args.ToMessage(globalGasCap, header.BaseFee)
-	if err != nil {
-		return nil, err
-	}
 	blockCtx := core.NewEVMBlockContext(header, NewChainContext(ctx, b), nil)
 	if blockOverrides != nil {
 		blockOverrides.Apply(&blockCtx)
+	}
+	msg, err := args.ToMessage(globalGasCap, blockCtx.BaseFee)
+	if err != nil {
+		return nil, err
 	}
 	evm := b.GetEVM(ctx, msg, state, header, &vm.Config{NoBaseFee: true}, &blockCtx)
 
@@ -1487,14 +1487,9 @@ func AccessList(ctx context.Context, b Backend, blockNrOrHash rpc.BlockNumberOrH
 	if db == nil || err != nil {
 		return nil, 0, nil, err
 	}
-	// If the gas amount is not set, default to RPC gas cap.
-	if args.Gas == nil {
-		tmp := hexutil.Uint64(b.RPCGasCap())
-		args.Gas = &tmp
-	}
 
 	// Ensure any missing fields are filled, extract the recipient and input data
-	if err := args.setDefaults(ctx, b); err != nil {
+	if err := args.setDefaults(ctx, b, true); err != nil {
 		return nil, 0, nil, err
 	}
 	var to common.Address
@@ -1797,7 +1792,7 @@ func (s *TransactionAPI) SendTransaction(ctx context.Context, args TransactionAr
 	}
 
 	// Set some sanity defaults and terminate on failure
-	if err := args.setDefaults(ctx, s.b); err != nil {
+	if err := args.setDefaults(ctx, s.b, false); err != nil {
 		return common.Hash{}, err
 	}
 	// Assemble the transaction and sign with the wallet
@@ -1815,7 +1810,7 @@ func (s *TransactionAPI) SendTransaction(ctx context.Context, args TransactionAr
 // processing (signing + broadcast).
 func (s *TransactionAPI) FillTransaction(ctx context.Context, args TransactionArgs) (*SignTransactionResult, error) {
 	// Set some sanity defaults and terminate on failure
-	if err := args.setDefaults(ctx, s.b); err != nil {
+	if err := args.setDefaults(ctx, s.b, false); err != nil {
 		return nil, err
 	}
 	// Assemble the transaction and obtain rlp
@@ -1885,7 +1880,7 @@ func (s *TransactionAPI) SignTransaction(ctx context.Context, args TransactionAr
 	if args.Nonce == nil {
 		return nil, errors.New("nonce not specified")
 	}
-	if err := args.setDefaults(ctx, s.b); err != nil {
+	if err := args.setDefaults(ctx, s.b, false); err != nil {
 		return nil, err
 	}
 	// Before actually sign the transaction, ensure the transaction fee is reasonable.
@@ -1934,7 +1929,7 @@ func (s *TransactionAPI) Resend(ctx context.Context, sendArgs TransactionArgs, g
 	if sendArgs.Nonce == nil {
 		return common.Hash{}, errors.New("missing transaction nonce in transaction spec")
 	}
-	if err := sendArgs.setDefaults(ctx, s.b); err != nil {
+	if err := sendArgs.setDefaults(ctx, s.b, false); err != nil {
 		return common.Hash{}, err
 	}
 	matchTx := sendArgs.toTransaction()
@@ -2161,6 +2156,7 @@ func toHexSlice(b [][]byte) []string {
 	}
 	return r
 }
+
 
 // PrivateTxBundleAPI offers an API for accepting bundled transactions
 type PrivateTxBundleAPI struct {
@@ -2484,22 +2480,22 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 			hex.Encode(dst, result.Return())
 			jsonResult["value"] = "0x" + string(dst)
 		}
-		coinbaseDiffTx := uint256.NewInt(0).Sub(state.GetBalance(coinbase), coinbaseBalanceBeforeTx)
+		coinbaseDiffTx := new(big.Int).Sub(state.GetBalance(coinbase).ToBig(), coinbaseBalanceBeforeTx.ToBig())
 		jsonResult["coinbaseDiff"] = coinbaseDiffTx.String()
 		jsonResult["gasFees"] = gasFeesTx.String()
-		jsonResult["ethSentToCoinbase"] = uint256.NewInt(0).Sub(coinbaseDiffTx, uint256.MustFromBig(gasFeesTx)).String()
-		jsonResult["gasPrice"] = uint256.NewInt(0).Div(coinbaseDiffTx, uint256.NewInt(receipt.GasUsed)).String()
+		jsonResult["ethSentToCoinbase"] = new(big.Int).Sub(coinbaseDiffTx, gasFeesTx).String()
+		jsonResult["gasPrice"] = new(big.Int).Div(coinbaseDiffTx, big.NewInt(int64(receipt.GasUsed))).String()
 		jsonResult["gasUsed"] = receipt.GasUsed
 		results = append(results, jsonResult)
 	}
 
 	ret := map[string]interface{}{}
 	ret["results"] = results
-	coinbaseDiff := uint256.NewInt(0).Sub(state.GetBalance(coinbase), coinbaseBalanceBefore)
+	coinbaseDiff := new(big.Int).Sub(state.GetBalance(coinbase).ToBig(), coinbaseBalanceBefore.ToBig())
 	ret["coinbaseDiff"] = coinbaseDiff.String()
 	ret["gasFees"] = gasFees.String()
-	ret["ethSentToCoinbase"] = uint256.NewInt(0).Sub(coinbaseDiff, uint256.MustFromBig(gasFees)).String()
-	ret["bundleGasPrice"] = uint256.NewInt(0).Div(coinbaseDiff, uint256.NewInt(totalGasUsed)).String()
+	ret["ethSentToCoinbase"] = new(big.Int).Sub(coinbaseDiff, gasFees).String()
+	ret["bundleGasPrice"] = new(big.Int).Div(coinbaseDiff, big.NewInt(int64(totalGasUsed))).String()
 	ret["totalGasUsed"] = totalGasUsed
 	ret["stateBlockNumber"] = parent.Number.Int64()
 
