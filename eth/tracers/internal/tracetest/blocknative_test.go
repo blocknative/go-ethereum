@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder"
+
 	// "github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/tests"
 )
@@ -149,14 +150,14 @@ func benchmarkBlocknativeTracer(b *testing.B, decode bool, dirPaths ...string) {
 		test := testCases[i%len(testCases)]
 		tx := test.tx
 
-		_, _, statedb := tests.MakePreState(rawdb.NewMemoryDatabase(), test.Genesis.Alloc, false, rawdb.HashScheme)
+		state := tests.MakePreState(rawdb.NewMemoryDatabase(), test.Genesis.Alloc, false, rawdb.HashScheme)
 		opts := blocknative.TracerOpts{Decode: decode}
 		tracer, err := blocknative.NewTracerWithOpts(opts)
 		if err != nil {
 			b.Fatal(err)
 		}
 
-		evm := vm.NewEVM(test.blockContext, test.txContext, statedb, test.Genesis.Config, vm.Config{Tracer: tracer})
+		evm := vm.NewEVM(test.blockContext, test.txContext, state.StateDB, test.Genesis.Config, vm.Config{Tracer: tracer})
 		msg, err := core.TransactionToMessage(tx, test.signer, test.blockContext.BaseFee)
 		if err != nil {
 			b.Fatal(err)
@@ -233,13 +234,13 @@ func loadTestTxs(dirPath string) ([]*blocknativeTracerTest, error) {
 				BaseFee:     baseFee,
 				Random:      test.Context.Random,
 			}
-			_, _, statedb = tests.MakePreState(rawdb.NewMemoryDatabase(), test.Genesis.Alloc, false, rawdb.HashScheme)
+			state = tests.MakePreState(rawdb.NewMemoryDatabase(), test.Genesis.Alloc, false, rawdb.HashScheme)
 		)
 		tracer, err := blocknative.NewTracer(test.TracerConfig)
 		if err != nil {
 			return nil, err
 		}
-		evm := vm.NewEVM(context, txContext, statedb, test.Genesis.Config, vm.Config{Tracer: tracer})
+		evm := vm.NewEVM(context, txContext, state.StateDB, test.Genesis.Config, vm.Config{Tracer: tracer})
 		msg, err := core.TransactionToMessage(tx, signer, context.BaseFee)
 		if err != nil {
 			return nil, err
