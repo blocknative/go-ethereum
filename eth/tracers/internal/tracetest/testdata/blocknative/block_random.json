@@ -42,6 +42,7 @@
       "eip155Block": 10,
       "eip158Block": 10,
       "ethash": {},
+      "londonBlock": 10,
       "homesteadBlock": 0
     },
     "difficulty": "3509749784",
