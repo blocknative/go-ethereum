@@ -259,7 +259,16 @@ func ApplyUnsignedTransactionWithResult(config *params.ChainConfig, bc ChainCont
 
 	// Create a new context to be used in the EVM environment
 	blockContext := NewEVMBlockContext(header, bc, author)
-	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, config, vm.Config{Tracer: tracer, NoBaseFee: true})
+	txContext := vm.TxContext{
+		Origin:     msg.From,
+		GasPrice:   msg.GasPrice,
+		BlobHashes: msg.BlobHashes,
+		BlobFeeCap: msg.BlobGasFeeCap,
+	}
+	if txContext.GasPrice == nil {
+		txContext.GasPrice = common.Big0
+	}
+	vmenv := vm.NewEVM(blockContext, txContext, statedb, config, vm.Config{Tracer: tracer, NoBaseFee: true})
 	return applyTransactionWithResult(msg, config, bc, author, gp, statedb, header, msg, usedGas, vmenv, tracer)
 }
 
