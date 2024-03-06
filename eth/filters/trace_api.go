@@ -173,11 +173,14 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 				}
 			case h := <-headers:
 				hashes = []common.Hash{h.Hash()}
-			case <-headersSub.Err():
+			case err := <-headersSub.Err():
+				log.Error("HeaderSub error", "error", err)
 				return
-			case <-reorgSub.Err():
+			case err := <-reorgSub.Err():
+				log.Error("ReorgSub error", "error", err)
 				return
 			case <-notifier.Closed():
+				log.Error("Nofitier closed Error")
 				return
 			}
 
@@ -190,6 +193,7 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 
 				marshalBlock, err := RPCMarshalBlock(block, true, true, api.sys.backend.ChainConfig())
 				if err != nil {
+					log.Error("failed to marshal block", "err", err, "block", block.Number())
 					continue
 				}
 
@@ -199,10 +203,10 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 					continue
 				}
 				marshalBlock["trace"] = trace
-
 				marshalReceipts := make(map[common.Hash]map[string]interface{})
 				receipts, err := api.sys.backend.GetReceipts(ctx, hash)
 				if err != nil {
+					log.Error("failed to get receipts for block", "err", err, "hash ", hash, "block", block.Number())
 					continue
 				}
 				for index, receipt := range receipts {
@@ -282,6 +286,7 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 	for i, tx := range txs {
 		msg, err := core.TransactionToMessage(tx, signer, block.BaseFee())
 		if err != nil {
+			log.Error("failed to trace block in transaction to message", "err", err, "tx", tx.Hash())
 			return nil, err
 		}
 		txCtx := &tracers.Context{
@@ -292,6 +297,8 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 		}
 		results[i], err = traceTx(msg, txCtx, blockCtx, chainConfig, statedb, tracerOpts)
 		if err != nil {
+
+			log.Error("failed to trace block in transaction", "err", err, "tx", tx.Hash())
 			return nil, err
 		}
 		statedb.Finalise(is158)
