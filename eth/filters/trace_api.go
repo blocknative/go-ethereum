@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -108,7 +106,7 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					traceCtx.TxHash = tx.Hash()
 					trace, err := traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
 					if err != nil {
-						log.Error("failed to trace tx", "err", err, "tx", tx.Hash())
+						log.Info("failed to trace tx", "err", err, "tx", tx.Hash())
 						continue
 					}
 
@@ -197,7 +195,7 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 
 				trace, err := traceBlock(block, chainConfig, api.sys.chain, tracerOpts)
 				if err != nil {
-					log.Error("failed to trace block", "err", err, "block", block.Number())
+					log.Info("failed to trace block", "err", err, "block", block.Number())
 					continue
 				}
 				marshalBlock["trace"] = trace
@@ -238,12 +236,6 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 
 	return rpcSub, nil
 }
-
-var (
-	txTraceLocksMu      sync.RWMutex
-	txTraceLocks        = make(map[common.Hash]chan struct{})
-	txTraceLocksTimeout = 1 * time.Second
-)
 
 // traceTx traces a transaction with the given contexts.
 func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*blocknative.Trace, error) {
