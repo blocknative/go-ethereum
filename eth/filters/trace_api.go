@@ -106,7 +106,9 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					traceCtx.TxHash = tx.Hash()
 					trace, err := traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
 					if err != nil {
-						log.Info("failed to trace tx", "err", err, "tx", tx.Hash())
+						erroredTX, _ := json.Marshal(tx)
+						erroredMsg, _ := json.Marshal(msg)
+						log.Info("failed to trace tx", "err", err, "tx", tx.Hash(), "tx_content", erroredTX, "msg_content", erroredMsg)
 						continue
 					}
 
@@ -297,7 +299,6 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 		}
 		results[i], err = traceTx(msg, txCtx, blockCtx, chainConfig, statedb, tracerOpts)
 		if err != nil {
-
 			log.Error("failed to trace block in transaction", "err", err, "tx", tx.Hash())
 			return nil, err
 		}
