@@ -106,8 +106,6 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					traceCtx.TxHash = tx.Hash()
 					trace, err := traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
 					if err != nil {
-						//erroredTX, _ := json.Marshal(tx)
-						//erroredMsg, _ := json.Marshal(msg)
 						log.Info("failed to trace tx", "err", err, "tx", tx.Hash())
 						continue
 					}
@@ -250,7 +248,7 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 		return nil, err
 	}
 	txContext := core.NewEVMTxContext(message)
-	vmenv := vm.NewEVM(vmctx, txContext, statedb, chainConfig, vm.Config{Tracer: tracer, NoBaseFee: true})
+	vmenv := vm.NewEVM(vmctx, txContext, statedb, chainConfig, vm.Config{Tracer: tracer})
 	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
 
 	if _, err = core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit)); err != nil {
