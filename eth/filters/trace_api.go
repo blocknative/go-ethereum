@@ -106,9 +106,9 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					traceCtx.TxHash = tx.Hash()
 					trace, err := traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
 					if err != nil {
-						erroredTX, _ := json.Marshal(tx)
-						erroredMsg, _ := json.Marshal(msg)
-						log.Info("failed to trace tx", "err", err, "tx", tx.Hash(), "tx_content", erroredTX, "msg_content", erroredMsg)
+						//erroredTX, _ := json.Marshal(tx)
+						//erroredMsg, _ := json.Marshal(msg)
+						log.Info("failed to trace tx", "err", err, "tx", tx.Hash())
 						continue
 					}
 
