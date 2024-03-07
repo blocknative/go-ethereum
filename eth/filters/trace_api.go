@@ -287,7 +287,7 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 
 	var hashes = make([]common.Hash, len(txs))
 	for i, tx := range txs {
-		msg, err := core.TransactionToMessage(tx, signer, block.BaseFee())
+		msg, err := core.TransactionToMessage(tx, signer, blockCtx.BaseFee)
 		if err != nil {
 			log.Error("failed to trace block in transaction to message", "err", err, "tx", tx.Hash())
 			return nil, err
