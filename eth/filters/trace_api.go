@@ -285,6 +285,7 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 		results   = make([]*blocknative.Trace, len(txs))
 	)
 
+	var hashes []common.Hash
 	for i, tx := range txs {
 		msg, err := core.TransactionToMessage(tx, signer, block.BaseFee())
 		if err != nil {
@@ -298,6 +299,7 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 			TxHash:      tx.Hash(),
 		}
 		results[i], err = traceTx(msg, txCtx, blockCtx, chainConfig, statedb, tracerOpts)
+		hashes[i] = tx.Hash()
 		if err != nil {
 			if strings.Contains(err.Error(), "insufficient funds") {
 				gas := ""
@@ -305,7 +307,8 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 					if v != nil {
 						gasT, _ := v.Gas.MarshalText()
 						gasUT, _ := v.GasUsed.MarshalText()
-						gas += "tx: " + strconv.Itoa(i) + " gas " + string(gasT) + " gas_used:" + string(gasUT) + ";"
+						h := hashes[i]
+						gas += "tx: " + strconv.Itoa(i) + " hash: " + h.Hex() + "  gas: " + string(gasT) + " gas_used:" + string(gasUT) + ";"
 					}
 				}
 				log.Error("failed to trace block in transaction - gas", "err", err, "gas", gas)
