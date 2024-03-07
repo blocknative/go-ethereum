@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -297,6 +299,15 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 		}
 		results[i], err = traceTx(msg, txCtx, blockCtx, chainConfig, statedb, tracerOpts)
 		if err != nil {
+			if strings.Contains(err.Error(), "insufficient funds") {
+				gas := ""
+				for i, v := range results {
+					gasT, _ := v.Gas.MarshalText()
+					gasUT, _ := v.GasUsed.MarshalText()
+					gas += "tx: " + strconv.Itoa(i) + " gas " + string(gasT) + " gas_used:" + string(gasUT) + ";"
+				}
+				log.Error("failed to trace block in transaction - gas", "err", err, "gas", gas)
+			}
 			log.Error("failed to trace block in transaction", "err", err, "tx", tx.Hash())
 			return nil, err
 		}
