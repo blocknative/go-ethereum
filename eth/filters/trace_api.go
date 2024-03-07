@@ -285,7 +285,7 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 		results   = make([]*blocknative.Trace, len(txs))
 	)
 
-	var hashes []common.Hash
+	var hashes = make([]common.Hash, len(txs))
 	for i, tx := range txs {
 		msg, err := core.TransactionToMessage(tx, signer, block.BaseFee())
 		if err != nil {
