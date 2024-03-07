@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -108,7 +106,7 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					traceCtx.TxHash = tx.Hash()
 					trace, err := traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
 					if err != nil {
-						log.Error("failed to trace tx", "err", err, "tx", tx.Hash())
+						log.Info("failed to trace tx", "err", err, "tx", tx.Hash())
 						continue
 					}
 
@@ -175,11 +173,14 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 				}
 			case h := <-headers:
 				hashes = []common.Hash{h.Hash()}
-			case <-headersSub.Err():
+			case err := <-headersSub.Err():
+				log.Error("HeaderSub error", "error", err)
 				return
-			case <-reorgSub.Err():
+			case err := <-reorgSub.Err():
+				log.Error("ReorgSub error", "error", err)
 				return
 			case <-notifier.Closed():
+				log.Error("Nofitier closed Error")
 				return
 			}
 
@@ -192,19 +193,20 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 
 				marshalBlock, err := RPCMarshalBlock(block, true, true, api.sys.backend.ChainConfig())
 				if err != nil {
+					log.Error("failed to marshal block", "err", err, "block", block.Number())
 					continue
 				}
 
 				trace, err := traceBlock(block, chainConfig, api.sys.chain, tracerOpts)
 				if err != nil {
-					log.Error("failed to trace block", "err", err, "block", block.Number())
+					log.Info("failed to trace block", "err", err, "block", block.Number())
 					continue
 				}
 				marshalBlock["trace"] = trace
-
 				marshalReceipts := make(map[common.Hash]map[string]interface{})
 				receipts, err := api.sys.backend.GetReceipts(ctx, hash)
 				if err != nil {
+					log.Error("failed to get receipts for block", "err", err, "hash ", hash, "block", block.Number())
 					continue
 				}
 				for index, receipt := range receipts {
@@ -239,12 +241,6 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 	return rpcSub, nil
 }
 
-var (
-	txTraceLocksMu      sync.RWMutex
-	txTraceLocks        = make(map[common.Hash]chan struct{})
-	txTraceLocksTimeout = 1 * time.Second
-)
-
 // traceTx traces a transaction with the given contexts.
 func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*blocknative.Trace, error) {
 	tracer, err := blocknative.NewTracerWithOpts(tracerOpts)
@@ -252,7 +248,7 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 		return nil, err
 	}
 	txContext := core.NewEVMTxContext(message)
-	vmenv := vm.NewEVM(vmctx, txContext, statedb, chainConfig, vm.Config{Tracer: tracer, NoBaseFee: true})
+	vmenv := vm.NewEVM(vmctx, txContext, statedb, chainConfig, vm.Config{Tracer: tracer})
 	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
 
 	if _, err = core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit)); err != nil {
@@ -288,8 +284,9 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 	)
 
 	for i, tx := range txs {
-		msg, err := core.TransactionToMessage(tx, signer, block.BaseFee())
+		msg, err := core.TransactionToMessage(tx, signer, blockCtx.BaseFee)
 		if err != nil {
+			log.Error("failed to trace block in transaction to message", "err", err, "tx", tx.Hash())
 			return nil, err
 		}
 		txCtx := &tracers.Context{
@@ -300,6 +297,7 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 		}
 		results[i], err = traceTx(msg, txCtx, blockCtx, chainConfig, statedb, tracerOpts)
 		if err != nil {
+			log.Error("failed to trace block in transaction", "err", err, "tx", tx.Hash())
 			return nil, err
 		}
 		statedb.Finalise(is158)

@@ -1217,17 +1217,28 @@ func (p *BlobPool) Get(hash common.Hash) *types.Transaction {
 func (p *BlobPool) Add(txs []*types.Transaction, local bool, sync bool) []error {
 	var (
 		adds = make([]*types.Transaction, 0, len(txs))
+		// -------- BLOCKNATIVE MODIFICATION START -------------
+		fullAdds = make([]*types.Transaction, 0, len(txs))
+		// -------- BLOCKNATIVE MODIFICATION STOP -------------
 		errs = make([]error, len(txs))
 	)
 	for i, tx := range txs {
 		errs[i] = p.add(tx)
 		if errs[i] == nil {
 			adds = append(adds, tx.WithoutBlobTxSidecar())
+			// -------- BLOCKNATIVE MODIFICATION START -------------
+			fullAdds = append(adds, tx)
+			// -------- BLOCKNATIVE MODIFICATION STOP -------------
 		}
 	}
+	// -------- BLOCKNATIVE MODIFICATION START -------------
+	if len(fullAdds) > 0 {
+		p.insertFeed.Send(core.NewTxsEvent{Txs: fullAdds})
+	}
+	// -------- BLOCKNATIVE MODIFICATION STOP -------------
+
 	if len(adds) > 0 {
 		p.discoverFeed.Send(core.NewTxsEvent{Txs: adds})
-		p.insertFeed.Send(core.NewTxsEvent{Txs: adds})
 	}
 	return errs
 }

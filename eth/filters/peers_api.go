@@ -72,6 +72,14 @@ func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 		result["baseFeePerGas"] = (*hexutil.Big)(head.BaseFee)
 	}
 
+	if head.BlobGasUsed != nil {
+		result["blobGasUsed"] = hexutil.Uint64(*head.BlobGasUsed)
+	}
+
+	if head.ExcessBlobGas != nil {
+		result["excessBlobGas"] = hexutil.Uint64(*head.ExcessBlobGas)
+	}
+
 	return result
 }
 
@@ -480,7 +488,19 @@ func (api *FilterAPI) NewPendingTransactionsWithPeers(ctx context.Context) (*rpc
 					peerid, _ := txPeerMap.Get(h)
 					p2pts, _ := tsMap.Get(h)
 					peer, _ := peerIDMap.Load(peerid)
-					notifier.Notify(rpcSub.ID, withPeer{Value: newRPCPendingTransaction(api.sys.backend.GetPoolTransaction(h)), Peer: peer, Time: time.Now().UnixNano(), P2PTime: p2pts})
+
+					bTx := api.sys.backend.GetPoolTransaction(h)
+					val := newRPCPendingTransaction(bTx)
+					if val == nil {
+						val = newRPCPendingTransaction(tx)
+					}
+
+					if tx != nil && val != nil {
+						if tx.Type() == 3 && val.BlobSidecar == nil {
+							val.BlobSidecar = tx.BlobTxSidecar()
+						}
+					}
+					notifier.Notify(rpcSub.ID, withPeer{Value: val, Peer: peer, Time: time.Now().UnixNano(), P2PTime: p2pts})
 				}
 			case <-rpcSub.Err():
 				pendingTxSub.Unsubscribe()
