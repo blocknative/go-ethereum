@@ -302,9 +302,11 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 			if strings.Contains(err.Error(), "insufficient funds") {
 				gas := ""
 				for i, v := range results {
-					gasT, _ := v.Gas.MarshalText()
-					gasUT, _ := v.GasUsed.MarshalText()
-					gas += "tx: " + strconv.Itoa(i) + " gas " + string(gasT) + " gas_used:" + string(gasUT) + ";"
+					if v != nil {
+						gasT, _ := v.Gas.MarshalText()
+						gasUT, _ := v.GasUsed.MarshalText()
+						gas += "tx: " + strconv.Itoa(i) + " gas " + string(gasT) + " gas_used:" + string(gasUT) + ";"
+					}
 				}
 				log.Error("failed to trace block in transaction - gas", "err", err, "gas", gas)
 			}
