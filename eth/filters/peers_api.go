@@ -347,9 +347,6 @@ func (api *FilterAPI) NewHeadsWithPeers(ctx context.Context) (*rpc.Subscription,
 			case <-rpcSub.Err():
 				headersSub.Unsubscribe()
 				return
-			case <-notifier.Closed():
-				headersSub.Unsubscribe()
-				return
 			}
 		}
 	}()
@@ -400,8 +397,6 @@ func (api *FilterAPI) NewFullBlocksWithPeers(ctx context.Context) (*rpc.Subscrip
 			case <-rpcSub.Err():
 				return
 			case <-reorgSub.Err():
-				return
-			case <-notifier.Closed():
 				return
 			}
 			for _, hash := range hashes {
@@ -505,9 +500,6 @@ func (api *FilterAPI) NewPendingTransactionsWithPeers(ctx context.Context) (*rpc
 			case <-rpcSub.Err():
 				pendingTxSub.Unsubscribe()
 				return
-			case <-notifier.Closed():
-				pendingTxSub.Unsubscribe()
-				return
 			}
 		}
 	}()
@@ -545,9 +537,6 @@ func (api *FilterAPI) NewTransactionReceipts(ctx context.Context) (*rpc.Subscrip
 			case <-rpcSub.Err():
 				headersSub.Unsubscribe()
 				return
-			case <-notifier.Closed():
-				headersSub.Unsubscribe()
-				return
 			}
 		}
 	}()
@@ -573,9 +562,6 @@ func (api *FilterAPI) ReorgFeed(ctx context.Context) (*rpc.Subscription, error) 
 			case r := <-ch:
 				notifier.Notify(rpcSub.ID, r)
 			case <-rpcSub.Err():
-				sub.Unsubscribe()
-				return
-			case <-notifier.Closed():
 				sub.Unsubscribe()
 				return
 			}

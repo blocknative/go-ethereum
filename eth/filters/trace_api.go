@@ -127,8 +127,6 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 				notifier.Notify(rpcSub.ID, tracedTxs)
 			case <-rpcSub.Err():
 				return
-			case <-notifier.Closed():
-				return
 			}
 		}
 	}()
@@ -178,9 +176,6 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 				return
 			case err := <-reorgSub.Err():
 				log.Error("ReorgSub error", "error", err)
-				return
-			case <-notifier.Closed():
-				log.Error("Nofitier closed Error")
 				return
 			}
 
@@ -247,10 +242,9 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 	if err != nil {
 		return nil, err
 	}
-	txContext := core.NewEVMTxContext(message)
-	vmenv := vm.NewEVM(vmctx, txContext, statedb, chainConfig, vm.Config{Tracer: tracer})
-	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
+	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: tracer, NoBaseFee: true})
 
+	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
 	if _, err = core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit)); err != nil {
 		return nil, fmt.Errorf("tracing failed: %w", err)
 	}
