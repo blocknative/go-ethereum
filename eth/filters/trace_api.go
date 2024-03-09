@@ -319,7 +319,7 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 		}
 		if err != nil {
 			exec, _ := json.Marshal(results2)
-			log.Error("failed to trace block in transaction", "err", err, "blockHash", block.Hash(), "tx", tx.Hash(), "exec", exec)
+			log.Error("failed to trace block in transaction 1a", "err", err, "blockHash", block.Hash(), "tx", tx.Hash(), "exec", string(exec))
 			return nil, err
 		}
 		statedb.Finalise(is158)
