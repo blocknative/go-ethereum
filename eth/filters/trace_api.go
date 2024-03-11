@@ -127,8 +127,6 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 				notifier.Notify(rpcSub.ID, tracedTxs)
 			case <-rpcSub.Err():
 				return
-			case <-notifier.Closed():
-				return
 			}
 		}
 	}()
@@ -179,9 +177,6 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 			case err := <-reorgSub.Err():
 				log.Error("ReorgSub error", "error", err)
 				return
-			case <-notifier.Closed():
-				log.Error("Nofitier closed Error")
-				return
 			}
 
 			for _, hash := range hashes {
@@ -196,12 +191,12 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 					log.Error("failed to marshal block", "err", err, "block", block.Number())
 					continue
 				}
-
-				trace, err := traceBlock(block, chainConfig, api.sys.chain, tracerOpts)
-				if err != nil {
-					log.Info("failed to trace block", "err", err, "block", block.Number())
-					continue
-				}
+ 
+				trace, _ := traceBlock(block, chainConfig, api.sys.chain, tracerOpts)
+				//		if err != nil {
+				//			log.Info("failed to trace block", "err", err, "hash", hash, "block", block.Number())
+				//			continue
+				//		}
 				marshalBlock["trace"] = trace
 				marshalReceipts := make(map[common.Hash]map[string]interface{})
 				receipts, err := api.sys.backend.GetReceipts(ctx, hash)
@@ -246,9 +241,8 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 	tracer, err := blocknative.NewTracerWithOpts(tracerOpts)
 	if err != nil {
 		return nil, err
-	}
-	txContext := core.NewEVMTxContext(message)
-	vmenv := vm.NewEVM(vmctx, txContext, statedb, chainConfig, vm.Config{Tracer: tracer})
+	} 
+	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: tracer, NoBaseFee: true})
 	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
 
 	if _, err = core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit)); err != nil {
@@ -260,6 +254,30 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 	}
 
 	return trace, err
+}
+
+// traceBlockTx traces a transaction with the given contexts.
+func traceBlockTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*core.ExecutionResult, *blocknative.Trace, error) {
+
+	tracerOpts.DisableBlockContext = false
+	tracer, err := blocknative.NewTracerWithOpts(tracerOpts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: tracer, NoBaseFee: false})
+	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
+
+	result, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit))
+	if err != nil {
+		return result, nil, fmt.Errorf("tracing failed: %w", err)
+	}
+	trace, err := tracer.GetTrace()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return result, trace, err
 }
 
 // traceBlock traces all transactions in a block.
@@ -281,6 +299,7 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 		blockCtx  = core.NewEVMBlockContext(block.Header(), chain, nil)
 		signer    = types.MakeSigner(chainConfig, block.Number(), block.Time())
 		results   = make([]*blocknative.Trace, len(txs))
+		results2  = make([]*core.ExecutionResult, len(txs))
 	)
 
 	for i, tx := range txs {
@@ -295,10 +314,22 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 			TxIndex:     i,
 			TxHash:      tx.Hash(),
 		}
-		results[i], err = traceTx(msg, txCtx, blockCtx, chainConfig, statedb, tracerOpts)
+		results2[i], results[i], err = traceBlockTx(msg, txCtx, blockCtx, chainConfig, statedb, tracerOpts)
+		if results2[i] != nil {
+			results2[i].Hash = tx.Hash()
+		}
 		if err != nil {
-			log.Error("failed to trace block in transaction", "err", err, "tx", tx.Hash())
-			return nil, err
+			cconf, _ := json.Marshal(chainConfig)
+			topts, _ := json.Marshal(tracerOpts)
+			exec, _ := json.Marshal(results2)
+			log.Error("failed to trace block in tx config",
+				"err", err,
+				"blockHash", block.Hash(),
+				"tx", tx.Hash(),
+				"conf", string(cconf),
+				"tracerOpts", string(topts))
+			log.Error("failed to trace block in transaction 1a", "err", err, "blockHash", block.Hash(), "tx", tx.Hash(), "exec", string(exec))
+			return results, err
 		}
 		statedb.Finalise(is158)
 	}

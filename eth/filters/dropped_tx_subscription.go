@@ -172,9 +172,6 @@ func (api *FilterAPI) DroppedTransactions(ctx context.Context) (*rpc.Subscriptio
 			case <-rpcSub.Err():
 				droppedSub.Unsubscribe()
 				return
-			case <-notifier.Closed():
-				droppedSub.Unsubscribe()
-				return
 			}
 		}
 	}()
@@ -234,9 +231,6 @@ func (api *FilterAPI) RejectedTransactions(ctx context.Context) (*rpc.Subscripti
 					Time:   time.Now().UnixNano(),
 				})
 			case <-rpcSub.Err():
-				rejectedSub.Unsubscribe()
-				return
-			case <-notifier.Closed():
 				rejectedSub.Unsubscribe()
 				return
 			}
