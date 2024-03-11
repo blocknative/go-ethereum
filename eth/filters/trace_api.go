@@ -29,7 +29,7 @@ var defaultTxTraceOpts = blocknative.TracerOpts{
 
 var defaultBlockTraceOpts = blocknative.TracerOpts{
 	BalanceChanges:      true,
-	DisableBlockContext: true,
+	DisableBlockContext: false,
 	Logs:                true,
 }
 
@@ -256,15 +256,16 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 	return trace, err
 }
 
-// traceTx traces a transaction with the given contexts.
-func trace2Tx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*core.ExecutionResult, *blocknative.Trace, error) {
+// traceBlockTx traces a transaction with the given contexts.
+func traceBlockTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*core.ExecutionResult, *blocknative.Trace, error) {
 
-	tracerOpts.DisableBlockContext = true
+	tracerOpts.DisableBlockContext = false
 	tracer, err := blocknative.NewTracerWithOpts(tracerOpts)
 	if err != nil {
 		return nil, nil, err
 	}
-	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: tracer, NoBaseFee: true})
+
+	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: tracer, NoBaseFee: false})
 	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
 
 	result, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit))
@@ -313,11 +314,20 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 			TxIndex:     i,
 			TxHash:      tx.Hash(),
 		}
-		results2[i], results[i], err = trace2Tx(msg, txCtx, blockCtx, chainConfig, statedb, tracerOpts)
+		results2[i], results[i], err = traceBlockTx(msg, txCtx, blockCtx, chainConfig, statedb, tracerOpts)
 		if results2[i] != nil {
 			results2[i].Hash = tx.Hash()
 		}
 		if err != nil {
+			cconf, _ := json.Marshal(chainConfig)
+			topts, _ := json.Marshal(tracerOpts)
+			log.Error("failed to trace block in tx config",
+				"err", err,
+				"blockHash", block.Hash(),
+				"tx", tx.Hash(),
+				"conf", string(cconf),
+				"tracerOpts", string(topts))
+
 			exec, _ := json.Marshal(results2)
 			log.Error("failed to trace block in transaction 1a", "err", err, "blockHash", block.Hash(), "tx", tx.Hash(), "exec", string(exec))
 			return nil, err
