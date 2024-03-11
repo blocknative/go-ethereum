@@ -191,18 +191,17 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 					log.Error("failed to marshal block", "err", err, "block", block.Number())
 					continue
 				}
-
+ 
 				trace, _ := traceBlock(block, chainConfig, api.sys.chain, tracerOpts)
 				//		if err != nil {
 				//			log.Info("failed to trace block", "err", err, "hash", hash, "block", block.Number())
 				//			continue
 				//		}
-
 				marshalBlock["trace"] = trace
 				marshalReceipts := make(map[common.Hash]map[string]interface{})
 				receipts, err := api.sys.backend.GetReceipts(ctx, hash)
 				if err != nil {
-					log.Error("failed to `get receipts for block", "err", err, "hash ", hash, "block", block.Number())
+					log.Error("failed to get receipts for block", "err", err, "hash ", hash, "block", block.Number())
 					continue
 				}
 				for index, receipt := range receipts {
@@ -242,7 +241,7 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 	tracer, err := blocknative.NewTracerWithOpts(tracerOpts)
 	if err != nil {
 		return nil, err
-	}
+	} 
 	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: tracer, NoBaseFee: true})
 	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
 
