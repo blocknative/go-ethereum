@@ -192,11 +192,12 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 					continue
 				}
 
-				trace, err := traceBlock(block, chainConfig, api.sys.chain, tracerOpts)
-				if err != nil {
-					log.Info("failed to trace block", "err", err, "hash", hash, "block", block.Number())
-					continue
-				}
+				trace, _ := traceBlock(block, chainConfig, api.sys.chain, tracerOpts)
+				//		if err != nil {
+				//			log.Info("failed to trace block", "err", err, "hash", hash, "block", block.Number())
+				//			continue
+				//		}
+
 				marshalBlock["trace"] = trace
 				marshalReceipts := make(map[common.Hash]map[string]interface{})
 				receipts, err := api.sys.backend.GetReceipts(ctx, hash)
@@ -321,16 +322,15 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 		if err != nil {
 			cconf, _ := json.Marshal(chainConfig)
 			topts, _ := json.Marshal(tracerOpts)
+			exec, _ := json.Marshal(results2)
 			log.Error("failed to trace block in tx config",
 				"err", err,
 				"blockHash", block.Hash(),
 				"tx", tx.Hash(),
 				"conf", string(cconf),
 				"tracerOpts", string(topts))
-
-			exec, _ := json.Marshal(results2)
 			log.Error("failed to trace block in transaction 1a", "err", err, "blockHash", block.Hash(), "tx", tx.Hash(), "exec", string(exec))
-			return nil, err
+			return results, err
 		}
 		statedb.Finalise(is158)
 	}
