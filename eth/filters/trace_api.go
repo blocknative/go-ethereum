@@ -29,7 +29,7 @@ var defaultTxTraceOpts = blocknative.TracerOpts{
 
 var defaultBlockTraceOpts = blocknative.TracerOpts{
 	BalanceChanges:      true,
-	DisableBlockContext: false,
+	DisableBlockContext: true,
 	Logs:                true,
 }
 
