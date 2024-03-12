@@ -23,12 +23,10 @@ import (
 )
 
 var defaultTxTraceOpts = blocknative.TracerOpts{
-	BalanceChanges: true,
-	Logs:           true,
+	Logs: true,
 }
 
 var defaultBlockTraceOpts = blocknative.TracerOpts{
-	BalanceChanges:      true,
 	DisableBlockContext: true,
 	Logs:                true,
 }
