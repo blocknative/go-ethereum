@@ -236,9 +236,11 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 	return rpcSub, nil
 }
 
+var txTraceOpts = []byte(`{"withLog": true}`)
+
 // traceTx traces a transaction with the given contexts.
 func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*blocknative.Trace, error) {
-	tracer, err := blocknative.NewTracerWithOpts(tracerOpts)
+	tracer, err := tracers.DefaultDirectory.New("callTracer", txCtx, txTraceOpts)
 	if err != nil {
 		return nil, err
 	} 
@@ -248,7 +250,13 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 	if _, err = core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit)); err != nil {
 		return nil, fmt.Errorf("tracing failed: %w", err)
 	}
-	trace, err := tracer.GetTrace()
+	traceJSON, err := tracer.GetResult()
+	if err != nil {
+		return nil, err
+	}
+
+	trace := &blocknative.Trace{}
+	err = json.Unmarshal(traceJSON, trace)
 	if err != nil {
 		return nil, err
 	}
@@ -258,9 +266,7 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 
 // traceBlockTx traces a transaction with the given contexts.
 func traceBlockTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*core.ExecutionResult, *blocknative.Trace, error) {
-
-	tracerOpts.DisableBlockContext = false
-	tracer, err := blocknative.NewTracerWithOpts(tracerOpts)
+	tracer, err := tracers.DefaultDirectory.New("callTracer", txCtx, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -272,7 +278,13 @@ func traceBlockTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockC
 	if err != nil {
 		return result, nil, fmt.Errorf("tracing failed: %w", err)
 	}
-	trace, err := tracer.GetTrace()
+	traceJSON, err := tracer.GetResult()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	trace := &blocknative.Trace{}
+	err = json.Unmarshal(traceJSON, trace)
 	if err != nil {
 		return nil, nil, err
 	}

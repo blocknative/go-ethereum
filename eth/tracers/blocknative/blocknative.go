@@ -63,6 +63,7 @@ type CallFrame struct {
 	ErrorReason string             `json:"errorReason,omitempty"`
 	Calls       []CallFrame        `json:"calls,omitempty"`
 	Decoded     *decoder.CallFrame `json:"decoded,omitempty"`
+	Logs        []CallLog          `json:"logs,omitempty"`
 }
 
 // CallLog represents a single log entry from the receipt of a transaction.
