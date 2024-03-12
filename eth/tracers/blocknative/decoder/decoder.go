@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -173,6 +174,10 @@ func (d *Decoder) DecodeCallFrameEnd(cf *CallFrame) error {
 	d.balances.captureCallFrameEnd(cf)
 
 	return nil
+}
+
+func (d *Decoder) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
+	log.Debug("cs", "name", op.String(), "gas", gas, "cost", cost)
 }
 
 // DecodeContract decodes the contract at the given address.
