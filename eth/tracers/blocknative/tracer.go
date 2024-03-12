@@ -81,22 +81,22 @@ func (t *tracer) SetStateRoot(root common.Hash) {
 func (t *tracer) CaptureStart(evm *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 	t.startTime = time.Now()
 	t.evm = evm
-
-	if t.opts.Decode {
-		t.decoder = decoder.New(decoderCache, decoderEVM{evm})
-	}
-
-	if !t.opts.DisableBlockContext {
-		t.trace.BlockContext.Number = evm.Context.BlockNumber.Uint64()
-		t.trace.BlockContext.BaseFee = evm.Context.BaseFee.Uint64()
-		t.trace.BlockContext.Time = evm.Context.Time
-		t.trace.BlockContext.Coinbase = evm.Context.Coinbase
-		t.trace.BlockContext.GasLimit = evm.Context.GasLimit
-		if evm.Context.Random != nil {
-			copy(t.trace.BlockContext.Random[:], evm.Context.Random[:])
+	/*
+		if t.opts.Decode {
+			t.decoder = decoder.New(decoderCache, decoderEVM{evm})
 		}
-	}
 
+		if !t.opts.DisableBlockContext {
+			t.trace.BlockContext.Number = evm.Context.BlockNumber.Uint64()
+			t.trace.BlockContext.BaseFee = evm.Context.BaseFee.Uint64()
+			t.trace.BlockContext.Time = evm.Context.Time
+			t.trace.BlockContext.Coinbase = evm.Context.Coinbase
+			t.trace.BlockContext.GasLimit = evm.Context.GasLimit
+			if evm.Context.Random != nil {
+				copy(t.trace.BlockContext.Random[:], evm.Context.Random[:])
+			}
+		}
+	*/
 	// Create a call-frame for the top-level call.
 	var bigValue Big
 	if value != nil {
@@ -286,7 +286,7 @@ func EmptyCache() {
 //}
 
 func (t *tracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
-	log.Debug("cs", "name", op.String(), "gas", gas, "cost", cost)
+	// log.Debug("cs", "name", op.String(), "gas", gas, "cost", cost)
 }
 
 // CaptureFault implements the tracer interface, but is unused.

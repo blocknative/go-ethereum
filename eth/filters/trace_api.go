@@ -262,16 +262,16 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 // traceBlockTx traces a transaction with the given contexts.
 func traceBlockTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*core.ExecutionResult, *blocknative.Trace, error) {
 
-	tracer, err := tracers.DefaultDirectory.New("callTracer", txCtx, nil)
+	//tracer, err := tracers.DefaultDirectory.New("callTracer", txCtx, nil)
+	//if err != nil {
+	//	return nil, nil, err
+	//}
+
+	// tracerOpts.DisableBlockContext = false
+	tracer, err := blocknative.NewTracerWithOpts(tracerOpts)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	// tracerOpts.DisableBlockContext = false
-	// tracer, err := blocknative.NewTracerWithOpts(tracerOpts)
-	// if err != nil {
-	// 	return nil, nil, err
-	// }
 
 	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: tracer, NoBaseFee: false})
 	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
