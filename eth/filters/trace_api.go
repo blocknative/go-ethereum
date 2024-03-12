@@ -191,7 +191,7 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 					log.Error("failed to marshal block", "err", err, "block", block.Number())
 					continue
 				}
- 
+
 				trace, _ := traceBlock(block, chainConfig, api.sys.chain, tracerOpts)
 				//		if err != nil {
 				//			log.Info("failed to trace block", "err", err, "hash", hash, "block", block.Number())
@@ -241,7 +241,7 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 	tracer, err := blocknative.NewTracerWithOpts(tracerOpts)
 	if err != nil {
 		return nil, err
-	} 
+	}
 	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: tracer, NoBaseFee: true})
 	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
 
@@ -267,7 +267,6 @@ func traceBlockTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockC
 
 	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: tracer, NoBaseFee: false})
 	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
-
 	result, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit))
 	if err != nil {
 		return result, nil, fmt.Errorf("tracing failed: %w", err)
@@ -291,6 +290,18 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 	if err != nil {
 		return nil, err
 	}
+	chain.TrieDB().Reference(parent.Root(), common.Hash{})
+
+	defer chain.TrieDB().Dereference(parent.Root())
+
+	/*
+		if statedb, err = eth.blockchain.StateAt(block.Root()); err == nil {
+			eth.blockchain.TrieDB().Reference(block.Root(), common.Hash{})
+			return statedb, func() {
+				eth.blockchain.TrieDB().Dereference(block.Root())
+			}, nil
+		}
+	*/
 
 	var (
 		txs       = block.Transactions()
@@ -301,7 +312,7 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 		results   = make([]*blocknative.Trace, len(txs))
 		results2  = make([]*core.ExecutionResult, len(txs))
 	)
-
+	//api.backend.RPCGasCap(),
 	for i, tx := range txs {
 		msg, err := core.TransactionToMessage(tx, signer, blockCtx.BaseFee)
 		if err != nil {

@@ -33,12 +33,14 @@ import (
 // ExecutionResult includes all output after executing given evm
 // message no matter the execution itself is successful or not.
 type ExecutionResult struct {
-	Fee         *uint256.Int
-	UsedGas     uint64 // Total used gas, not including the refunded gas
-	RefundedGas uint64 // Total gas refunded after execution
-	Err         error  // Any error encountered during the execution(listed in core/vm/errors.go)
-	ReturnData  []byte // Returned data from evm(function result or data supplied with revert opcode)
-	Hash        common.Hash
+	InitialGas   uint64
+	IntrinsicGas uint64
+	Fee          *uint256.Int
+	UsedGas      uint64 // Total used gas, not including the refunded gas
+	RefundedGas  uint64 // Total gas refunded after execution
+	Err          error  // Any error encountered during the execution(listed in core/vm/errors.go)
+	ReturnData   []byte // Returned data from evm(function result or data supplied with revert opcode)
+	Hash         common.Hash
 }
 
 // Unwrap returns the internal evm error which allows us for further
@@ -386,7 +388,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	if err := st.preCheck(); err != nil {
 		return nil, err
 	}
-
+	initialGasValue := st.initialGas
 	if tracer := st.evm.Config.Tracer; tracer != nil {
 		tracer.CaptureTxStart(st.initialGas)
 
@@ -412,6 +414,8 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	intrinsicGas := gas
+
 	if st.gasRemaining < gas {
 		return nil, fmt.Errorf("%w: have %d, want %d", ErrIntrinsicGas, st.gasRemaining, gas)
 	}
@@ -474,11 +478,13 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	}
 
 	return &ExecutionResult{
-		Fee:         fee,
-		UsedGas:     st.gasUsed(),
-		RefundedGas: gasRefund,
-		Err:         vmerr,
-		ReturnData:  ret,
+		InitialGas:   initialGasValue,
+		IntrinsicGas: intrinsicGas,
+		Fee:          fee,
+		UsedGas:      st.gasUsed(),
+		RefundedGas:  gasRefund,
+		Err:          vmerr,
+		ReturnData:   ret,
 	}, nil
 }
 

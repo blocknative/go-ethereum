@@ -77,6 +77,8 @@ type Backend interface {
 	SubscribeRejectedTxEvent(ch chan<- core.RejectedTxEvent) event.Subscription
 	GetPoolTransaction(txHash common.Hash) *types.Transaction
 
+	//StateAtBlock(ctx context.Context, block *types.Block, reexec uint64, base *state.StateDB, readOnly bool, preferDisk bool) (*state.StateDB, StateReleaseFunc, error)
+
 	BloomStatus() (uint64, uint64)
 	ServiceFilter(ctx context.Context, session *bloombits.MatcherSession)
 }
