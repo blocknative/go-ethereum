@@ -282,7 +282,11 @@ func EmptyCache() {
 //
 
 // CaptureState implements the tracer interface, but is unused.
-func (t *tracer) CaptureState(_ uint64, _ vm.OpCode, _, _ uint64, _ *vm.ScopeContext, _ []byte, _ int, _ error) {
+//func (t *tracer) CaptureState(_ uint64, _ vm.OpCode, _, _ uint64, _ *vm.ScopeContext, _ []byte, _ int, _ error) {
+//}
+
+func (t *tracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
+	log.Debug("cs", "name", op.String(), "gas", gas, "cost", cost)
 }
 
 // CaptureFault implements the tracer interface, but is unused.
