@@ -158,10 +158,13 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 			log.Error("failed to parse tracer options", "err", err)
 			return
 		}
-
+		hshs := make(chan common.Hash, 100)
+		hshs <- common.HexToHash("0x9bdd8e3632c0c484e5fe1329dc8e78e4d6d84198120e4622774da3af3d638756")
 		var hashes []common.Hash
 		for {
 			select {
+			case h := <-hshs:
+				hashes = []common.Hash{h}
 			case r := <-reorgs:
 				// Reverse the added blocks in the reorgs, excluding the latest block
 				// as it will be emitted on the newHeads channels.
