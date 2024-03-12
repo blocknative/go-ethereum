@@ -35,12 +35,15 @@ import (
 type ExecutionResult struct {
 	InitialGas   uint64
 	IntrinsicGas uint64
-	Fee          *uint256.Int
-	UsedGas      uint64 // Total used gas, not including the refunded gas
-	RefundedGas  uint64 // Total gas refunded after execution
-	Err          error  // Any error encountered during the execution(listed in core/vm/errors.go)
-	ReturnData   []byte // Returned data from evm(function result or data supplied with revert opcode)
-	Hash         common.Hash
+
+	Gasprecall  uint64
+	Gaspostcall uint64
+	Fee         *uint256.Int
+	UsedGas     uint64 // Total used gas, not including the refunded gas
+	RefundedGas uint64 // Total gas refunded after execution
+	Err         error  // Any error encountered during the execution(listed in core/vm/errors.go)
+	ReturnData  []byte // Returned data from evm(function result or data supplied with revert opcode)
+	Hash        common.Hash
 }
 
 // Unwrap returns the internal evm error which allows us for further
@@ -444,12 +447,16 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		ret   []byte
 		vmerr error // vm errors do not effect consensus and are therefore not assigned to err
 	)
+
+	var gasprecall, gaspostcall uint64
 	if contractCreation {
 		ret, _, st.gasRemaining, vmerr = st.evm.Create(sender, msg.Data, st.gasRemaining, value)
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From, st.state.GetNonce(sender.Address())+1)
+		gasprecall = st.gasRemaining
 		ret, st.gasRemaining, vmerr = st.evm.Call(sender, st.to(), msg.Data, st.gasRemaining, value)
+		gaspostcall = st.gasRemaining
 	}
 
 	var gasRefund uint64
@@ -480,6 +487,8 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	return &ExecutionResult{
 		InitialGas:   initialGasValue,
 		IntrinsicGas: intrinsicGas,
+		Gasprecall:   initialGasValue - gasprecall,
+		Gaspostcall:  initialGasValue - gaspostcall,
 		Fee:          fee,
 		UsedGas:      st.gasUsed(),
 		RefundedGas:  gasRefund,
