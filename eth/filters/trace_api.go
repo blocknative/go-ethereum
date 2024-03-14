@@ -86,43 +86,50 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					header.ExcessBlobGas = &ex
 				}
 
-				blockCtx := core.NewEVMBlockContext(header, api.sys.chain, nil)
-
-				statedb, err := api.sys.chain.State()
-				if err != nil {
-					log.Error("failed to get state", "err", err)
-					return
-				}
-
 				for _, tx := range txs {
-					msg, _ = core.TransactionToMessage(tx, signer, header.BaseFee)
-					if err != nil {
-						log.Error("failed to create tx message", "err", err, "tx", tx.Hash())
-						continue
-					}
-
-					traceCtx.TxHash = tx.Hash()
-					trace, err := traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
-					if err != nil {
-						log.Info("failed to trace tx", "err", err, "tx", tx.Hash())
-						continue
-					}
-
-					gasPrice := hexutil.Big(*tx.GasPrice())
 					rpcTx := newRPCPendingTransaction(tx)
+					if rpcTx == nil {
+						tracedTxs = append(tracedTxs, nil)
+						continue
+					}
 					rpcTx.BlockHash = &blockHash
 					rpcTx.BlockNumber = &blockNumber
 					rpcTx.TransactionIndex = &txIndex
-					rpcTx.Trace = trace
+					gasPrice := hexutil.Big(*tx.GasPrice())
 					rpcTx.GasPrice = &gasPrice
 					tracedTxs = append(tracedTxs, rpcTx)
 				}
 
-				if len(tracedTxs) == 0 {
-					continue
+				blockCtx := core.NewEVMBlockContext(header, api.sys.chain, nil)
+				statedb, err := api.sys.chain.State()
+				if err != nil {
+					log.Error("failed to get state", "err", err)
+					notifier.Notify(rpcSub.ID, tracedTxs)
+					return
+				}
+
+				for i, tx := range tracedTxs {
+					if tx == nil {
+						continue
+					}
+
+					msg, err = core.TransactionToMessage(txs[i], signer, header.BaseFee)
+					if err != nil {
+						log.Error("failed to create tx message", "err", err, "tx", tx.Hash)
+						continue
+					}
+					msg.SkipAccountChecks = true
+
+					traceCtx.TxHash = tx.Hash
+					tx.Trace, err = traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
+					if err != nil {
+						log.Info("failed to trace tx", "err", err, "tx", tx.Hash)
+						continue
+					}
 				}
 
 				notifier.Notify(rpcSub.ID, tracedTxs)
+
 			case <-rpcSub.Err():
 				return
 			}
@@ -189,7 +196,7 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 					log.Error("failed to marshal block", "err", err, "block", block.Number())
 					continue
 				}
- 
+
 				trace, _ := traceBlock(block, chainConfig, api.sys.chain, tracerOpts)
 				//		if err != nil {
 				//			log.Info("failed to trace block", "err", err, "hash", hash, "block", block.Number())
@@ -239,7 +246,7 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 	tracer, err := blocknative.NewTracerWithOpts(tracerOpts)
 	if err != nil {
 		return nil, err
-	} 
+	}
 	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: tracer, NoBaseFee: true})
 	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
 
