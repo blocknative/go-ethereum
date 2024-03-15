@@ -116,17 +116,18 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 						continue
 					}
 
-					msg, err = core.TransactionToMessage(txs[i], signer, nil)
+					msg, err = core.TransactionToMessage(txs[i], signer, header.BaseFee)
 					if err != nil {
 						log.Error("failed to create tx message", "err", err, "tx", tx.Hash)
 						continue
 					}
 					msg.SkipAccountChecks = true
+					msg.BlobGasFeeCap = common.Big0 // skip the check of ErrBlobFeeCapTooLow
+					msg.GasFeeCap = common.Big0     // skip the check of ErrFeeCapTooLow
+					msg.GasTipCap = common.Big0     // skip the check of ErrFeeCapTooLow
 
-					if i > 0 {
-						if snapID > 0 {
-							statedb.RevertToSnapshot(snapID)
-						}
+					if i > 0 && snapID > 0 {
+						statedb.RevertToSnapshot(snapID)
 					}
 					traceCtx.TxHash = tx.Hash
 					tx.Trace, err = traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
