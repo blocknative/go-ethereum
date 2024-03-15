@@ -53,6 +53,11 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 			return
 		}
 
+		var (
+			txIndex = hexutil.Uint64(0)
+			msg     *core.Message
+		)
+
 		for {
 			select {
 			case txs := <-txs:
@@ -74,11 +79,7 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 						BlockNumber: header.Number,
 					}
 
-					msg         *core.Message
-					tracedTxs   = make([]*RPCTransaction, 0, len(txs))
-					blockNumber = hexutil.Big(*header.Number)
-					blockHash   = header.Hash()
-					txIndex     = hexutil.Uint64(0)
+					tracedTxs = make([]*RPCTransaction, 0, len(txs))
 				)
 
 				if currentHeader.BlobGasUsed != nil && currentHeader.ExcessBlobGas != nil {
@@ -92,7 +93,9 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 						tracedTxs = append(tracedTxs, nil)
 						continue
 					}
+					blockHash := header.Hash()
 					rpcTx.BlockHash = &blockHash
+					blockNumber := hexutil.Big(*header.Number)
 					rpcTx.BlockNumber = &blockNumber
 					rpcTx.TransactionIndex = &txIndex
 					gasPrice := hexutil.Big(*tx.GasPrice())
@@ -100,7 +103,6 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					tracedTxs = append(tracedTxs, rpcTx)
 				}
 
-				blockCtx := core.NewEVMBlockContext(header, api.sys.chain, nil)
 				statedb, err := api.sys.chain.State()
 				if err != nil {
 					log.Error("failed to get state", "err", err)
@@ -108,23 +110,28 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					return
 				}
 
+				blockCtx := core.NewEVMBlockContext(header, api.sys.chain, nil)
+				snapID := statedb.Snapshot()
+
 				for i, tx := range tracedTxs {
 					if tx == nil {
 						continue
 					}
 
-					msg, err = core.TransactionToMessage(txs[i], signer, header.BaseFee)
+					msg, err = core.TransactionToMessage(txs[i], signer, nil)
 					if err != nil {
 						log.Error("failed to create tx message", "err", err, "tx", tx.Hash)
 						continue
 					}
 					msg.SkipAccountChecks = true
 
+					if i > 0 {
+						statedb.RevertToSnapshot(snapID)
+					}
 					traceCtx.TxHash = tx.Hash
 					tx.Trace, err = traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
 					if err != nil {
 						log.Info("failed to trace tx", "err", err, "tx", tx.Hash)
-						continue
 					}
 				}
 
