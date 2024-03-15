@@ -72,13 +72,11 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 						BaseFee:    eip1559.CalcBaseFee(chainConfig, currentHeader),
 						Number:     new(big.Int).Add(currentHeader.Number, common.Big1),
 					}
-					signer = types.MakeSigner(chainConfig, header.Number, header.Time)
-
+					signer   = types.MakeSigner(chainConfig, header.Number, header.Time)
 					traceCtx = &tracers.Context{
 						BlockHash:   header.Hash(),
 						BlockNumber: header.Number,
 					}
-
 					tracedTxs = make([]*RPCTransaction, 0, len(txs))
 				)
 
@@ -126,7 +124,9 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					msg.SkipAccountChecks = true
 
 					if i > 0 {
-						statedb.RevertToSnapshot(snapID)
+						if snapID > 0 {
+							statedb.RevertToSnapshot(snapID)
+						}
 					}
 					traceCtx.TxHash = tx.Hash
 					tx.Trace, err = traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
