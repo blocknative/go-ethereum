@@ -53,6 +53,11 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 			return
 		}
 
+		var (
+			txIndex = hexutil.Uint64(0)
+			msg     *core.Message
+		)
+
 		for {
 			select {
 			case txs := <-txs:
@@ -67,18 +72,12 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 						BaseFee:    eip1559.CalcBaseFee(chainConfig, currentHeader),
 						Number:     new(big.Int).Add(currentHeader.Number, common.Big1),
 					}
-					signer = types.MakeSigner(chainConfig, header.Number, header.Time)
-
+					signer   = types.MakeSigner(chainConfig, header.Number, header.Time)
 					traceCtx = &tracers.Context{
 						BlockHash:   header.Hash(),
 						BlockNumber: header.Number,
 					}
-
-					msg         *core.Message
-					tracedTxs   = make([]*RPCTransaction, 0, len(txs))
-					blockNumber = hexutil.Big(*header.Number)
-					blockHash   = header.Hash()
-					txIndex     = hexutil.Uint64(0)
+					tracedTxs = make([]*RPCTransaction, 0, len(txs))
 				)
 
 				if currentHeader.BlobGasUsed != nil && currentHeader.ExcessBlobGas != nil {
@@ -92,7 +91,9 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 						tracedTxs = append(tracedTxs, nil)
 						continue
 					}
+					blockHash := header.Hash()
 					rpcTx.BlockHash = &blockHash
+					blockNumber := hexutil.Big(*header.Number)
 					rpcTx.BlockNumber = &blockNumber
 					rpcTx.TransactionIndex = &txIndex
 					gasPrice := hexutil.Big(*tx.GasPrice())
@@ -100,13 +101,15 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					tracedTxs = append(tracedTxs, rpcTx)
 				}
 
-				blockCtx := core.NewEVMBlockContext(header, api.sys.chain, nil)
 				statedb, err := api.sys.chain.State()
 				if err != nil {
 					log.Error("failed to get state", "err", err)
 					notifier.Notify(rpcSub.ID, tracedTxs)
 					return
 				}
+
+				blockCtx := core.NewEVMBlockContext(header, api.sys.chain, nil)
+				snapID := statedb.Snapshot()
 
 				for i, tx := range tracedTxs {
 					if tx == nil {
@@ -119,12 +122,17 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 						continue
 					}
 					msg.SkipAccountChecks = true
+					msg.BlobGasFeeCap = common.Big0 // skip the check of ErrBlobFeeCapTooLow
+					msg.GasFeeCap = common.Big0     // skip the check of ErrFeeCapTooLow
+					msg.GasTipCap = common.Big0     // skip the check of ErrFeeCapTooLow
 
+					if i > 0 && snapID > 0 {
+						statedb.RevertToSnapshot(snapID)
+					}
 					traceCtx.TxHash = tx.Hash
 					tx.Trace, err = traceTx(msg, traceCtx, blockCtx, chainConfig, statedb, tracerOpts)
 					if err != nil {
 						log.Info("failed to trace tx", "err", err, "tx", tx.Hash)
-						continue
 					}
 				}
 
