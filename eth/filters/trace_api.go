@@ -85,6 +85,13 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					header.ExcessBlobGas = &ex
 				}
 
+				sDB, err := api.sys.chain.State()
+				if err != nil {
+					log.Error("failed to get state", "err", err)
+					notifier.Notify(rpcSub.ID, tracedTxs)
+					return
+				}
+
 				for _, tx := range txs {
 					rpcTx := newRPCPendingTransaction(tx)
 					if rpcTx == nil {
@@ -99,13 +106,6 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					gasPrice := hexutil.Big(*tx.GasPrice())
 					rpcTx.GasPrice = &gasPrice
 					tracedTxs = append(tracedTxs, rpcTx)
-				}
-
-				sDB, err := api.sys.chain.State()
-				if err != nil {
-					log.Error("failed to get state", "err", err)
-					notifier.Notify(rpcSub.ID, tracedTxs)
-					return
 				}
 
 				blockCtx := core.NewEVMBlockContext(header, api.sys.chain, nil)
@@ -204,11 +204,11 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 					continue
 				}
 
-				trace, _ := traceBlock(block, chainConfig, api.sys.chain, tracerOpts)
-				//		if err != nil {
-				//			log.Info("failed to trace block", "err", err, "hash", hash, "block", block.Number())
-				//			continue
-				//		}
+				trace, err := traceBlock(block, chainConfig, api.sys.chain, tracerOpts)
+				if err != nil {
+					log.Info("failure in block trace", "err", err, "hash", hash, "block", block.Number())
+				}
+
 				marshalBlock["trace"] = trace
 				marshalReceipts := make(map[common.Hash]map[string]interface{})
 				receipts, err := api.sys.backend.GetReceipts(ctx, hash)
