@@ -14,6 +14,7 @@ import (
 // resulting Trace object directly.
 type Tracer interface {
 	vm.EVMLogger
+	SetTxContext(thash common.Hash, ti int)
 	GetTrace() (*Trace, error)
 	GetResult() (json.RawMessage, error)
 	Stop(err error)
@@ -21,7 +22,10 @@ type Tracer interface {
 
 // TracerOpts configure the tracer to save or ignore various aspects of a transaction execution.
 type TracerOpts struct {
-	Logs           bool `json:"logs"`
+	Logs bool `json:"logs"`
+	// Get per tx hash logs
+	PerHashLogs bool `json:"per_hash_logs"`
+
 	Decode         bool `json:"decode"`
 	BalanceChanges bool `json:"balanceChanges"`
 

@@ -27,6 +27,9 @@ type tracer struct {
 	evm     *vm.EVM
 	decoder *decoder.Decoder
 
+	thash   common.Hash // transaction has
+	txIndex int         // transaction index
+
 	trace     Trace
 	startTime time.Time
 	callStack []CallFrame
@@ -63,7 +66,11 @@ func NewTracerWithOpts(opts TracerOpts) (Tracer, error) {
 	}
 
 	return &t, nil
+}
 
+func (t *tracer) SetTxContext(thash common.Hash, ti int) {
+	t.thash = thash
+	t.txIndex = ti
 }
 
 // SetStateRoot implements core.stateRootSetter and stores the given root in the
@@ -135,17 +142,27 @@ func (t *tracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
 
 	// If the user wants the logs, grab them from the state
 	if t.opts.Logs {
-		for _, stateLog := range t.evm.StateDB.Logs() {
-			t.trace.Logs = append(t.trace.Logs, CallLog{
-				Address: stateLog.Address,
-				Data:    stateLog.Data,
-				Topics:  stateLog.Topics,
-			})
+		if t.opts.PerHashLogs {
+			for _, stateLog := range t.evm.StateDB.GetLogs(t.thash, 0, common.Hash{}) {
+				t.trace.Logs = append(t.trace.Logs, CallLog{
+					Address: stateLog.Address,
+					Data:    stateLog.Data,
+					Topics:  stateLog.Topics,
+				})
+			}
+		} else {
+			for _, stateLog := range t.evm.StateDB.Logs() {
+				t.trace.Logs = append(t.trace.Logs, CallLog{
+					Address: stateLog.Address,
+					Data:    stateLog.Data,
+					Topics:  stateLog.Topics,
+				})
+			}
 		}
 	}
 
 	// Add total time duration for this trace request
-	t.trace.Time = time.Now().Sub(t.startTime).Nanoseconds()
+	t.trace.Time = time.Since(t.startTime).Nanoseconds()
 }
 
 // CaptureEnter is called before any new sub-call starts.
