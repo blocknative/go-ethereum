@@ -59,8 +59,8 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 			msg     *core.Message
 		)
 
-		metricsPendingTxsNew.Inc()
-		defer metricsPendingTxsEnd.Inc()
+		metricsPendingTxsNew.Inc(1)
+		defer metricsPendingTxsEnd.Inc(1)
 
 		// Recover from any panics. Should be the last deferred call so it runs
 		// first.
@@ -97,7 +97,7 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					header.ExcessBlobGas = &ex
 				}
 
-				metricsPendingTxsReceived.Add(float64(len(txs)))
+				metricsPendingTxsReceived.Inc(int64(len(txs)))
 
 				for _, tx := range txs {
 					rpcTx := newRPCPendingTransaction(tx)
