@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -58,6 +59,17 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 			msg     *core.Message
 		)
 
+		metricsPendingTxsNew.Inc(1)
+		defer metricsPendingTxsEnd.Inc(1)
+
+		// Recover from any panics. Should be the last deferred call so it runs
+		// first.
+		defer func() {
+			if r := recover(); r != nil {
+				log.Error("pending_txs_stream panic:", r)
+			}
+		}()
+
 		for {
 			select {
 			case txs := <-txs:
@@ -84,6 +96,8 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					ex := eip4844.CalcExcessBlobGas(*currentHeader.ExcessBlobGas, *currentHeader.BlobGasUsed)
 					header.ExcessBlobGas = &ex
 				}
+
+				metricsPendingTxsReceived.Inc(int64(len(txs)))
 
 				for _, tx := range txs {
 					rpcTx := newRPCPendingTransaction(tx)
@@ -124,14 +138,23 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					msg.GasFeeCap = common.Big0     // skip the check of ErrFeeCapTooLow
 					msg.GasTipCap = common.Big0     // skip the check of ErrFeeCapTooLow
 
+					startTime := time.Now()
+
 					traceCtx.TxHash = tx.Hash
 					tx.Trace, err = traceTx(msg, traceCtx, blockCtx, chainConfig, sDB.Copy(), tracerOpts)
 					if err != nil {
 						log.Info("failed to trace tx", "err", err, "tx", tx.Hash)
+						metricsPendingTxsTraceFailed.Inc(1)
+						continue
 					}
+
+					metricsTracePendingTxTimer.Update(time.Since(startTime).Milliseconds())
+					metricsPendingTxsTraceSuccess.Inc(1)
+
 				}
 
 				notifier.Notify(rpcSub.ID, tracedTxs)
+				metricsPendingTxsSent.Inc(int64(len(tracedTxs)))
 
 			case <-rpcSub.Err():
 				return
@@ -167,6 +190,17 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 			return
 		}
 
+		metricsBlocksNew.Inc(1)
+		defer metricsBlocksEnd.Inc(1)
+
+		// Recover from any panics. Should be the last deferred call so it runs
+		// first.
+		defer func() {
+			if r := recover(); r != nil {
+				log.Error("block_stream panic:", r)
+			}
+		}()
+
 		var hashes []common.Hash
 		for {
 			select {
@@ -187,6 +221,7 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 				return
 			}
 
+			metricsBlocksReceived.Inc(int64(len(hashes)))
 			for _, hash := range hashes {
 				block, err := api.sys.backend.BlockByHash(ctx, hash)
 				if err != nil {
@@ -203,7 +238,9 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 				trace, err := traceBlock(block, chainConfig, api.sys.chain, tracerOpts)
 				if err != nil {
 					log.Info("failure in block trace", "err", err, "hash", hash, "block", block.Number())
+					metricsBlocksTraceFailed.Inc(1)
 				}
+				metricsBlocksTraceSuccess.Inc(1)
 
 				marshalBlock["trace"] = trace
 				marshalReceipts := make(map[common.Hash]map[string]interface{})
@@ -237,6 +274,7 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 				marshalBlock["receipts"] = marshalReceipts
 
 				notifier.Notify(rpcSub.ID, marshalBlock)
+				metricsBlocksSent.Inc(1)
 			}
 		}
 	}()
@@ -268,6 +306,7 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 func traceBlockTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*core.ExecutionResult, *blocknative.Trace, error) {
 
 	tracerOpts.DisableBlockContext = false
+	tracerOpts.PerHashLogs = true
 	tracer, err := blocknative.NewTracerWithOpts(tracerOpts)
 	if err != nil {
 		return nil, nil, err
@@ -275,6 +314,7 @@ func traceBlockTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockC
 
 	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: tracer, NoBaseFee: false})
 	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
+	tracer.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
 
 	result, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit))
 	if err != nil {
@@ -310,6 +350,7 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 		results2  = make([]*core.ExecutionResult, len(txs))
 	)
 
+	startTime := time.Now()
 	for i, tx := range txs {
 		msg, err := core.TransactionToMessage(tx, signer, blockCtx.BaseFee)
 		if err != nil {
@@ -341,6 +382,7 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 		}
 		statedb.Finalise(is158)
 	}
+	metricsTraceBlockTimer.Update(time.Since(startTime).Milliseconds())
 
 	return results, nil
 }
