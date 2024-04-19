@@ -56,6 +56,8 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
+
+	redisRPC "github.com/ethereum/go-ethereum/redis_rpc"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -95,6 +97,8 @@ type Ethereum struct {
 
 	networkID     uint64
 	netRPCService *ethapi.NetAPI
+
+	redisRPCService *redisRPC.Service
 
 	p2pServer *p2p.Server
 
@@ -272,6 +276,9 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Start the redis RPC service
+	eth.redisRPCService = redisRPC.New(nil, eth.APIBackend)
 
 	// Start the RPC service
 	eth.netRPCService = ethapi.NewNetAPI(eth.p2pServer, networkID)
