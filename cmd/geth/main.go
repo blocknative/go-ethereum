@@ -196,6 +196,11 @@ var (
 		utils.MetricsInfluxDBBucketFlag,
 		utils.MetricsInfluxDBOrganizationFlag,
 	}
+
+	redisRPCFlags = []cli.Flag{
+		utils.RedisRPCAddrFlag,
+		utils.RedisRPCDBFlag,
+	}
 )
 
 var app = flags.NewApp("the go-ethereum command line interface")
@@ -247,6 +252,7 @@ func init() {
 		consoleFlags,
 		debug.Flags,
 		metricsFlags,
+		redisRPCFlags,
 	)
 	flags.AutoEnvVars(app.Flags, "GETH")
 
