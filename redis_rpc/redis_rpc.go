@@ -16,7 +16,7 @@ const (
 	acceptTimeout = 5
 
 	keySeparator = ":"
-	keyRoot      = "redis_api"
+	keyRoot      = "rpc"
 	keyRequests  = "requests"
 	keyResponses = "responses"
 )

@@ -159,6 +159,12 @@ type Config struct {
 
 	// OverrideVerkle (TODO: remove after the fork)
 	OverrideVerkle *uint64 `toml:",omitempty"`
+
+	RedisRPCEnabled  bool
+	RedisRPCAddr     string
+	RedisRPCUsername string
+	RedisRPCPassword string
+	RedisRPCDB       int
 }
 
 // CreateConsensusEngine creates a consensus engine for the given chain config.

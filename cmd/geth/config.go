@@ -227,6 +227,14 @@ func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 			utils.Fatalf("failed to register catalyst service: %v", err)
 		}
 	}
+
+	// Configure Redis RPC
+	cfg.Eth.RedisRPCEnabled = ctx.Bool(utils.RedisRPCEnabledFlag.Name)
+	cfg.Eth.RedisRPCAddr = ctx.String(utils.RedisRPCAddrFlag.Name)
+	cfg.Eth.RedisRPCUsername = ctx.String(utils.RedisRPCUsernameFlag.Name)
+	cfg.Eth.RedisRPCPassword = ctx.String(utils.RedisRPCPasswordFlag.Name)
+	cfg.Eth.RedisRPCDB = ctx.Int(utils.RedisRPCDBFlag.Name)
+
 	return stack, backend
 }
 

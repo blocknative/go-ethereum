@@ -916,6 +916,42 @@ Please note that --` + MetricsHTTPFlag.Name + ` must be set to start the server.
 		Value:    "ofac_blacklist.json",
 		Category: flags.EthCategory,
 	}
+
+	// BN Redis RPC flags
+	RedisRPCEnabledFlag = &cli.BoolFlag{
+		Name:     "redis_rpc.enabled",
+		Usage:    "Enable Redis RPC",
+		Value:    false,
+		Category: flags.RedisCategory,
+	}
+
+	RedisRPCAddrFlag = &cli.StringFlag{
+		Name:     "redis_rpc.addr",
+		Usage:    "Redis RPC address",
+		Value:    "localhost:6379",
+		Category: flags.RedisCategory,
+	}
+
+	RedisRPCUsernameFlag = &cli.StringFlag{
+		Name:     "redis_rpc.username",
+		Usage:    "Redis RPC username",
+		Value:    "",
+		Category: flags.RedisCategory,
+	}
+
+	RedisRPCPasswordFlag = &cli.StringFlag{
+		Name:     "redis_rpc.password",
+		Usage:    "Redis RPC password",
+		Value:    "",
+		Category: flags.RedisCategory,
+	}
+
+	RedisRPCDBFlag = &cli.IntFlag{
+		Name:     "redis_rpc.db",
+		Usage:    "Redis RPC database",
+		Value:    0,
+		Category: flags.RedisCategory,
+	}
 )
 
 var (
