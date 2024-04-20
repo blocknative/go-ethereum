@@ -279,12 +279,10 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	}
 
 	// Start the redis RPC service
-	if config.RedisRPCEnabled {
+	if config.RedisRPCAddr != "" {
 		redisClient := redis.NewClient(&redis.Options{
-			Addr:     config.RedisRPCAddr,
-			Username: config.RedisRPCUsername,
-			Password: config.RedisRPCPassword,
-			DB:       config.RedisRPCDB,
+			Addr: config.RedisRPCAddr,
+			DB:   config.RedisRPCDB,
 		})
 		eth.redisRPCService = redisRPC.New(redisClient, eth.APIBackend)
 		eth.redisRPCService.Start()

@@ -229,11 +229,12 @@ func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 	}
 
 	// Configure Redis RPC
-	cfg.Eth.RedisRPCEnabled = ctx.Bool(utils.RedisRPCEnabledFlag.Name)
-	cfg.Eth.RedisRPCAddr = ctx.String(utils.RedisRPCAddrFlag.Name)
-	cfg.Eth.RedisRPCUsername = ctx.String(utils.RedisRPCUsernameFlag.Name)
-	cfg.Eth.RedisRPCPassword = ctx.String(utils.RedisRPCPasswordFlag.Name)
-	cfg.Eth.RedisRPCDB = ctx.Int(utils.RedisRPCDBFlag.Name)
+	if ctx.IsSet(utils.RedisRPCAddrFlag.Name) {
+		cfg.Eth.RedisRPCAddr = ctx.String(utils.RedisRPCAddrFlag.Name)
+	}
+	if ctx.IsSet(utils.RedisRPCDBFlag.Name) {
+		cfg.Eth.RedisRPCDB = ctx.Int(utils.RedisRPCDBFlag.Name)
+	}
 
 	return stack, backend
 }
