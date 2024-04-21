@@ -34,6 +34,10 @@ import (
 	"strings"
 	"time"
 
+	pcsclite "github.com/gballet/go-libpcsclite"
+	gopsutil "github.com/shirou/gopsutil/mem"
+	"github.com/urfave/cli/v2"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
@@ -72,9 +76,6 @@ import (
 	"github.com/ethereum/go-ethereum/triedb"
 	"github.com/ethereum/go-ethereum/triedb/hashdb"
 	"github.com/ethereum/go-ethereum/triedb/pathdb"
-	pcsclite "github.com/gballet/go-libpcsclite"
-	gopsutil "github.com/shirou/gopsutil/mem"
-	"github.com/urfave/cli/v2"
 )
 
 // These are all the command line flags we support.
@@ -918,18 +919,18 @@ Please note that --` + MetricsHTTPFlag.Name + ` must be set to start the server.
 	}
 
 	// BN Redis RPC flags
-	RedisRPCAddrFlag = &cli.StringFlag{
-		Name:     "redis_rpc.addr",
-		Usage:    "Redis RPC address",
+	RedisAddrFlag = &cli.StringFlag{
+		Name:     "redis.addr",
+		Usage:    "Redis address",
 		Value:    "localhost:6379",
-		Category: flags.RedisCategory,
+		Category: flags.APICategory,
 	}
 
-	RedisRPCDBFlag = &cli.IntFlag{
-		Name:     "redis_rpc.db",
-		Usage:    "Redis RPC database",
+	RedisDBFlag = &cli.IntFlag{
+		Name:     "redis.db",
+		Usage:    "Redis database",
 		Value:    0,
-		Category: flags.RedisCategory,
+		Category: flags.APICategory,
 	}
 )
 

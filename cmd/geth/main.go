@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/automaxprocs/maxprocs"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/cmd/utils"
@@ -39,7 +41,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/node"
-	"go.uber.org/automaxprocs/maxprocs"
 
 	// Force-load the tracer engines to trigger registration
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
@@ -198,8 +199,8 @@ var (
 	}
 
 	redisRPCFlags = []cli.Flag{
-		utils.RedisRPCAddrFlag,
-		utils.RedisRPCDBFlag,
+		utils.RedisAddrFlag,
+		utils.RedisDBFlag,
 	}
 )
 

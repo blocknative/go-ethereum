@@ -26,6 +26,9 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/naoina/toml"
+	"github.com/urfave/cli/v2"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/external"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -43,8 +46,6 @@ import (
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/naoina/toml"
-	"github.com/urfave/cli/v2"
 )
 
 var (
@@ -229,11 +230,11 @@ func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 	}
 
 	// Configure Redis RPC
-	if ctx.IsSet(utils.RedisRPCAddrFlag.Name) {
-		cfg.Eth.RedisRPCAddr = ctx.String(utils.RedisRPCAddrFlag.Name)
+	if ctx.IsSet(utils.RedisAddrFlag.Name) {
+		cfg.Eth.RedisRPCAddr = ctx.String(utils.RedisAddrFlag.Name)
 	}
-	if ctx.IsSet(utils.RedisRPCDBFlag.Name) {
-		cfg.Eth.RedisRPCDB = ctx.Int(utils.RedisRPCDBFlag.Name)
+	if ctx.IsSet(utils.RedisDBFlag.Name) {
+		cfg.Eth.RedisRPCDB = ctx.Int(utils.RedisDBFlag.Name)
 	}
 
 	return stack, backend
