@@ -30,9 +30,9 @@ var (
 )
 
 type request struct {
-	id       string
-	clientID string
-	method   string
+	Id       string `json:"id"`
+	ClientID string `json:"clientID"`
+	Method   string `json:"method"`
 }
 
 type response struct {
@@ -89,11 +89,11 @@ func (s *Service) processRequests() {
 			}
 			continue
 		}
-		fmt.Println("Got redis rpc request:", req.method)
+		fmt.Println("Got redis rpc request:", req.Method)
 
 		// Handle method and get result.
 		var result interface{}
-		switch req.method {
+		switch req.Method {
 		case "txpool_content":
 			fmt.Println("Got redis rpc request for mempool")
 			result = s.txPoolAPI.Content()
@@ -107,7 +107,7 @@ func (s *Service) processRequests() {
 
 		// Send the result to the client.
 		fmt.Println("redis rpc sending reply")
-		err = sendReply(s.redisClient, req.clientID, req.id, result)
+		err = sendReply(s.redisClient, req.ClientID, req.Id, result)
 		if err != nil {
 			log.Error("Error sending reply", "err", err)
 		}
