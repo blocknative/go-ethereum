@@ -20,10 +20,11 @@ package eth
 import (
 	"errors"
 	"fmt"
-	"github.com/redis/go-redis/v9"
 	"math/big"
 	"runtime"
 	"sync"
+
+	"github.com/redis/go-redis/v9"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
@@ -279,17 +280,18 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	}
 
 	// Start the redis RPC service
-	log.Info("REDIS RPC", "addr", config.RedisRPCAddr, "db", config.RedisRPCDB)
+	fmt.Println("REDIS RPC", "addr", config.RedisRPCAddr, "db", config.RedisRPCDB)
 	if config.RedisRPCAddr != "" {
-		log.Info("Starting Redis RPC")
+		fmt.Println("Starting Redis RPC")
 		redisClient := redis.NewClient(&redis.Options{
 			Addr: config.RedisRPCAddr,
 			DB:   config.RedisRPCDB,
 		})
 		eth.redisRPCService = redisRPC.New(redisClient, eth.APIBackend)
 		eth.redisRPCService.Start()
-		log.Info("Redis RPC started")
+		fmt.Println("Redis RPC started")
 	}
+	return nil, nil
 
 	// Start the RPC service
 	eth.netRPCService = ethapi.NewNetAPI(eth.p2pServer, networkID)
