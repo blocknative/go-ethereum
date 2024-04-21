@@ -160,7 +160,6 @@ func sendReply(redisClient *redis.Client, clientID string, id string, result int
 	}
 	respKey := makeResponsesKey(clientID)
 	ctx := context.Background()
-	fmt.Println("pushing redis rpc response", respKey, string(respJSON))
 	cmd := redisClient.Do(ctx, "LPUSH", respKey, respJSON)
 	err = redisClient.Process(ctx, cmd)
 	if err != nil {
