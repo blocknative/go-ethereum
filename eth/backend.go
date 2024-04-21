@@ -288,7 +288,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		eth.redisRPCService = redisRPC.New(redisClient, eth.APIBackend)
 		eth.redisRPCService.Start()
 	}
-=
+
 	// Start the RPC service
 	eth.netRPCService = ethapi.NewNetAPI(eth.p2pServer, networkID)
 
