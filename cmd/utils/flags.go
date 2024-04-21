@@ -923,14 +923,14 @@ Please note that --` + MetricsHTTPFlag.Name + ` must be set to start the server.
 		Name:     "redis.addr",
 		Usage:    "Redis address",
 		Value:    "localhost:6379",
-		Category: flags.APICategory,
+		Category: flags.RedisCategory,
 	}
 
 	RedisDBFlag = &cli.IntFlag{
 		Name:     "redis.db",
 		Usage:    "Redis database",
 		Value:    0,
-		Category: flags.APICategory,
+		Category: flags.RedisCategory,
 	}
 )
 

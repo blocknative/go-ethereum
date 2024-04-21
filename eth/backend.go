@@ -280,19 +280,15 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	}
 
 	// Start the redis RPC service
-	fmt.Println("REDIS RPC", "addr", config.RedisRPCAddr, "db", config.RedisRPCDB)
 	if config.RedisRPCAddr != "" {
-		fmt.Println("Starting Redis RPC")
 		redisClient := redis.NewClient(&redis.Options{
 			Addr: config.RedisRPCAddr,
 			DB:   config.RedisRPCDB,
 		})
 		eth.redisRPCService = redisRPC.New(redisClient, eth.APIBackend)
 		eth.redisRPCService.Start()
-		fmt.Println("Redis RPC started")
 	}
-	return nil, nil
-
+=
 	// Start the RPC service
 	eth.netRPCService = ethapi.NewNetAPI(eth.p2pServer, networkID)
 

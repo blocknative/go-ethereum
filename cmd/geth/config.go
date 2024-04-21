@@ -180,11 +180,6 @@ func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 	}
 
 	// Configure Redis RPC before registering the backend
-	fmt.Println("Setting redis config")
-	fmt.Println(ctx.IsSet(utils.RedisAddrFlag.Name))
-	fmt.Println(ctx.IsSet(utils.RedisDBFlag.Name))
-	fmt.Println(ctx.String(utils.RedisAddrFlag.Name))
-	fmt.Println(ctx.Int(utils.RedisDBFlag.Name))
 	if ctx.IsSet(utils.RedisAddrFlag.Name) {
 		cfg.Eth.RedisRPCAddr = ctx.String(utils.RedisAddrFlag.Name)
 	}
