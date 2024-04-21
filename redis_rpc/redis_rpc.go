@@ -89,12 +89,13 @@ func (s *Service) processRequests() {
 			}
 			continue
 		}
-		fmt.Println("Got redis rpc request:", req)
+		fmt.Println("Got redis rpc request:", req.method)
 
 		// Handle method and get result.
 		var result interface{}
 		switch req.method {
 		case "txpool_content":
+			fmt.Println("Got redis rpc request for mempool")
 			result = s.txPoolAPI.Content()
 		default:
 			err = errUnsupportedMethod
@@ -105,6 +106,7 @@ func (s *Service) processRequests() {
 		}
 
 		// Send the result to the client.
+		fmt.Println("redis rpc sending reply")
 		err = sendReply(s.redisClient, req.clientID, req.id, result)
 		if err != nil {
 			log.Error("Error sending reply", "err", err)
@@ -125,17 +127,22 @@ func waitForRequest(redisClient *redis.Client, group string) (request, error) {
 		if err == redis.Nil {
 			return req, errClientQueueEmpty
 		}
+		fmt.Println("redis rpc request err:", err)
 		return req, err
 	}
 	reqJSON, err := cmd.Result()
 	if err != nil {
+		fmt.Println("redis rpc request err:", err)
 		return req, err
 	}
+	fmt.Println("Got redis rpc request")
 
 	// Unmarshal the request
 	if err := json.Unmarshal([]byte(reqJSON), &req); err != nil {
+		fmt.Println("redis rpc request err:", err)
 		return req, err
 	}
+	fmt.Println("redis rpc request:", req)
 	return req, nil
 }
 
@@ -149,6 +156,7 @@ func sendReply(redisClient *redis.Client, clientID string, id string, result int
 	}
 	respKey := makeResponsesKey(clientID)
 	ctx := context.Background()
+	fmt.Println("pushing redis rpc response", respKey, string(respJSON))
 	cmd := redisClient.Do(ctx, "LPUSH", respKey, respJSON)
 	err = redisClient.Process(ctx, cmd)
 	if err != nil {
