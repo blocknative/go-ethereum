@@ -36,8 +36,8 @@ type request struct {
 }
 
 type response struct {
-	id     string
-	result interface{}
+	Id     string      `json:"id"`
+	Result interface{} `json:"result"`
 }
 
 type Service struct {
@@ -152,8 +152,8 @@ func waitForRequest(redisClient *redis.Client, group string) (request, error) {
 
 func sendReply(redisClient *redis.Client, clientID string, id string, result interface{}) error {
 	respJSON, err := json.Marshal(&response{
-		id:     id,
-		result: result,
+		Id:     id,
+		Result: result,
 	})
 	if err != nil {
 		return err
