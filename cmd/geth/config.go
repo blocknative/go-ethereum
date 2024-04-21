@@ -178,6 +178,20 @@ func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 		v := ctx.Uint64(utils.OverrideVerkle.Name)
 		cfg.Eth.OverrideVerkle = &v
 	}
+
+	// Configure Redis RPC before registering the backend
+	fmt.Println("Setting redis config")
+	fmt.Println(ctx.IsSet(utils.RedisAddrFlag.Name))
+	fmt.Println(ctx.IsSet(utils.RedisDBFlag.Name))
+	fmt.Println(ctx.String(utils.RedisAddrFlag.Name))
+	fmt.Println(ctx.Int(utils.RedisDBFlag.Name))
+	if ctx.IsSet(utils.RedisAddrFlag.Name) {
+		cfg.Eth.RedisRPCAddr = ctx.String(utils.RedisAddrFlag.Name)
+	}
+	if ctx.IsSet(utils.RedisDBFlag.Name) {
+		cfg.Eth.RedisRPCDB = ctx.Int(utils.RedisDBFlag.Name)
+	}
+
 	backend, eth := utils.RegisterEthService(stack, &cfg.Eth)
 
 	// Create gauge with geth system and build information
@@ -227,19 +241,6 @@ func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 		if err != nil {
 			utils.Fatalf("failed to register catalyst service: %v", err)
 		}
-	}
-
-	// Configure Redis RPC
-	fmt.Println("Setting redis config")
-	fmt.Println(ctx.IsSet(utils.RedisAddrFlag.Name))
-	fmt.Println(ctx.IsSet(utils.RedisDBFlag.Name))
-	fmt.Println(ctx.String(utils.RedisAddrFlag.Name))
-	fmt.Println(ctx.Int(utils.RedisDBFlag.Name))
-	if ctx.IsSet(utils.RedisAddrFlag.Name) {
-		cfg.Eth.RedisRPCAddr = ctx.String(utils.RedisAddrFlag.Name)
-	}
-	if ctx.IsSet(utils.RedisDBFlag.Name) {
-		cfg.Eth.RedisRPCDB = ctx.Int(utils.RedisDBFlag.Name)
 	}
 
 	return stack, backend
