@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/redis/go-redis/v9"
+
 	"github.com/ethereum/go-ethereum/internal/ethapi"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/redis/go-redis/v9"
-	"strings"
 )
 
 const (
@@ -86,6 +89,7 @@ func (s *Service) processRequests() {
 			}
 			continue
 		}
+		fmt.Println("Got redis rpc request:", req)
 
 		// Handle method and get result.
 		var result interface{}
@@ -113,6 +117,7 @@ func waitForRequest(redisClient *redis.Client, group string) (request, error) {
 	args := []interface{}{"BRPOP", makeRequestsKey(group), acceptTimeout}
 
 	// Get the next available value
+	fmt.Println("Waiting for redis rpc request...")
 	req := request{}
 	ctx := context.Background()
 	cmd := redis.NewStringCmd(ctx, args...)
