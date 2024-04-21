@@ -122,24 +122,28 @@ func waitForRequest(redisClient *redis.Client, group string) (request, error) {
 	fmt.Println("Waiting for redis rpc request...")
 	req := request{}
 	ctx := context.Background()
-	cmd := redis.NewStringCmd(ctx, args...)
+	cmd := redis.NewStringSliceCmd(ctx, args...)
 	if err := redisClient.Process(ctx, cmd); err != nil {
 		if err == redis.Nil {
 			return req, errClientQueueEmpty
 		}
-		fmt.Println("redis rpc request err:", err)
+		fmt.Println("redis rpc request err1:", err)
 		return req, err
 	}
-	reqJSON, err := cmd.Result()
+	brpopResp, err := cmd.Result()
 	if err != nil {
-		fmt.Println("redis rpc request err:", err)
+		fmt.Println("redis rpc request err2:", err)
 		return req, err
 	}
-	fmt.Println("Got redis rpc request")
+	if len(brpopResp) != 2 {
+		return req, errors.New("invalid BRPOP response")
+	}
+	reqJSON := brpopResp[1]
+	fmt.Println("Got redis rpc request:", string(reqJSON))
 
 	// Unmarshal the request
 	if err := json.Unmarshal([]byte(reqJSON), &req); err != nil {
-		fmt.Println("redis rpc request err:", err)
+		fmt.Println("redis rpc request err3:", err)
 		return req, err
 	}
 	fmt.Println("redis rpc request:", req)
