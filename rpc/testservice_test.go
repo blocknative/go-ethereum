@@ -195,9 +195,8 @@ func (s *notificationTestService) SomeSubscription(ctx context.Context, n, val i
 				return
 			}
 		}
-		select {
-		case <-subscription.Err():
-		}
+
+		<-subscription.Err()
 		if s.unsubscribed != nil {
 			s.unsubscribed <- string(subscription.ID)
 		}
