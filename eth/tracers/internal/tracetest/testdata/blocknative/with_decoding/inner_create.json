@@ -788,7 +788,7 @@
     },
     "blockContext": {
       "number": 1062503,
-      "stateRoot": "0xf33ed6bf51d6a1a0a8c160c99bc265f8578fa68e56730c810a085e8a63aa49c4",
+      "stateRoot": "0x0732f3c8e9f60925be134da21428e2a2c9e2909f122f03d7df9efb3310147da1",
       "baseFee": 16711680,
       "time": 1456480446,
       "coinbase": "0x2a65aca4d5fc5b5c859090a6c34d164135398226",

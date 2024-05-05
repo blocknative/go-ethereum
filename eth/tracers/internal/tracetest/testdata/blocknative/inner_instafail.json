@@ -52,7 +52,7 @@
   "result": {
     "blockContext": {
       "number": 24974,
-      "stateRoot": "0x95a3d9dea55458b2e2fdff5bf16b69371c7195019fbe1e72dd76350d85717216",
+      "stateRoot": "0xf62b9260990d97fe6832267c18feafbf578e8179b6e7e1a0f75f189c4009bf1c",
       "baseFee": 16711680,
       "time": 1479891162,
       "gasLimit": 4712388,
@@ -66,6 +66,17 @@
     "gasUsed": "0x1dc6",
     "input": "0x2e1a7d4d00000000000000000000000000000000000000000000000014d1120d7b160000",
     "output": "0x",
-    "calls": []
+    "calls": [
+      {
+        "type": "CALL",
+        "from": "0x6c06b16512b332e6cd8293a2974872674716ce18",
+        "to": "0x66fdfd05e46126a07465ad24e40cc0597bc1ef31",
+        "value": "0x0",
+        "gas": "0x8fc",
+        "gasUsed": "0x0",
+        "input": "0x",
+        "error": "insufficient balance for transfer"
+      }
+    ]
   }
 }
