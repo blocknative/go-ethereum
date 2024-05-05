@@ -18,6 +18,14 @@ func init() {
 	DefaultDirectory.Register("txnOpCodeTracer", blocknativeTracerCtor, false)
 }
 
-func blocknativeTracerCtor(_ *Context, cfg json.RawMessage) (Tracer, error) {
-	return blocknative.NewTracer(cfg)
+func blocknativeTracerCtor(ctx *Context, cfg json.RawMessage) (*Tracer, error) {
+	t, err := blocknative.NewTracerFromJSON(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Tracer{
+		Hooks:     t.Hooks(),
+		GetResult: t.GetResult,
+		Stop:      t.Stop,
+	}, nil
 }

@@ -46,7 +46,7 @@ type blocknativeTracerTest struct {
 	evm          *vm.EVM
 	tx           *types.Transaction
 	msg          *core.Message
-	tracer       tracers.Tracer
+	tracer       *tracers.Tracer
 	baseFee      *big.Int
 	blockContext vm.BlockContext
 	signer       types.Signer
@@ -115,8 +115,9 @@ func benchmarkBlocknativeTracer(b *testing.B, decode bool, dirPaths ...string) {
 			}
 
 			baseFee := big.NewInt(0x0)
-			if test.Context.BaseFee != 0 {
-				baseFee = new(big.Int).SetUint64(uint64(test.Context.BaseFee))
+			var baseFeeBig big.Int = big.Int(*test.Context.BaseFee)
+			if baseFeeBig.Cmp(common.Big0) == 0 {
+				baseFee = &baseFeeBig
 			}
 
 			test.name = camel(strings.TrimSuffix(file.Name(), ".json"))
@@ -133,7 +134,7 @@ func benchmarkBlocknativeTracer(b *testing.B, decode bool, dirPaths ...string) {
 				Difficulty:  (*big.Int)(test.Context.Difficulty),
 				GasLimit:    uint64(test.Context.GasLimit),
 				BaseFee:     test.baseFee,
-				Random:      test.Context.Random,
+				//Random:      test.Context.Random,
 			}
 
 			test.origin, _ = test.signer.Sender(tx)
@@ -146,18 +147,24 @@ func benchmarkBlocknativeTracer(b *testing.B, decode bool, dirPaths ...string) {
 		}
 	}
 
+	optsJSON := fmt.Sprintf(`{"decode": %v}`, decode)
 	for i := 0; i < b.N; i++ {
 		test := testCases[i%len(testCases)]
 		tx := test.tx
 
 		state := tests.MakePreState(rawdb.NewMemoryDatabase(), test.Genesis.Alloc, false, rawdb.HashScheme)
-		opts := blocknative.TracerOpts{Decode: decode}
-		tracer, err := blocknative.NewTracerWithOpts(opts)
+		ctx := &tracers.Context{
+			BlockNumber: test.blockContext.BlockNumber,
+			BlockHash:   common.Hash{},
+			TxHash:      common.Hash{},
+			TxIndex:     0,
+		}
+		tracer, err := tracers.DefaultDirectory.New("blocknative", ctx, json.RawMessage(optsJSON))
 		if err != nil {
 			b.Fatal(err)
 		}
 
-		evm := vm.NewEVM(test.blockContext, test.txContext, state.StateDB, test.Genesis.Config, vm.Config{Tracer: tracer})
+		evm := vm.NewEVM(test.blockContext, test.txContext, state.StateDB, test.Genesis.Config, vm.Config{Tracer: tracer.Hooks})
 		msg, err := core.TransactionToMessage(tx, test.signer, test.blockContext.BaseFee)
 		if err != nil {
 			b.Fatal(err)
@@ -211,8 +218,9 @@ func loadTestTxs(dirPath string) ([]*blocknativeTracerTest, error) {
 		}
 
 		baseFee := big.NewInt(0xFF0000)
-		if test.Context.BaseFee != 0 {
-			baseFee = new(big.Int).SetUint64(uint64(test.Context.BaseFee))
+		var baseFeeBig big.Int = big.Int(*test.Context.BaseFee)
+		if baseFeeBig.Cmp(common.Big0) == 0 {
+			baseFee = &baseFeeBig
 		}
 
 		// Configure a blockchain with the given prestate
@@ -232,15 +240,22 @@ func loadTestTxs(dirPath string) ([]*blocknativeTracerTest, error) {
 				Difficulty:  (*big.Int)(test.Context.Difficulty),
 				GasLimit:    uint64(test.Context.GasLimit),
 				BaseFee:     baseFee,
-				Random:      test.Context.Random,
+				//Random:      test.Context.Random,
 			}
 			state = tests.MakePreState(rawdb.NewMemoryDatabase(), test.Genesis.Alloc, false, rawdb.HashScheme)
 		)
-		tracer, err := blocknative.NewTracer(test.TracerConfig)
+
+		ctx := &tracers.Context{
+			BlockNumber: test.blockContext.BlockNumber,
+			BlockHash:   common.Hash{},
+			TxHash:      common.Hash{},
+			TxIndex:     0,
+		}
+		tracer, err := tracers.DefaultDirectory.New("blocknative", ctx, test.TracerConfig)
 		if err != nil {
 			return nil, err
 		}
-		evm := vm.NewEVM(context, txContext, state.StateDB, test.Genesis.Config, vm.Config{Tracer: tracer})
+		evm := vm.NewEVM(context, txContext, state.StateDB, test.Genesis.Config, vm.Config{Tracer: tracer.Hooks})
 		msg, err := core.TransactionToMessage(tx, signer, context.BaseFee)
 		if err != nil {
 			return nil, err

@@ -141,7 +141,7 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					startTime := time.Now()
 
 					traceCtx.TxHash = tx.Hash
-					tx.Trace, err = traceTx(msg, traceCtx, blockCtx, chainConfig, sDB.Copy(), tracerOpts)
+					tx.Trace, err = traceTx(txs[i], msg, traceCtx, blockCtx, chainConfig, sDB.Copy(), tracerOpts)
 					if err != nil {
 						log.Info("failed to trace tx", "err", err, "tx", tx.Hash)
 						metricsPendingTxsTraceFailed.Inc(1)
@@ -283,17 +283,24 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 }
 
 // traceTx traces a transaction with the given contexts.
-func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*blocknative.Trace, error) {
-	tracer, err := blocknative.NewTracerWithOpts(tracerOpts)
+func traceTx(tx *types.Transaction, message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*blocknative.Trace, error) {
+	tracer, err := blocknative.NewTracer(tracerOpts)
 	if err != nil {
 		return nil, err
 	}
-	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: tracer, NoBaseFee: true})
+
+	hooks := tracer.Hooks()
+
+	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: hooks, NoBaseFee: true})
 	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
 
-	if _, err = core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit)); err != nil {
+	hooks.OnTxStart(vmenv.GetVMContext(), tx, message.From)
+	result, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit))
+	if err != nil {
 		return nil, fmt.Errorf("tracing failed: %w", err)
 	}
+	hooks.OnTxEnd(&types.Receipt{GasUsed: result.UsedGas}, err)
+
 	trace, err := tracer.GetTrace()
 	if err != nil {
 		return nil, err
@@ -303,23 +310,26 @@ func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContex
 }
 
 // traceBlockTx traces a transaction with the given contexts.
-func traceBlockTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*core.ExecutionResult, *blocknative.Trace, error) {
-
+func traceBlockTx(tx *types.Transaction, message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*core.ExecutionResult, *blocknative.Trace, error) {
 	tracerOpts.DisableBlockContext = false
 	tracerOpts.PerHashLogs = true
-	tracer, err := blocknative.NewTracerWithOpts(tracerOpts)
+	tracer, err := blocknative.NewTracer(tracerOpts)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: tracer, NoBaseFee: false})
-	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
-	tracer.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
+	hooks := tracer.Hooks()
 
+	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: hooks, NoBaseFee: false})
+	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
+
+	hooks.OnTxStart(vmenv.GetVMContext(), tx, message.From)
 	result, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit))
 	if err != nil {
 		return result, nil, fmt.Errorf("tracing failed: %w", err)
 	}
+	hooks.OnTxEnd(&types.Receipt{GasUsed: result.UsedGas}, err)
+
 	trace, err := tracer.GetTrace()
 	if err != nil {
 		return nil, nil, err
@@ -363,7 +373,7 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 			TxIndex:     i,
 			TxHash:      tx.Hash(),
 		}
-		results2[i], results[i], err = traceBlockTx(msg, txCtx, blockCtx, chainConfig, statedb, tracerOpts)
+		results2[i], results[i], err = traceBlockTx(tx, msg, txCtx, blockCtx, chainConfig, statedb, tracerOpts)
 		if results2[i] != nil {
 			results2[i].Hash = tx.Hash()
 		}
