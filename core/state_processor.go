@@ -29,7 +29,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/eth/tracers/blocknative"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -259,30 +258,6 @@ func ApplyTransactionWithResult(config *params.ChainConfig, bc ChainContext, aut
 	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, config, cfg)
 	receipt, result, _, err := applyTransactionWithResult(msg, config, bc, author, gp, statedb, header, msg, usedGas, vmenv, nil)
 	return receipt, result, err
-}
-
-func ApplyUnsignedTransactionWithResult(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, msg *Message, usedGas *uint64, cfg vm.Config) (*types.Receipt, *ExecutionResult, interface{}, error) {
-	// Create a blocknative tracer to get execution traces.
-	tracer, err := blocknative.NewTracerWithOpts(blocknative.TracerOpts{
-		Decode: true,
-	})
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	// Create a new context to be used in the EVM environment
-	blockContext := NewEVMBlockContext(header, bc, author)
-	txContext := vm.TxContext{
-		Origin:     msg.From,
-		GasPrice:   msg.GasPrice,
-		BlobHashes: msg.BlobHashes,
-		BlobFeeCap: msg.BlobGasFeeCap,
-	}
-	if txContext.GasPrice == nil {
-		txContext.GasPrice = common.Big0
-	}
-	vmenv := vm.NewEVM(blockContext, txContext, statedb, config, vm.Config{Tracer: tracer, NoBaseFee: true})
-	return applyTransactionWithResult(msg, config, bc, author, gp, statedb, header, msg, usedGas, vmenv, tracer)
 }
 
 type TracerResult interface {

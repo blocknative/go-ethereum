@@ -8,6 +8,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder"
 	"github.com/ethereum/go-ethereum/log"
@@ -18,11 +20,11 @@ var (
 	decoderCache = decoder.NewCaches()
 )
 
-// tracer is Blocknative's transaction tracer. It decodes messages into
+// Tracer is Blocknative's transaction Tracer. It decodes messages into
 // call-frames and decodes them into higher-level abstractions. It returns all
 // the information required to reconstruct a transaction's execution while
 // decoding inputs, outputs, logs, and environmental effects.
-type tracer struct {
+type Tracer struct {
 	opts    TracerOpts
 	evm     *vm.EVM
 	decoder *decoder.Decoder
@@ -38,24 +40,11 @@ type tracer struct {
 	interruptReason error
 }
 
-// NewTracer returns a new tracer with the given json decoded as TracerOpts.
-// This allows us to easily construct a tracer from the standard tracer API
-// which receives options as json.
-func NewTracer(cfg json.RawMessage) (Tracer, error) {
-	var opts TracerOpts
-	if cfg != nil {
-		if err := json.Unmarshal(cfg, &opts); err != nil {
-			return nil, err
-		}
-	}
-	return NewTracerWithOpts(opts)
-}
-
 // NewTracerWithOpts is the primary constructor for the tracer.
-func NewTracerWithOpts(opts TracerOpts) (Tracer, error) {
+func NewBlocknativeTracerWithOpts(opts TracerOpts) (*Tracer, error) {
 	opts.Decode = opts.Decode || opts.BalanceChanges
 
-	var t = tracer{
+	var t = Tracer{
 		opts:      opts,
 		callStack: make([]CallFrame, 1, 4),
 		interrupt: new(atomic.Bool),
@@ -68,7 +57,7 @@ func NewTracerWithOpts(opts TracerOpts) (Tracer, error) {
 	return &t, nil
 }
 
-func (t *tracer) SetTxContext(thash common.Hash, ti int) {
+func (t *Tracer) SetTxContext(thash common.Hash, ti int) {
 	t.thash = thash
 	t.txIndex = ti
 }
@@ -76,16 +65,110 @@ func (t *tracer) SetTxContext(thash common.Hash, ti int) {
 // SetStateRoot implements core.stateRootSetter and stores the given root in the
 // trace's BlockContext. It's called between the constructor and the first
 // call-frame.
-func (t *tracer) SetStateRoot(root common.Hash) {
+func (t *Tracer) SetStateRoot(root common.Hash) {
 	if t.trace.BlockContext != nil {
 		t.trace.BlockContext.StateRoot = root.Bytes()
 	}
 }
 
-// CaptureStart is called before the top-level call starts.
+func (t *Tracer) Hooks() *tracing.Hooks {
+	return &tracing.Hooks{
+		OnTxStart: t.onTxStart,
+		OnTxEnd:   t.onTxEnd,
+		OnEnter:   t.onEnter,
+		OnExit:    t.onExit,
+		OnLog:     t.onLog,
+	}
+}
+
+// Stop terminates execution of the Tracer at the first opportune moment.
+func (t *Tracer) Stop(err error) {
+	t.interrupt.Store(true)
+	t.interruptReason = err
+	t.evm.Cancel()
+}
+
+// GetTrace returns a Trace from the current state.
+func (t *Tracer) GetTrace() (*Trace, error) {
+	if t.interrupt.Load() {
+		return nil, t.interruptReason
+	}
+
+	t.trace.CallFrame = t.callStack[0]
+
+	if t.opts.Decode {
+		t.trace.BalanceChanges = t.decoder.GetBalanceChanges()
+	}
+
+	return &t.trace, nil
+}
+
+// GetResult returns a JSON encoded Trace from the current state.
+func (t *Tracer) GetResult() (json.RawMessage, error) {
+	trace, err := t.GetTrace()
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(trace)
+}
+
+func (t *Tracer) onTxStart(env *tracing.VMContext, tx *types.Transaction, from common.Address) {
+}
+
+func (t *Tracer) onTxEnd(receipt *types.Receipt, err error) {
+}
+
+func (t *Tracer) onLog(log *types.Log) {
+	// Only logs need to be captured via opcode processing
+	if !t.opts.Logs {
+		return
+	}
+
+	// Skip if tracing was interrupted
+	if t.interrupt.Load() {
+		return
+	}
+
+	// TODO: Make this work to replace our log gathering
+	//l := callLog{
+	//	Address:  log.Address,
+	//	Topics:   log.Topics,
+	//	Data:     log.Data,
+	//	Position: hexutil.Uint(len(t.callstack[len(t.callstack)-1].Calls)),
+	//}
+	//t.callstack[len(t.callstack)-1].Logs = append(t.callstack[len(t.callstack)-1].Logs, l)
+}
+
+// onEnter is called when EVM enters a new scope (via call, create or selfdestruct).
+func (t *Tracer) onEnter(depth int, typ byte, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
+	if t.interrupt.Load() {
+		return
+	}
+
+	if depth == 0 {
+		t.captureStart(t.evm, from, to, vm.OpCode(typ) == vm.CREATE, input, gas, value)
+		return
+	}
+
+	t.captureEnter(vm.OpCode(typ), from, to, input, gas, value)
+}
+
+// onExit is called when EVM exits a scope, even if the scope didn't
+// execute any code.
+func (t *Tracer) onExit(depth int, output []byte, gasUsed uint64, err error, reverted bool) {
+	if depth == 0 {
+		t.captureEnd(output, gasUsed, err, reverted)
+		return
+	}
+
+	t.captureExit(output, gasUsed, err)
+}
+
+// captureStart is called before the top-level call starts.
 // This is also where we get the EVM instance, so we initialize the things that
 // need it here instead of the constructor.
-func (t *tracer) CaptureStart(evm *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+func (t *Tracer) captureStart(evm *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 	t.startTime = time.Now()
 	t.evm = evm
 
@@ -129,8 +212,37 @@ func (t *tracer) CaptureStart(evm *vm.EVM, from common.Address, to common.Addres
 	}
 }
 
-// CaptureEnd is called after the top-level call finishes to finalize tracing.
-func (t *tracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
+// captureEnter is called before any new sub-call starts.
+// (via call, create or selfdestruct).
+func (t *Tracer) captureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
+	if t.interrupt.Load() {
+		return
+	}
+
+	// Create CallFrame, decode it, and all it to the end of the callstack.
+	var bigValue Big
+	if value != nil {
+		bigValue = Big(*value)
+	}
+	call := CallFrame{
+		Type:  typ.String(),
+		From:  from,
+		To:    to,
+		Input: cloneBytes(input),
+		Gas:   Uint64(gas),
+		Value: bigValue,
+	}
+	if t.opts.Decode {
+		if decoded, err := t.decoder.DecodeCallFrameStart(from, to, value, input); err == nil {
+			call.Decoded = decoded
+		}
+	}
+
+	t.callStack = append(t.callStack, call)
+}
+
+// captureEnd is called after the top-level call finishes to finalize tracing.
+func (t *Tracer) captureEnd(output []byte, gasUsed uint64, err error, reverted bool) {
 	if err := t.finalizeCallFrame(&t.callStack[0], output, gasUsed, err); err != nil {
 		log.Error("failed to finalize call frame", "err", err)
 	}
@@ -165,37 +277,8 @@ func (t *tracer) CaptureEnd(output []byte, gasUsed uint64, err error) {
 	t.trace.Time = time.Since(t.startTime).Nanoseconds()
 }
 
-// CaptureEnter is called before any new sub-call starts.
-// (via call, create or selfdestruct).
-func (t *tracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
-	if t.interrupt.Load() {
-		return
-	}
-
-	// Create CallFrame, decode it, and all it to the end of the callstack.
-	var bigValue Big
-	if value != nil {
-		bigValue = Big(*value)
-	}
-	call := CallFrame{
-		Type:  typ.String(),
-		From:  from,
-		To:    to,
-		Input: cloneBytes(input),
-		Gas:   Uint64(gas),
-		Value: bigValue,
-	}
-	if t.opts.Decode {
-		if decoded, err := t.decoder.DecodeCallFrameStart(from, to, value, input); err == nil {
-			call.Decoded = decoded
-		}
-	}
-
-	t.callStack = append(t.callStack, call)
-}
-
-// CaptureExit is called after any sub call ends.
-func (t *tracer) CaptureExit(output []byte, gasUsed uint64, err error) {
+// captureExit is called after any sub call ends.
+func (t *Tracer) captureExit(output []byte, gasUsed uint64, err error) {
 	// Skip if we have no call-frames.
 	size := len(t.callStack)
 	if size == 0 {
@@ -221,39 +304,7 @@ func (t *tracer) CaptureExit(output []byte, gasUsed uint64, err error) {
 	t.callStack[end].Calls = append(t.callStack[end].Calls, call)
 }
 
-// Stop terminates execution of the tracer at the first opportune moment.
-func (t *tracer) Stop(err error) {
-	t.interrupt.Store(true)
-	t.interruptReason = err
-	t.evm.Cancel()
-}
-
-// GetTrace returns a Trace from the current state.
-func (t *tracer) GetTrace() (*Trace, error) {
-	if t.interrupt.Load() {
-		return nil, t.interruptReason
-	}
-
-	t.trace.CallFrame = t.callStack[0]
-
-	if t.opts.Decode {
-		t.trace.BalanceChanges = t.decoder.GetBalanceChanges()
-	}
-
-	return &t.trace, nil
-}
-
-// GetResult returns a JSON encoded Trace from the current state.
-func (t *tracer) GetResult() (json.RawMessage, error) {
-	trace, err := t.GetTrace()
-	if err != nil {
-		return nil, err
-	}
-
-	return json.Marshal(trace)
-}
-
-func (t *tracer) finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint64, err error) error {
+func (t *Tracer) finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint64, err error) error {
 	call.GasUsed = Uint64(gasUsed)
 
 	// Finalize the decoding.
@@ -263,7 +314,7 @@ func (t *tracer) finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint6
 		}
 	}
 
-	// If there was an error then try decoding it and stop.
+	// If there was an error then try decoding it and Stop.
 	if err != nil {
 		call.Error = err.Error()
 		if err.Error() == "execution reverted" && len(output) > 0 {
@@ -293,21 +344,3 @@ func cloneBytes(src []byte) []byte {
 func EmptyCache() {
 	decoderCache = decoder.NewCaches()
 }
-
-//
-// Unused interface methods.
-//
-
-// CaptureState implements the tracer interface, but is unused.
-func (t *tracer) CaptureState(_ uint64, _ vm.OpCode, _, _ uint64, _ *vm.ScopeContext, _ []byte, _ int, _ error) {
-}
-
-// CaptureFault implements the tracer interface, but is unused.
-func (t *tracer) CaptureFault(_ uint64, _ vm.OpCode, _, _ uint64, _ *vm.ScopeContext, _ int, _ error) {
-}
-
-// CaptureTxStart implements the tracer interface, but is unused.
-func (t *tracer) CaptureTxStart(_ uint64) {}
-
-// CaptureTxEnd implements the tracer interface, but is unused.
-func (t *tracer) CaptureTxEnd(_ uint64) {}
