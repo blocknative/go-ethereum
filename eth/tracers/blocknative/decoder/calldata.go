@@ -1,9 +1,10 @@
 package decoder
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"math/big"
 )
 
 func decodeCallData(sender common.Address, contract *Contract, input []byte) (*CallData, error) {

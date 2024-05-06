@@ -390,8 +390,8 @@ func TestOpenDrops(t *testing.T) {
 
 		id, _ := store.Put(blob)
 		filled[id] = struct{}{}
-	}
-	// Insert a sequence of transactions with partially passed nonces to verify
+	} 
+	// Insert a sequence of transactions with partially passed nonces to verify 
 	// that the included part of the set will get dropped (case 4).
 	var (
 		overlapper, _ = crypto.GenerateKey()

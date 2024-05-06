@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 	lru "github.com/hashicorp/golang-lru"
 )
@@ -34,29 +35,31 @@ type rejectNotification struct {
 // RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
 
 type RPCTransaction struct {
-	BlockHash           *common.Hash       `json:"blockHash"`
-	BlockNumber         *hexutil.Big       `json:"blockNumber"`
-	From                common.Address     `json:"from"`
-	Gas                 hexutil.Uint64     `json:"gas"`
-	GasPrice            *hexutil.Big       `json:"gasPrice"`
-	GasFeeCap           *hexutil.Big       `json:"maxFeePerGas,omitempty"`
-	GasTipCap           *hexutil.Big       `json:"maxPriorityFeePerGas,omitempty"`
-	MaxFeePerBlobGas    *hexutil.Big       `json:"maxFeePerBlobGas,omitempty"`
-	Hash                common.Hash        `json:"hash"`
-	Input               hexutil.Bytes      `json:"input"`
-	Nonce               hexutil.Uint64     `json:"nonce"`
-	To                  *common.Address    `json:"to"`
-	TransactionIndex    *hexutil.Uint64    `json:"transactionIndex"`
-	Value               *hexutil.Big       `json:"value"`
-	Type                hexutil.Uint64     `json:"type"`
-	Accesses            *types.AccessList  `json:"accessList,omitempty"`
-	ChainID             *hexutil.Big       `json:"chainId,omitempty"`
-	BlobVersionedHashes []common.Hash      `json:"blobVersionedHashes,omitempty"`
-	V                   *hexutil.Big       `json:"v"`
-	R                   *hexutil.Big       `json:"r"`
-	S                   *hexutil.Big       `json:"s"`
-	YParity             *hexutil.Uint64    `json:"yParity,omitempty"`
-	Trace               *blocknative.Trace `json:"trace,omitempty"`
+	BlockHash           *common.Hash      `json:"blockHash"`
+	BlockNumber         *hexutil.Big      `json:"blockNumber"`
+	From                common.Address    `json:"from"`
+	Gas                 hexutil.Uint64    `json:"gas"`
+	GasPrice            *hexutil.Big      `json:"gasPrice"`
+	GasFeeCap           *hexutil.Big      `json:"maxFeePerGas,omitempty"`
+	GasTipCap           *hexutil.Big      `json:"maxPriorityFeePerGas,omitempty"`
+	MaxFeePerBlobGas    *hexutil.Big      `json:"maxFeePerBlobGas,omitempty"`
+	Hash                common.Hash       `json:"hash"`
+	Input               hexutil.Bytes     `json:"input"`
+	Nonce               hexutil.Uint64    `json:"nonce"`
+	To                  *common.Address   `json:"to"`
+	TransactionIndex    *hexutil.Uint64   `json:"transactionIndex"`
+	Value               *hexutil.Big      `json:"value"`
+	Type                hexutil.Uint64    `json:"type"`
+	Accesses            *types.AccessList `json:"accessList,omitempty"`
+	ChainID             *hexutil.Big      `json:"chainId,omitempty"`
+	BlobVersionedHashes []common.Hash     `json:"blobVersionedHashes,omitempty"`
+	V                   *hexutil.Big      `json:"v"`
+	R                   *hexutil.Big      `json:"r"`
+	S                   *hexutil.Big      `json:"s"`
+	YParity             *hexutil.Uint64   `json:"yParity,omitempty"`
+
+	BlobSidecar *types.BlobTxSidecar `json:"sidecar,omitempty"`
+	Trace       *blocknative.Trace   `json:"trace,omitempty"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -119,6 +122,8 @@ func newRPCPendingTransaction(tx *types.Transaction) *RPCTransaction {
 		result.GasPrice = (*hexutil.Big)(tx.GasFeeCap())
 		result.MaxFeePerBlobGas = (*hexutil.Big)(tx.BlobGasFeeCap())
 		result.BlobVersionedHashes = tx.BlobHashes()
+
+		result.BlobSidecar = tx.BlobTxSidecar()
 	}
 	return result
 }
@@ -149,9 +154,13 @@ func (api *FilterAPI) DroppedTransactions(ctx context.Context) (*rpc.Subscriptio
 		dropped := make(chan core.DropTxsEvent)
 		droppedSub := api.sys.backend.SubscribeDropTxsEvent(dropped)
 
+		metricsDroppedTxsNew.Inc(1)
+		defer metricsDroppedTxsEnd.Inc(1)
+
 		for {
 			select {
 			case d := <-dropped:
+				metricsDroppedTxsReceived.Inc(int64(len(d.Txs)))
 				for _, tx := range d.Txs {
 					notification := &dropNotification{
 						Tx:          newRPCPendingTransaction(tx),
@@ -163,12 +172,13 @@ func (api *FilterAPI) DroppedTransactions(ctx context.Context) (*rpc.Subscriptio
 						peerid, _ := txPeerMap.Get(tx.Hash())
 						notification.Peer, _ = peerIDMap.Load(peerid)
 					}
-					notifier.Notify(rpcSub.ID, notification)
+					metricsDroppedTxsSent.Inc(1)
+					if err := notifier.Notify(rpcSub.ID, notification); err != nil {
+						log.Error("dropped_txs_stream: failed to notify", "err", err)
+						return
+					}
 				}
 			case <-rpcSub.Err():
-				droppedSub.Unsubscribe()
-				return
-			case <-notifier.Closed():
 				droppedSub.Unsubscribe()
 				return
 			}
@@ -230,9 +240,6 @@ func (api *FilterAPI) RejectedTransactions(ctx context.Context) (*rpc.Subscripti
 					Time:   time.Now().UnixNano(),
 				})
 			case <-rpcSub.Err():
-				rejectedSub.Unsubscribe()
-				return
-			case <-notifier.Closed():
 				rejectedSub.Unsubscribe()
 				return
 			}

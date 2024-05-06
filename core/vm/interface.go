@@ -82,6 +82,7 @@ type StateDB interface {
 
 	// BlockNative additions
 	Logs() []*types.Log
+	GetLogs(hash common.Hash, blockNumber uint64, blockHash common.Hash) []*types.Log
 	IntermediateRoot(bool) common.Hash
 }
 
