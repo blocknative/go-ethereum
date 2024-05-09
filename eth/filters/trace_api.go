@@ -284,7 +284,7 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 
 // traceTx traces a transaction with the given contexts.
 func traceTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*blocknative.Trace, error) {
-	tracer, err := blocknative.NewBlocknativeTracerWithOpts(tracerOpts)
+	tracer, err := blocknative.NewTracer(tracerOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -307,14 +307,13 @@ func traceBlockTx(message *core.Message, txCtx *tracers.Context, vmctx vm.BlockC
 
 	tracerOpts.DisableBlockContext = false
 	tracerOpts.PerHashLogs = true
-	tracer, err := blocknative.NewBlocknativeTracerWithOpts(tracerOpts)
+	tracer, err := blocknative.NewTracer(tracerOpts)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: tracer.Hooks(), NoBaseFee: false})
 	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
-	tracer.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
 
 	result, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit))
 	if err != nil {

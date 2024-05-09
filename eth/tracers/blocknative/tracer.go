@@ -29,8 +29,8 @@ type Tracer struct {
 	evm     *vm.EVM
 	decoder *decoder.Decoder
 
-	thash   common.Hash // transaction has
-	txIndex int         // transaction index
+	txHash  common.Hash
+	txIndex int
 
 	trace     Trace
 	startTime time.Time
@@ -40,8 +40,8 @@ type Tracer struct {
 	interruptReason error
 }
 
-// NewTracerWithOpts is the primary constructor for the tracer.
-func NewBlocknativeTracerWithOpts(opts TracerOpts) (*Tracer, error) {
+// NewTracer is the primary constructor for the tracer.
+func NewTracer(opts TracerOpts) (*Tracer, error) {
 	opts.Decode = opts.Decode || opts.BalanceChanges
 
 	var t = Tracer{
@@ -57,28 +57,24 @@ func NewBlocknativeTracerWithOpts(opts TracerOpts) (*Tracer, error) {
 	return &t, nil
 }
 
-func (t *Tracer) SetTxContext(thash common.Hash, ti int) {
-	t.thash = thash
-	t.txIndex = ti
-}
-
-// SetStateRoot implements core.stateRootSetter and stores the given root in the
-// trace's BlockContext. It's called between the constructor and the first
-// call-frame.
-func (t *Tracer) SetStateRoot(root common.Hash) {
-	if t.trace.BlockContext != nil {
-		t.trace.BlockContext.StateRoot = root.Bytes()
+func NewTracerFromJSON(raw json.RawMessage) (*Tracer, error) {
+	var opts TracerOpts
+	if err := json.Unmarshal(raw, &opts); err != nil {
+		return nil, err
 	}
+
+	return NewTracer(opts)
 }
 
 func (t *Tracer) Hooks() *tracing.Hooks {
-	return &tracing.Hooks{
+	h := &tracing.Hooks{
 		OnTxStart: t.onTxStart,
 		OnTxEnd:   t.onTxEnd,
 		OnEnter:   t.onEnter,
 		OnExit:    t.onExit,
-		OnLog:     t.onLog,
 	}
+
+	return h
 }
 
 // Stop terminates execution of the Tracer at the first opportune moment.
@@ -114,30 +110,30 @@ func (t *Tracer) GetResult() (json.RawMessage, error) {
 }
 
 func (t *Tracer) onTxStart(env *tracing.VMContext, tx *types.Transaction, from common.Address) {
+	t.txHash = tx.Hash()
+	t.txIndex = t.txIndex
+
+	if t.trace.BlockContext != nil {
+		t.trace.BlockContext.StateRoot = env.StateDB.IntermediateRoot(false).Bytes()
+	}
 }
 
-func (t *Tracer) onTxEnd(receipt *types.Receipt, err error) {
-}
+func (t *Tracer) onTxEnd(receipt *types.Receipt, _ error) {
+	if t.opts.Logs {
+		for _, log := range receipt.Logs {
+			if t.opts.PerHashLogs {
+				if log.TxHash != t.txHash {
+					continue
+				}
+			}
 
-func (t *Tracer) onLog(log *types.Log) {
-	// Only logs need to be captured via opcode processing
-	if !t.opts.Logs {
-		return
+			t.trace.Logs = append(t.trace.Logs, CallLog{
+				Address: log.Address,
+				Data:    log.Data,
+				Topics:  log.Topics,
+			})
+		}
 	}
-
-	// Skip if tracing was interrupted
-	if t.interrupt.Load() {
-		return
-	}
-
-	// TODO: Make this work to replace our log gathering
-	//l := callLog{
-	//	Address:  log.Address,
-	//	Topics:   log.Topics,
-	//	Data:     log.Data,
-	//	Position: hexutil.Uint(len(t.callstack[len(t.callstack)-1].Calls)),
-	//}
-	//t.callstack[len(t.callstack)-1].Logs = append(t.callstack[len(t.callstack)-1].Logs, l)
 }
 
 // onEnter is called when EVM enters a new scope (via call, create or selfdestruct).
@@ -242,7 +238,7 @@ func (t *Tracer) captureEnter(typ vm.OpCode, from common.Address, to common.Addr
 }
 
 // captureEnd is called after the top-level call finishes to finalize tracing.
-func (t *Tracer) captureEnd(output []byte, gasUsed uint64, err error, reverted bool) {
+func (t *Tracer) captureEnd(output []byte, gasUsed uint64, err error, _ bool) {
 	if err := t.finalizeCallFrame(&t.callStack[0], output, gasUsed, err); err != nil {
 		log.Error("failed to finalize call frame", "err", err)
 	}
@@ -250,27 +246,6 @@ func (t *Tracer) captureEnd(output []byte, gasUsed uint64, err error, reverted b
 	// Add gas payments to balance changes iff the tx succeeded.
 	if err == nil && t.opts.Decode {
 		t.decoder.CaptureGas(t.evm.TxContext.Origin, t.evm.Context.Coinbase, gasUsed, t.evm.TxContext.GasPrice, t.evm.Context.BaseFee)
-	}
-
-	// If the user wants the logs, grab them from the state
-	if t.opts.Logs {
-		if t.opts.PerHashLogs {
-			for _, stateLog := range t.evm.StateDB.GetLogs(t.thash, 0, common.Hash{}) {
-				t.trace.Logs = append(t.trace.Logs, CallLog{
-					Address: stateLog.Address,
-					Data:    stateLog.Data,
-					Topics:  stateLog.Topics,
-				})
-			}
-		} else {
-			for _, stateLog := range t.evm.StateDB.Logs() {
-				t.trace.Logs = append(t.trace.Logs, CallLog{
-					Address: stateLog.Address,
-					Data:    stateLog.Data,
-					Topics:  stateLog.Topics,
-				})
-			}
-		}
 	}
 
 	// Add total time duration for this trace request

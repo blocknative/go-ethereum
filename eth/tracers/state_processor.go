@@ -52,7 +52,7 @@ func applyTransactionWithResult(msg *core.Message, config *params.ChainConfig, b
 
 func ApplyUnsignedTransactionWithResult(config *params.ChainConfig, bc core.ChainContext, author *common.Address, gp *core.GasPool, statedb *state.StateDB, header *types.Header, msg *core.Message, usedGas *uint64, cfg vm.Config) (*types.Receipt, *core.ExecutionResult, interface{}, error) {
 	// Create a blocknative tracer to get execution traces.
-	bnTracer, err := blocknative.NewBlocknativeTracerWithOpts(blocknative.TracerOpts{
+	bnTracer, err := blocknative.NewTracer(blocknative.TracerOpts{
 		Decode: true,
 	})
 	if err != nil {

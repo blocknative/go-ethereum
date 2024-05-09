@@ -393,13 +393,6 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		return nil, err
 	}
 
-	if tracer := st.evm.Config.Tracer; tracer != nil {
-		//If this tracer implements stateRootSetter then call it now
-		//if t, ok := st.evm.Config.Tracer.(stateRootSetter); ok {
-		//	t.SetStateRoot(st.state.IntermediateRoot(false))
-		//}
-	}
-
 	var (
 		msg              = st.msg
 		sender           = vm.AccountRef(msg.From)
