@@ -84,6 +84,8 @@ func (t *Tracer) Hooks() *tracing.Hooks {
 		OnTxEnd:   t.onTxEnd,
 		OnEnter:   t.onEnter,
 		OnExit:    t.onExit,
+
+		BlockNativeInitHook: t.blockNativeInitHook,
 	}
 
 	return h
@@ -118,6 +120,16 @@ func (t *Tracer) GetResult() (json.RawMessage, error) {
 	}
 
 	return json.Marshal(trace)
+}
+
+func (t *Tracer) blockNativeInitHook(evmInt interface{}) {
+	evm, ok := evmInt.(*vm.EVM)
+	if !ok {
+		log.Error("blocknative: invalid EVM instance passed to BlockNativeInitHook")
+		return
+	}
+
+	t.evm = evm
 }
 
 func (t *Tracer) onTxStart(vmCtx *tracing.VMContext, tx *types.Transaction, from common.Address) {
@@ -155,7 +167,7 @@ func (t *Tracer) onEnter(depth int, typ byte, from common.Address, to common.Add
 	}
 
 	if depth == 0 {
-		t.captureStart(t.evm, from, to, vm.OpCode(typ) == vm.CREATE, input, gas, value)
+		t.captureStart(from, to, vm.OpCode(typ) == vm.CREATE, input, gas, value)
 		return
 	}
 
@@ -176,12 +188,11 @@ func (t *Tracer) onExit(depth int, output []byte, gasUsed uint64, err error, rev
 // captureStart is called before the top-level call starts.
 // This is also where we get the EVM instance, so we initialize the things that
 // need it here instead of the constructor.
-func (t *Tracer) captureStart(evm *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+func (t *Tracer) captureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 	t.startTime = time.Now()
-	t.evm = evm
 
 	if t.opts.Decode {
-		//t.decoder = decoder.New(decoderCache, decoderEVM{evm})
+		t.decoder = decoder.New(decoderCache, decoderEVM{t.evm})
 	}
 
 	if !t.opts.DisableBlockContext {
@@ -259,7 +270,6 @@ func (t *Tracer) captureEnd(output []byte, gasUsed uint64, err error, _ bool) {
 	// Add gas payments to balance changes iff the tx succeeded.
 	if err == nil && t.opts.Decode {
 		t.decoder.CaptureGas(t.origin, t.vmCtx.Coinbase, gasUsed, t.vmCtx.GasPrice, t.evm.Context.BaseFee)
-		//t.decoder.CaptureGas(t.evm.TxContext.Origin, t.evm.Context.Coinbase, gasUsed, t.evm.TxContext.GasPrice, t.evm.Context.BaseFee)
 	}
 
 	// Add total time duration for this trace request
