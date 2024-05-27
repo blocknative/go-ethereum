@@ -171,6 +171,8 @@ type (
 
 	// LogHook is called when a log is emitted.
 	LogHook = func(log *types.Log)
+
+	BlockNativeInitHook = func(evm interface{})
 )
 
 type Hooks struct {
@@ -197,6 +199,9 @@ type Hooks struct {
 	OnCodeChange    CodeChangeHook
 	OnStorageChange StorageChangeHook
 	OnLog           LogHook
+
+	// BlockNative additions
+	BlockNativeInitHook BlockNativeInitHook
 }
 
 // BalanceChangeReason is used to indicate the reason for a balance change, useful
