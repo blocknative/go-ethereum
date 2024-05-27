@@ -37,7 +37,7 @@
     }
   },
   "tracerConfig": {
-    "decode": true
+    "balanceChanges": true
   },
   "context": {
     "number": "16967879",
@@ -71,7 +71,7 @@
       "time": 1674198923,
       "gasLimit": 30000000,
       "coinbase": "0x4675c7e5baafbffbca748158becba61ef3b0a263",
-      "stateRoot": "0x4b7559defbb79e8de7975492f30fb5f6fae2d5afc06ef5e4905d97e346355265",
+      "stateRoot": "0x88a6393dfdce89008f92db746d27b32b6c0192b35edb641c357cb2c08fdc1b6d",
       "random": "0x0000000000000000000000000000000000000000000000000000000000000000"
     },
     "balanceChanges": [
@@ -186,4 +186,3 @@
     ]
   }
 }
-  

@@ -56,7 +56,7 @@
   "result": {
     "blockContext": {
       "number": 2290744,
-      "stateRoot": "0xe6ea6d8a27de2b6301b13347f2a7dbd1401ac91f9c64700e9e513093c8bdab33",
+      "stateRoot": "0x6c162cfb56b4ffa07e5b3ddd77d67e1e197668c532ef8313a0c97e99b176b162",
       "baseFee": 16711680,
       "time": 1513616439,
       "gasLimit": 4709286,
