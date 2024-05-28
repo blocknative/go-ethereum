@@ -44,7 +44,7 @@
     }
   },
   "tracerConfig": {
-    "decode": true
+    "balanceChanges": true
   },
   "context": {
     "number": "16967879",
@@ -74,7 +74,7 @@
     },
     "blockContext": {
       "number": 16967879,
-      "stateRoot": "0xb4c1f5fda0d1aaa56f040ad7e7fb9d527603a0223236c11aeafad13162bcaf12",
+      "stateRoot": "0x340b561e1395a336b5badc01ab3a33e642a4e4b221ae41718633c4d6e8747bed",
       "baseFee": 16711680,
       "time": 1674198923,
       "coinbase": "0x4675c7e5baafbffbca748158becba61ef3b0a263",
@@ -163,4 +163,3 @@
     ]
   }
 }
-  

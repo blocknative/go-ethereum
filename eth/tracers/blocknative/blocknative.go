@@ -1,26 +1,23 @@
 package blocknative
 
 import (
-	"encoding/json"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers/blocknative/decoder"
 )
 
-// Tracer is the interface for the Blocknative tracer.
-// It implements the standard EVMLogger tracer interface, but also exposes the
+// Tracer is the interface for the Blocknative Tracer.
+// It implements the standard EVMLogger Tracer interface, but also exposes the
 // resulting Trace object directly.
-type Tracer interface {
-	vm.EVMLogger
-	SetTxContext(thash common.Hash, ti int)
-	GetTrace() (*Trace, error)
-	GetResult() (json.RawMessage, error)
-	Stop(err error)
-}
+//type Tracer interface {
+//	*tracing.Hooks
+//	SetTxContext(thash common.Hash, ti int)
+//	GetTrace() (*Trace, error)
+//	GetResult() (json.RawMessage, error)
+//	Stop(err error)
+//}
 
-// TracerOpts configure the tracer to save or ignore various aspects of a transaction execution.
+// TracerOpts configure the Tracer to save or ignore various aspects of a transaction execution.
 type TracerOpts struct {
 	Logs bool `json:"logs"`
 	// Get per tx hash logs

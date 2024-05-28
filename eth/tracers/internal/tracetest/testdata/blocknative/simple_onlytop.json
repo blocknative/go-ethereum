@@ -57,13 +57,13 @@
   },
   "input": "0xf88b8271908506fc23ac0083015f90943b873a919aa0512d5a0f09e6dcceaa4a6727fafe80a463e4bff40000000000000000000000000024f658a46fbb89d8ac105e98d7ac7cbbaf27c52aa0bdce0b59e8761854e857fe64015f06dd08a4fbb7624f6094893a79a72e6ad6bea01d9dde033cff7bb235a3163f348a6d7ab8d6b52bc0963a95b91612e40ca766a4",
   "tracerConfig": {
-      "logs": true,
-      "onlyTopCall": true
+    "logs": true,
+    "onlyTopCall": true
   },
   "result": {
     "blockContext": {
       "number": 2289806,
-      "stateRoot": "0x3bdabcac016a32fe557a05a50c0fc8b9959fa25b167cea3c8f81b77c12ee5ca6",
+      "stateRoot": "0x3cc4fe3d3dd7e613d284a1fed30a4e64fb08b0440b7c1d112657aa3d4d203554",
       "baseFee": 16711680,
       "time": 1513601314,
       "gasLimit": 4722976,
@@ -77,7 +77,7 @@
     "to": "0x3b873a919aa0512d5a0f09e6dcceaa4a6727fafe",
     "type": "CALL",
     "value": "0x0",
-    "calls":[
+    "calls": [
       {
         "type": "CALL",
         "from": "0x3b873a919aa0512d5a0f09e6dcceaa4a6727fafe",

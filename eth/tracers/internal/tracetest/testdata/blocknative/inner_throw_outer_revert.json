@@ -51,7 +51,7 @@
     "mixHash": "0x10971cde68c587c750c23b8589ae868ce82c2c646636b97e7d9856470c5297c7",
     "nonce": "0x810f923ff4b450a1",
     "number": "2295103",
-    "stateRoot": "0xff403612573d76dfdaf4fea2429b77dbe9764021ae0e38dc8ac79a3cf551179e",
+    "stateRoot": "0x4fb3129d6386f7d08a832142ce2dc81be83f5f6d5111cc2709a4009a85394e18",
     "timestamp": "1513681246",
     "totalDifficulty": "7162347056825919"
   },
@@ -59,7 +59,7 @@
   "result": {
     "blockContext": {
       "number": 2295104,
-      "stateRoot": "0x8eb4bf4797aa7f6adda8b02ce7aa60eba0be91c780183d9d2f4a2329f22ab41c",
+      "stateRoot": "0x4fb3129d6386f7d08a832142ce2dc81be83f5f6d5111cc2709a4009a85394e18",
       "baseFee": 16711680,
       "time": 1513681256,
       "gasLimit": 5413248,
