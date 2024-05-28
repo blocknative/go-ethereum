@@ -46,7 +46,6 @@ type Tracer struct {
 // NewTracer is the primary constructor for the tracer.
 func NewTracer(opts TracerOpts) (*Tracer, error) {
 	opts.Decode = opts.Decode || opts.BalanceChanges
-	opts.Decode = false
 
 	var t = Tracer{
 		opts:      opts,
@@ -69,7 +68,6 @@ func NewTracerFromJSON(raw json.RawMessage) (*Tracer, error) {
 		}
 	}
 
-	opts.Decode = false
 	t, err := NewTracer(opts)
 	if err != nil {
 		return nil, err
@@ -84,6 +82,7 @@ func (t *Tracer) Hooks() *tracing.Hooks {
 		OnTxEnd:   t.onTxEnd,
 		OnEnter:   t.onEnter,
 		OnExit:    t.onExit,
+		OnLog:     t.onLog,
 
 		BlockNativeInitHook: t.blockNativeInitHook,
 	}
@@ -105,7 +104,7 @@ func (t *Tracer) GetTrace() (*Trace, error) {
 
 	t.trace.CallFrame = t.callStack[0]
 
-	if t.opts.Decode {
+	if t.opts.BalanceChanges {
 		t.trace.BalanceChanges = t.decoder.GetBalanceChanges()
 	}
 
@@ -136,28 +135,22 @@ func (t *Tracer) onTxStart(vmCtx *tracing.VMContext, tx *types.Transaction, from
 	t.vmCtx = vmCtx
 	t.origin = from
 	t.tx = tx
-
-	if t.trace.BlockContext != nil {
-		t.trace.BlockContext.StateRoot = vmCtx.StateDB.IntermediateRoot(false).Bytes()
-	}
 }
 
 func (t *Tracer) onTxEnd(receipt *types.Receipt, _ error) {
-	if t.opts.Logs {
-		for _, log := range receipt.Logs {
-			if t.opts.PerHashLogs {
-				if log.TxHash != t.txHash {
-					continue
-				}
-			}
+	t.trace.GasUsed = Uint64(receipt.GasUsed)
+}
 
-			t.trace.Logs = append(t.trace.Logs, CallLog{
-				Address: log.Address,
-				Data:    log.Data,
-				Topics:  log.Topics,
-			})
-		}
+// onLog is called when a log is emitted.
+func (t *Tracer) onLog(log *types.Log) {
+	if !t.opts.Logs || (t.opts.PerHashLogs && log.TxHash != t.txHash) {
+		return
 	}
+	t.trace.Logs = append(t.trace.Logs, CallLog{
+		Address: log.Address,
+		Data:    log.Data,
+		Topics:  log.Topics,
+	})
 }
 
 // onEnter is called when EVM enters a new scope (via call, create or selfdestruct).
@@ -186,8 +179,7 @@ func (t *Tracer) onExit(depth int, output []byte, gasUsed uint64, err error, rev
 }
 
 // captureStart is called before the top-level call starts.
-// This is also where we get the EVM instance, so we initialize the things that
-// need it here instead of the constructor.
+// We use it to initialize values now that we've received the vmCtx and evm.
 func (t *Tracer) captureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 	t.startTime = time.Now()
 
@@ -197,12 +189,15 @@ func (t *Tracer) captureStart(from common.Address, to common.Address, create boo
 
 	if !t.opts.DisableBlockContext {
 		t.trace.BlockContext = &BlockContext{}
+
 		t.trace.BlockContext.Number = t.vmCtx.BlockNumber.Uint64()
-		// TODO: t.trace.BlockContext.BaseFee = t.vmCtx.BaseFee.Uint64()
 		t.trace.BlockContext.Time = t.vmCtx.Time
 		t.trace.BlockContext.Coinbase = t.vmCtx.Coinbase
-		// TODO: t.trace.BlockContext.GasLimit = t.vmCtx.GasLimit
-		if t.vmCtx.Random != nil {
+		t.trace.BlockContext.StateRoot = t.vmCtx.StateDB.IntermediateRoot(false).Bytes()
+
+		t.trace.BlockContext.GasLimit = t.evm.Context.GasLimit
+		t.trace.BlockContext.BaseFee = t.evm.Context.BaseFee.Uint64()
+		if t.evm.Context.Random != nil {
 			copy(t.trace.BlockContext.Random[:], t.vmCtx.Random[:])
 		}
 	}
