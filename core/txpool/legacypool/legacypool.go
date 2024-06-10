@@ -384,7 +384,7 @@ func (pool *LegacyPool) loop() {
 					}
 					pool.dropTxFeed.Send(core.DropTxsEvent{
 						Txs:    list,
-						Reason: dropOld,
+						Reason: txpool.DropOld,
 					})
 					queuedEvictionMeter.Mark(int64(len(list)))
 				}
@@ -468,7 +468,7 @@ func (pool *LegacyPool) SetGasTip(tip *big.Int) {
 		pool.priced.Removed(len(drop))
 		pool.dropTxFeed.Send(core.DropTxsEvent{
 			Txs:    drop,
-			Reason: dropGasPriceUpdated,
+			Reason: txpool.DropGasPriceUpdated,
 		})
 	}
 	log.Info("Legacy pool tip threshold updated", "tip", newTip)
@@ -794,7 +794,7 @@ func (pool *LegacyPool) add(tx *types.Transaction, local bool) (replaced bool, e
 			pool.changesSinceReorg += dropped
 			pool.dropTxFeed.Send(core.DropTxsEvent{
 				Txs:    drop,
-				Reason: dropUnderpriced,
+				Reason: txpool.DropUnderpriced,
 			})
 		}
 	}
@@ -814,7 +814,7 @@ func (pool *LegacyPool) add(tx *types.Transaction, local bool) (replaced bool, e
 			pendingReplaceMeter.Mark(1)
 			pool.dropTxFeed.Send(core.DropTxsEvent{
 				Txs:         []*types.Transaction{old},
-				Reason:      dropReplaced,
+				Reason:      txpool.DropReplaced,
 				Replacement: tx,
 			})
 		}
@@ -894,7 +894,7 @@ func (pool *LegacyPool) enqueueTx(hash common.Hash, tx *types.Transaction, local
 		queuedReplaceMeter.Mark(1)
 		pool.dropTxFeed.Send(core.DropTxsEvent{
 			Txs:    []*types.Transaction{old},
-			Reason: dropReplaced,
+			Reason: txpool.DropReplaced,
 		})
 	} else {
 		// Nothing was replaced, bump the queued counter
@@ -954,7 +954,7 @@ func (pool *LegacyPool) promoteTx(addr common.Address, hash common.Hash, tx *typ
 		pendingReplaceMeter.Mark(1)
 		pool.dropTxFeed.Send(core.DropTxsEvent{
 			Txs:    []*types.Transaction{old},
-			Reason: dropReplaced,
+			Reason: txpool.DropReplaced,
 		})
 	} else {
 		// Nothing was replaced, bump the pending counter
@@ -1185,7 +1185,7 @@ func (pool *LegacyPool) removeTx(hash common.Hash, outofbound bool, unreserve bo
 			pendingGauge.Dec(int64(1 + len(invalids)))
 			pool.dropTxFeed.Send(core.DropTxsEvent{
 				Txs:    invalids,
-				Reason: dropUnexecutable,
+				Reason: txpool.DropUnexecutable,
 			})
 			return 1 + len(invalids)
 		}
@@ -1509,7 +1509,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		log.Trace("Removed old queued transactions", "count", len(forwards))
 		pool.dropTxFeed.Send(core.DropTxsEvent{
 			Txs:    forwards,
-			Reason: dropLowNonce,
+			Reason: txpool.DropLowNonce,
 		})
 		// Drop all transactions that are too costly (low balance or out of gas)
 		drops, _ := list.Filter(pool.currentState.GetBalance(addr), gasLimit)
@@ -1521,7 +1521,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		queuedNofundsMeter.Mark(int64(len(drops)))
 		pool.dropTxFeed.Send(core.DropTxsEvent{
 			Txs:    drops,
-			Reason: dropUnpayable,
+			Reason: txpool.DropUnpayable,
 		})
 
 		// Gather all executable transactions and promote them
@@ -1547,7 +1547,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 			queuedRateLimitMeter.Mark(int64(len(caps)))
 			pool.dropTxFeed.Send(core.DropTxsEvent{
 				Txs:    caps,
-				Reason: dropAccountCap,
+				Reason: txpool.DropAccountCap,
 			})
 		}
 		// Mark all the items dropped as removed
@@ -1618,7 +1618,7 @@ func (pool *LegacyPool) truncatePending() {
 					}
 					pool.dropTxFeed.Send(core.DropTxsEvent{
 						Txs:    caps,
-						Reason: dropAccountCap,
+						Reason: txpool.DropAccountCap,
 					})
 					pool.priced.Removed(len(caps))
 					pendingGauge.Dec(int64(len(caps)))
@@ -1693,7 +1693,7 @@ func (pool *LegacyPool) truncateQueue() {
 			}
 			pool.dropTxFeed.Send(core.DropTxsEvent{
 				Txs:    txs,
-				Reason: dropTruncating,
+				Reason: txpool.DropTruncating,
 			})
 			drop -= size
 			queuedRateLimitMeter.Mark(int64(size))
@@ -1707,7 +1707,7 @@ func (pool *LegacyPool) truncateQueue() {
 			queuedRateLimitMeter.Mark(1)
 			pool.dropTxFeed.Send(core.DropTxsEvent{
 				Txs:    []*types.Transaction{txs[i]},
-				Reason: dropTruncating,
+				Reason: txpool.DropTruncating,
 			})
 		}
 	}
@@ -1735,7 +1735,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		}
 		pool.dropTxFeed.Send(core.DropTxsEvent{
 			Txs:    olds,
-			Reason: dropLowNonce,
+			Reason: txpool.DropLowNonce,
 		})
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
 		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), gasLimit)
@@ -1746,7 +1746,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		}
 		pool.dropTxFeed.Send(core.DropTxsEvent{
 			Txs:    drops,
-			Reason: dropUnpayable,
+			Reason: txpool.DropUnpayable,
 		})
 		pool.priced.Removed(len(olds) + len(drops))
 		pendingNofundsMeter.Mark(int64(len(drops)))
@@ -2043,17 +2043,3 @@ func (t *lookup) RemotesBelowTip(threshold *big.Int) types.Transactions {
 func numSlots(tx *types.Transaction) int {
 	return int((tx.Size() + txSlotSize - 1) / txSlotSize)
 }
-
-
-const (
-	dropUnderpriced = "underpriced-txs"
-	dropLowNonce = "low-nonce-txs"
-	dropUnpayable = "unpayable-txs"
-
-	dropAccountCap = "account-cap-txs" // Accounts exceeding txpool.accountslots transactions
-	dropReplaced = "replaced-txs"
-	dropUnexecutable = "unexecutable-txs"
-	dropTruncating = "truncating-txs"
-	dropOld = "old-txs"
-	dropGasPriceUpdated = "updated-gas-price"
-)
