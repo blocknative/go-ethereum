@@ -403,6 +403,11 @@ func (p *BlobPool) Init(gasTip uint64, head *types.Header, reserve txpool.Addres
 				p.Close()
 				return err
 			}
+
+			p.dropTxFeed.Send(core.DropTxsEvent{
+				Txs:    []*types.Transaction{blobIDToTransaction(id)},
+				Reason: txpool.DropUnexecutable,
+			})
 		}
 	}
 	// Sort the indexed transactions by nonce and delete anything gapped, create
@@ -566,6 +571,11 @@ func (p *BlobPool) recheck(addr common.Address, inclusions map[common.Hash]uint6
 			if err := p.store.Delete(id); err != nil {
 				log.Error("Failed to delete blob transaction", "from", addr, "id", id, "err", err)
 			}
+
+			p.dropTxFeed.Send(core.DropTxsEvent{
+				Txs:    []*types.Transaction{blobIDToTransaction(id)},
+				Reason: txpool.DropUnexecutable,
+			})
 		}
 		return
 	}
@@ -597,6 +607,11 @@ func (p *BlobPool) recheck(addr common.Address, inclusions map[common.Hash]uint6
 			if err := p.store.Delete(id); err != nil {
 				log.Error("Failed to delete blob transaction", "from", addr, "id", id, "err", err)
 			}
+
+			p.dropTxFeed.Send(core.DropTxsEvent{
+				Txs:    []*types.Transaction{blobIDToTransaction(id)},
+				Reason: txpool.DropLowNonce,
+			})
 		}
 		p.index[addr] = txs
 	}
@@ -646,6 +661,11 @@ func (p *BlobPool) recheck(addr common.Address, inclusions map[common.Hash]uint6
 			txs = append(txs[:i], txs[i+1:]...)
 			p.index[addr] = txs
 
+			p.dropTxFeed.Send(core.DropTxsEvent{
+				Txs:    []*types.Transaction{blobIDToTransaction(id)},
+				Reason: txpool.DropReplaced,
+			})
+
 			i--
 			continue
 		}
@@ -671,6 +691,11 @@ func (p *BlobPool) recheck(addr common.Address, inclusions map[common.Hash]uint6
 			if err := p.store.Delete(id); err != nil {
 				log.Error("Failed to delete blob transaction", "from", addr, "id", id, "err", err)
 			}
+
+			p.dropTxFeed.Send(core.DropTxsEvent{
+				Txs:    []*types.Transaction{blobIDToTransaction(id)},
+				Reason: txpool.DropUnexecutable,
+			})
 		}
 		p.index[addr] = txs
 		break
@@ -717,6 +742,11 @@ func (p *BlobPool) recheck(addr common.Address, inclusions map[common.Hash]uint6
 			if err := p.store.Delete(id); err != nil {
 				log.Error("Failed to delete blob transaction", "from", addr, "id", id, "err", err)
 			}
+
+			p.dropTxFeed.Send(core.DropTxsEvent{
+				Txs:    []*types.Transaction{blobIDToTransaction(id)},
+				Reason: txpool.DropAccountCap,
+			})
 		}
 	}
 	// Sanity check that no account can have more queued transactions than the
@@ -749,6 +779,11 @@ func (p *BlobPool) recheck(addr common.Address, inclusions map[common.Hash]uint6
 			if err := p.store.Delete(id); err != nil {
 				log.Error("Failed to delete blob transaction", "from", addr, "id", id, "err", err)
 			}
+
+			p.dropTxFeed.Send(core.DropTxsEvent{
+				Txs:    []*types.Transaction{blobIDToTransaction(id)},
+				Reason: txpool.DropAccountCap,
+			})
 		}
 	}
 	// Included cheap transactions might have left the remaining ones better from
@@ -1075,6 +1110,11 @@ func (p *BlobPool) SetGasTip(tip *big.Int) {
 						if err := p.store.Delete(id); err != nil {
 							log.Error("Failed to delete dropped transaction", "id", id, "err", err)
 						}
+
+						p.dropTxFeed.Send(core.DropTxsEvent{
+							Txs:    []*types.Transaction{blobIDToTransaction(id)},
+							Reason: txpool.DropGasPriceUpdated,
+						})
 					}
 					break
 				}
@@ -1343,6 +1383,12 @@ func (p *BlobPool) add(tx *types.Transaction) (err error) {
 		delete(p.lookup, prev.hash)
 		p.lookup[meta.hash] = meta.id
 		p.stored += uint64(meta.size) - uint64(prev.size)
+
+		p.dropTxFeed.Send(core.DropTxsEvent{
+			Txs:         []*types.Transaction{blobTxMetaToTransaction(prev)},
+			Reason:      txpool.DropReplaced,
+			Replacement: tx,
+		})
 	} else {
 		// Transaction extends previously scheduled ones
 		p.index[from] = append(p.index[from], meta)
@@ -1464,6 +1510,11 @@ func (p *BlobPool) drop() {
 	if err := p.store.Delete(drop.id); err != nil {
 		log.Error("Failed to drop evicted transaction", "id", drop.id, "err", err)
 	}
+
+	p.dropTxFeed.Send(core.DropTxsEvent{
+		Txs:    []*types.Transaction{blobTxMetaToTransaction(&blobTxMeta{id: drop.id})},
+		Reason: txpool.DropTruncating,
+	})
 }
 
 // Pending retrieves all currently processable transactions, grouped by origin
@@ -1711,4 +1762,19 @@ func (pool *BlobPool) SubscribeDropTxsEvent(ch chan<- core.DropTxsEvent) event.S
 // starts sending event to the given channel.
 func (pool *BlobPool) SubscribeRejectedTxEvent(ch chan<- core.RejectedTxEvent) event.Subscription {
 	return pool.rejectTxFeed.Subscribe(ch)
+}
+
+func blobIDToTransaction(id uint64) *types.Transaction {
+	return blobTxMetaToTransaction(&blobTxMeta{id: id})
+}
+
+func blobTxMetaToTransaction(meta *blobTxMeta) *types.Transaction {
+	return types.NewTx(&types.BlobTx{
+		Gas:        meta.execGas,
+		BlobFeeCap: meta.blobFeeCap,
+		Nonce:      meta.nonce,
+		GasFeeCap:  meta.execFeeCap,
+		GasTipCap:  meta.execTipCap,
+		BlobHashes: meta.blobHashes,
+	})
 }
