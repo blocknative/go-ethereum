@@ -66,7 +66,7 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 		// first.
 		defer func() {
 			if r := recover(); r != nil {
-				log.Error("pending_txs_stream panic:", r)
+				log.Error("pending_txs_stream panic:", "err", r)
 			}
 		}()
 
@@ -197,7 +197,7 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 		// first.
 		defer func() {
 			if r := recover(); r != nil {
-				log.Error("block_stream panic:", r)
+				log.Error("block_stream panic:", "err", r)
 			}
 		}()
 
