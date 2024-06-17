@@ -294,6 +294,7 @@ func traceTx(tx *types.Transaction, message *core.Message, txCtx *tracers.Contex
 	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: hooks, NoBaseFee: true})
 	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
 
+	hooks.BlockNativeInitHook(vmenv)
 	hooks.OnTxStart(vmenv.GetVMContext(), tx, message.From)
 	result, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit))
 	if err != nil {
@@ -323,6 +324,7 @@ func traceBlockTx(tx *types.Transaction, message *core.Message, txCtx *tracers.C
 	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: hooks, NoBaseFee: false})
 	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
 
+	hooks.BlockNativeInitHook(vmenv)
 	hooks.OnTxStart(vmenv.GetVMContext(), tx, message.From)
 	result, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit))
 	if err != nil {
