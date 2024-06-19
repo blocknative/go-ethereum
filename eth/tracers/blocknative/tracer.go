@@ -138,7 +138,10 @@ func (t *Tracer) onTxStart(vmCtx *tracing.VMContext, tx *types.Transaction, from
 }
 
 func (t *Tracer) onTxEnd(receipt *types.Receipt, _ error) {
-	t.trace.GasUsed = Uint64(receipt.GasUsed)
+	// If the transaction reverts we don't get a receipt.
+	if receipt != nil {
+		t.trace.GasUsed = Uint64(receipt.GasUsed)
+	}
 }
 
 // onLog is called when a log is emitted.
