@@ -294,6 +294,7 @@ func traceTx(tx *types.Transaction, message *core.Message, txCtx *tracers.Contex
 	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: hooks, NoBaseFee: true})
 	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
 
+	fmt.Println("Starting stream tx trace")
 	hooks.BlockNativeInitHook(vmenv)
 	hooks.OnTxStart(vmenv.GetVMContext(), tx, message.From)
 	result, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit))
@@ -301,6 +302,7 @@ func traceTx(tx *types.Transaction, message *core.Message, txCtx *tracers.Contex
 		return nil, fmt.Errorf("tracing failed: %w", err)
 	}
 	hooks.OnTxEnd(&types.Receipt{GasUsed: result.UsedGas}, err)
+	fmt.Println("Ended stream tx trace")
 
 	trace, err := tracer.GetTrace()
 	if err != nil {
