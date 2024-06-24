@@ -28,6 +28,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/holiman/uint256"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state/snapshot"
@@ -40,8 +43,6 @@ import (
 	"github.com/ethereum/go-ethereum/trie/trienode"
 	"github.com/ethereum/go-ethereum/trie/triestate"
 	"github.com/ethereum/go-ethereum/trie/utils"
-	"github.com/holiman/uint256"
-	"golang.org/x/sync/errgroup"
 )
 
 // TriesInMemory represents the number of layers that are kept in RAM.
@@ -247,6 +248,8 @@ func (s *StateDB) Error() error {
 }
 
 func (s *StateDB) AddLog(log *types.Log) {
+	fmt.Println("In StateDB.AddLog")
+
 	s.journal.append(addLogChange{txhash: s.thash})
 
 	log.TxHash = s.thash
