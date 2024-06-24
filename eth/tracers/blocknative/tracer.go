@@ -163,6 +163,8 @@ func (t *Tracer) onLog(log *types.Log) {
 
 // onEnter is called when EVM enters a new scope (via call, create or selfdestruct).
 func (t *Tracer) onEnter(depth int, typ byte, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
+	fmt.Println("In onEnter")
+
 	if t.interrupt.Load() {
 		return
 	}
@@ -178,6 +180,8 @@ func (t *Tracer) onEnter(depth int, typ byte, from common.Address, to common.Add
 // onExit is called when EVM exits a scope, even if the scope didn't
 // execute any code.
 func (t *Tracer) onExit(depth int, output []byte, gasUsed uint64, err error, reverted bool) {
+	fmt.Println("In onExit")
+
 	if depth == 0 {
 		t.captureEnd(output, gasUsed, err, reverted)
 		return
