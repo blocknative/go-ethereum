@@ -295,6 +295,7 @@ func traceTx(tx *types.Transaction, message *core.Message, txCtx *tracers.Contex
 	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
 
 	fmt.Println("Starting stream tx trace")
+	statedb.SetLogger(hooks)
 	hooks.BlockNativeInitHook(vmenv)
 	hooks.OnTxStart(vmenv.GetVMContext(), tx, message.From)
 	result, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit))
