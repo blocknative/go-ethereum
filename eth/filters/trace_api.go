@@ -23,18 +23,18 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-var defaultTxTraceOpts = blocknative.TracerOpts{
+var txTraceOpts = blocknative.TracerOpts{
 	Logs: true,
 }
 
-var defaultBlockTraceOpts = blocknative.TracerOpts{
+var blockTraceOpts = blocknative.TracerOpts{
 	DisableBlockContext: true,
 	Logs:                true,
 }
 
 // TraceNewPendingTransactions creates a subscription that is triggered each time a
 // transaction enters the transaction pool. The tx is traced and sent to the client.
-func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, tracerOptsJSON *[]byte) (*rpc.Subscription, error) {
+func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context) (*rpc.Subscription, error) {
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
 		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
@@ -47,12 +47,6 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 		txs := make(chan []*types.Transaction, 128)
 		pendingTxSub := api.events.SubscribePendingTxs(txs)
 		defer pendingTxSub.Unsubscribe()
-
-		tracerOpts, err := getTracerOpts(tracerOptsJSON, defaultTxTraceOpts)
-		if err != nil {
-			log.Error("failed to parse tracer options", "err", err)
-			return
-		}
 
 		var (
 			txIndex = hexutil.Uint64(0)
@@ -141,7 +135,7 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 					startTime := time.Now()
 
 					traceCtx.TxHash = tx.Hash
-					tx.Trace, err = traceTx(txs[i], msg, traceCtx, blockCtx, chainConfig, sDB.Copy(), tracerOpts)
+					tx.Trace, err = traceTx(txs[i], msg, traceCtx, blockCtx, chainConfig, sDB.Copy())
 					if err != nil {
 						log.Info("failed to trace tx", "err", err, "tx", tx.Hash)
 						metricsPendingTxsTraceFailed.Inc(1)
@@ -167,7 +161,7 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context, trace
 
 // TraceNewFullBlocks creates a subscription that is triggered each time a
 // block is added to the chain. The block is traced and sent to the client.
-func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON *[]byte) (*rpc.Subscription, error) {
+func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context) (*rpc.Subscription, error) {
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
 		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
@@ -183,12 +177,6 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 		defer headersSub.Unsubscribe()
 		defer reorgSub.Unsubscribe()
 		chainConfig := api.sys.backend.ChainConfig()
-
-		tracerOpts, err := getTracerOpts(tracerOptsJSON, defaultBlockTraceOpts)
-		if err != nil {
-			log.Error("failed to parse tracer options", "err", err)
-			return
-		}
 
 		metricsBlocksNew.Inc(1)
 		defer metricsBlocksEnd.Inc(1)
@@ -235,7 +223,7 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 					continue
 				}
 
-				trace, err := traceBlock(block, chainConfig, api.sys.chain, tracerOpts)
+				trace, err := traceBlock(block, chainConfig, api.sys.chain)
 				if err != nil {
 					log.Info("failure in block trace", "err", err, "hash", hash, "block", block.Number())
 					metricsBlocksTraceFailed.Inc(1)
@@ -283,8 +271,8 @@ func (api *FilterAPI) NewFullBlocksWithTrace(ctx context.Context, tracerOptsJSON
 }
 
 // traceTx traces a transaction with the given contexts.
-func traceTx(tx *types.Transaction, message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB, tracerOpts blocknative.TracerOpts) (*blocknative.Trace, error) {
-	tracer, err := blocknative.NewTracer(tracerOpts)
+func traceTx(tx *types.Transaction, message *core.Message, txCtx *tracers.Context, vmctx vm.BlockContext, chainConfig *params.ChainConfig, statedb *state.StateDB) (*blocknative.Trace, error) {
+	tracer, err := blocknative.NewTracer(txTraceOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +337,7 @@ func traceBlockTx(tx *types.Transaction, message *core.Message, txCtx *tracers.C
 }
 
 // traceBlock traces all transactions in a block.
-func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core.BlockChain, tracerOpts blocknative.TracerOpts) ([]*blocknative.Trace, error) {
+func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core.BlockChain) ([]*blocknative.Trace, error) {
 	parent := chain.GetBlockByHash(block.ParentHash())
 	if parent == nil {
 		return nil, errors.New("parent block not found")
@@ -383,13 +371,13 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 			TxIndex:     i,
 			TxHash:      tx.Hash(),
 		}
-		results2[i], results[i], err = traceBlockTx(tx, msg, txCtx, blockCtx, chainConfig, statedb, tracerOpts)
+		results2[i], results[i], err = traceBlockTx(tx, msg, txCtx, blockCtx, chainConfig, statedb, blockTraceOpts)
 		if results2[i] != nil {
 			results2[i].Hash = tx.Hash()
 		}
 		if err != nil {
 			cconf, _ := json.Marshal(chainConfig)
-			topts, _ := json.Marshal(tracerOpts)
+			topts, _ := json.Marshal(blockTraceOpts)
 			exec, _ := json.Marshal(results2)
 			log.Error("failed to trace block in tx config",
 				"err", err,
@@ -405,16 +393,4 @@ func traceBlock(block *types.Block, chainConfig *params.ChainConfig, chain *core
 	metricsTraceBlockTimer.Update(time.Since(startTime).Milliseconds())
 
 	return results, nil
-}
-
-// getTracerOpts parses the tracer options from the given JSON and applies them
-// on top of the default options.
-func getTracerOpts(optsJSON *[]byte, defaults blocknative.TracerOpts) (blocknative.TracerOpts, error) {
-	opts := defaults
-	if optsJSON != nil {
-		if err := json.Unmarshal(*optsJSON, &opts); err != nil {
-			return blocknative.TracerOpts{}, err
-		}
-	}
-	return opts, nil
 }
