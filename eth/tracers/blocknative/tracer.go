@@ -2,6 +2,7 @@ package blocknative
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -146,6 +147,8 @@ func (t *Tracer) onTxEnd(receipt *types.Receipt, _ error) {
 
 // onLog is called when a log is emitted.
 func (t *Tracer) onLog(log *types.Log) {
+	fmt.Println("In onLog:", t.opts.Logs)
+	fmt.Println("per logs:", t.opts.PerHashLogs, "tracing hash:", t.txHash, "log hash:", log.TxHash, "topic count:", len(log.Topics))
 	if !t.opts.Logs || (t.opts.PerHashLogs && log.TxHash != t.txHash) {
 		return
 	}
