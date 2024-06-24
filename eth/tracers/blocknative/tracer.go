@@ -29,11 +29,9 @@ type Tracer struct {
 	evm     *vm.EVM
 	decoder *decoder.Decoder
 
-	vmCtx   *tracing.VMContext
-	origin  common.Address
-	tx      *types.Transaction
-	txHash  common.Hash
-	txIndex int
+	vmCtx  *tracing.VMContext
+	origin common.Address
+	tx     *types.Transaction
 
 	trace     Trace
 	startTime time.Time
@@ -146,7 +144,7 @@ func (t *Tracer) onTxEnd(receipt *types.Receipt, _ error) {
 
 // onLog is called when a log is emitted.
 func (t *Tracer) onLog(log *types.Log) {
-	if !t.opts.Logs || (t.opts.PerHashLogs && log.TxHash != t.txHash) {
+	if !t.opts.Logs || (t.opts.PerHashLogs && log.TxHash != t.tx.Hash()) {
 		return
 	}
 	t.trace.Logs = append(t.trace.Logs, CallLog{
