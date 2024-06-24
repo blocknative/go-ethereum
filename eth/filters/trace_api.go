@@ -292,8 +292,12 @@ func traceTx(tx *types.Transaction, message *core.Message, txCtx *tracers.Contex
 	hooks := tracer.Hooks()
 
 	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: hooks, NoBaseFee: true})
-	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
 
+	// Set the transaction context for the state db so logs are correctly indexed.
+	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
+	statedb.SetLogger(hooks)
+
+	// Begin tracing and calling hooks
 	hooks.BlockNativeInitHook(vmenv)
 	hooks.OnTxStart(vmenv.GetVMContext(), tx, message.From)
 	result, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit))
@@ -322,8 +326,12 @@ func traceBlockTx(tx *types.Transaction, message *core.Message, txCtx *tracers.C
 	hooks := tracer.Hooks()
 
 	vmenv := vm.NewEVM(vmctx, core.NewEVMTxContext(message), statedb, chainConfig, vm.Config{Tracer: hooks, NoBaseFee: false})
-	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
 
+	// Set the transaction context for the state db so logs are correctly indexed.
+	statedb.SetTxContext(txCtx.TxHash, txCtx.TxIndex)
+	statedb.SetLogger(hooks)
+
+	// Begin tracing and calling hooks
 	hooks.BlockNativeInitHook(vmenv)
 	hooks.OnTxStart(vmenv.GetVMContext(), tx, message.From)
 	result, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit))
