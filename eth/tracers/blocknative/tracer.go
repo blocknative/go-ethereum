@@ -123,6 +123,8 @@ func (t *Tracer) GetResult() (json.RawMessage, error) {
 }
 
 func (t *Tracer) blockNativeInitHook(evmInt interface{}) {
+	fmt.Println("In blockNativeInitHook")
+
 	evm, ok := evmInt.(*vm.EVM)
 	if !ok {
 		log.Error("blocknative: invalid EVM instance passed to BlockNativeInitHook")
