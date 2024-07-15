@@ -18,21 +18,18 @@ func newBalances() *balances {
 	}
 }
 
-// captureCallFrameStart decodes potential balance change data out of calldata.
-func (bt *balances) captureCallFrameStart(sender common.Address, receiver common.Address, value *Amount, decoded *CallFrame) {
-	// Add the native transfer.
-	if value != nil && value.ToInt().Sign() > 0 {
-		bt.balanceChanges.addAssetTransfer(EthAsset, sender, receiver, value)
-	}
-}
-
-func (bt *balances) captureCallFrameEnd(decoded *CallFrame) {
-	if decoded == nil {
+func (bt *balances) captureCallFrameEnd(cf *CallFrame) {
+	if cf == nil {
 		return
 	}
 
+	// Add the native transfer.
+	if cf.value != nil && cf.value.ToInt().Sign() > 0 {
+		bt.balanceChanges.addAssetTransfer(EthAsset, cf.sender, cf.receiver, cf.value)
+	}
+
 	// Add any decoded transfers.
-	for _, transfer := range decoded.Transfers {
+	for _, transfer := range cf.Transfers {
 		// Add the decoded transfer now.
 		bt.balanceChanges.addAssetTransfer(transfer.Asset, transfer.From, transfer.To, transfer.Value)
 	}

@@ -79,9 +79,10 @@ func (d *Decoder) DecodeCallFrameStart(sender common.Address, receiver common.Ad
 		}
 	}
 
-	cf := &CallFrame{Contract: contract, CallData: callData}
-
-	d.balances.captureCallFrameStart(sender, receiver, NewAmount(value), cf)
+	cf := &CallFrame{Contract: contract, CallData: callData, sender: sender, receiver: receiver}
+	if value != nil {
+		cf.value = NewAmount(value)
+	}
 
 	return cf, nil
 }
