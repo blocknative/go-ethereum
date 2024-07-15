@@ -304,7 +304,12 @@ func (t *Tracer) finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint6
 	// If there was an error or revert then handle it right away and then stop.
 	if err != nil {
 		call.Error = err.Error()
-		if err.Error() == "execution reverted" && len(output) > 0 {
+	} else if reverted {
+		call.Error = "execution reverted"
+	}
+
+	if err != nil || reverted {
+		if len(output) > 0 {
 			call.Output = output
 			revertReason, _ := abi.UnpackRevert(output)
 			call.ErrorReason = revertReason
@@ -313,10 +318,6 @@ func (t *Tracer) finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint6
 		if call.Type == "CREATE" || call.Type == "CREATE2" {
 			call.To = common.Address{}
 		}
-		return nil
-	}
-
-	if reverted {
 		return nil
 	}
 
