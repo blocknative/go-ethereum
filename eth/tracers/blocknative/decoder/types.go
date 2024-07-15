@@ -11,6 +11,10 @@ import (
 type CallFrame struct {
 	*Contract
 	*CallData
+
+	sender   common.Address
+	receiver common.Address
+	value    *Amount
 }
 
 type Contract struct {

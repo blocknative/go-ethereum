@@ -178,7 +178,7 @@ func (t *Tracer) onExit(depth int, output []byte, gasUsed uint64, err error, rev
 		return
 	}
 
-	t.captureExit(output, gasUsed, err)
+	t.captureExit(output, gasUsed, err, reverted)
 }
 
 // captureStart is called before the top-level call starts.
@@ -260,14 +260,15 @@ func (t *Tracer) captureEnter(typ vm.OpCode, from common.Address, to common.Addr
 }
 
 // captureEnd is called after the top-level call finishes to finalize tracing.
-func (t *Tracer) captureEnd(output []byte, gasUsed uint64, err error, _ bool) {
-	if err := t.finalizeCallFrame(&t.callStack[0], output, gasUsed, err); err != nil {
+func (t *Tracer) captureEnd(output []byte, gasUsed uint64, err error, reverted bool) {
+	if err := t.finalizeCallFrame(&t.callStack[0], output, gasUsed, err, reverted); err != nil {
 		log.Error("failed to finalize call frame", "err", err)
 	}
 
 	// Add gas payments to balance changes iff the tx succeeded.
-	if err == nil && t.opts.Decode {
+	if err == nil && !reverted && t.opts.Decode {
 		t.decoder.CaptureGas(t.origin, t.vmCtx.Coinbase, gasUsed, t.vmCtx.GasPrice, t.evm.Context.BaseFee)
+
 	}
 
 	// Add total time duration for this trace request
@@ -275,7 +276,7 @@ func (t *Tracer) captureEnd(output []byte, gasUsed uint64, err error, _ bool) {
 }
 
 // captureExit is called after any sub call ends.
-func (t *Tracer) captureExit(output []byte, gasUsed uint64, err error) {
+func (t *Tracer) captureExit(output []byte, gasUsed uint64, err error, reverted bool) {
 	// Skip if we have no call-frames.
 	size := len(t.callStack)
 	if size == 0 {
@@ -284,7 +285,7 @@ func (t *Tracer) captureExit(output []byte, gasUsed uint64, err error) {
 
 	// We have a call-frame, so finalize it.
 	call := t.callStack[size-1]
-	if err := t.finalizeCallFrame(&call, output, gasUsed, err); err != nil {
+	if err := t.finalizeCallFrame(&call, output, gasUsed, err, reverted); err != nil {
 		log.Error("failed to finalize call frame", "err", err)
 		return
 	}
@@ -301,17 +302,8 @@ func (t *Tracer) captureExit(output []byte, gasUsed uint64, err error) {
 	t.callStack[end].Calls = append(t.callStack[end].Calls, call)
 }
 
-func (t *Tracer) finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint64, err error) error {
-	call.GasUsed = Uint64(gasUsed)
-
-	// Finalize the decoding.
-	if t.opts.Decode && call.Decoded != nil {
-		if err := t.decoder.DecodeCallFrameEnd(call.Decoded); err != nil {
-			return err
-		}
-	}
-
-	// If there was an error then try decoding it and Stop.
+func (t *Tracer) finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint64, err error, reverted bool) error {
+	// If there was an error or revert then handle it right away and then stop.
 	if err != nil {
 		call.Error = err.Error()
 		if err.Error() == "execution reverted" && len(output) > 0 {
@@ -326,6 +318,17 @@ func (t *Tracer) finalizeCallFrame(call *CallFrame, output []byte, gasUsed uint6
 		return nil
 	}
 
+	if reverted {
+		return nil
+	}
+
+	// Finalize the decoding.
+	call.GasUsed = Uint64(gasUsed)
+	if t.opts.Decode && call.Decoded != nil {
+		if err := t.decoder.DecodeCallFrameEnd(call.Decoded); err != nil {
+			return err
+		}
+	}
 	call.Output = output
 	return nil
 }
