@@ -32,6 +32,8 @@ var blockTraceOpts = blocknative.TracerOpts{
 	Logs:                true,
 }
 
+var pendingTraceCoinbaseAddress = common.HexToAddress("000102030405060708090a0b0c0d0e0f10111213")
+
 // TraceNewPendingTransactions creates a subscription that is triggered each time a
 // transaction enters the transaction pool. The tx is traced and sent to the client.
 func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context) (*rpc.Subscription, error) {
@@ -70,8 +72,9 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context) (*rpc
 				var (
 					currentHeader = api.sys.backend.CurrentHeader()
 					header        = &types.Header{
+						Coinbase: pendingTraceCoinbaseAddress,
+
 						ParentHash: currentHeader.Hash(),
-						Coinbase:   currentHeader.Coinbase,
 						Difficulty: currentHeader.Difficulty,
 						GasLimit:   currentHeader.GasLimit,
 						Time:       currentHeader.Time + 12,
