@@ -142,7 +142,7 @@ func (api *API) BNMultiSim(ctx context.Context, args BNMultiSimArgs) (map[string
 		// TODO: figure out what base fee to use here. Probably need to calc next baseFee
 		// from the two args
 		//msg := tx.ToMessage(globalGasCap, header.BaseFee)
-		msg := tx.ToMessage(header.BaseFee)
+		msg := tx.ToMessage(header.BaseFee, true, true)
 
 		api.chainContext(ctx)
 		// Apply transaction to state and collect traceResult
