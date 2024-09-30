@@ -79,7 +79,7 @@ func rlpxPing(ctx *cli.Context) error {
 	n := getNodeArg(ctx)
 	tcpEndpoint, ok := n.TCPEndpoint()
 	if !ok {
-		return fmt.Errorf("node has no TCP endpoint")
+		return errors.New("node has no TCP endpoint")
 	}
 	fd, err := net.Dial("tcp", tcpEndpoint.String())
 	if err != nil {
@@ -109,7 +109,7 @@ func rlpxPing(ctx *cli.Context) error {
 		}
 		return fmt.Errorf("received disconnect message: %v", msg[0])
 	default:
-		return fmt.Errorf("invalid message code %d, expected handshake (code zero)", code)
+		return fmt.Errorf("invalid message code %d, expected handshake (code zero) or disconnect (code one)", code)
 	}
 	return nil
 }

@@ -130,7 +130,8 @@ func (api *FilterAPI) NewPendingTransactionsWithTrace(ctx context.Context) (*rpc
 						log.Error("failed to create tx message", "err", err, "tx", tx.Hash)
 						continue
 					}
-					msg.SkipAccountChecks = true
+					msg.SkipNonceChecks = true
+					msg.SkipFromEOACheck = true
 					msg.BlobGasFeeCap = common.Big0 // skip the check of ErrBlobFeeCapTooLow
 					msg.GasFeeCap = common.Big0     // skip the check of ErrFeeCapTooLow
 					msg.GasTipCap = common.Big0     // skip the check of ErrFeeCapTooLow
